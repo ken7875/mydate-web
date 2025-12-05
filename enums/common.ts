@@ -1,0 +1,4 @@
+export enum StatusCode {
+  UNAUTHORIZATION = 'UNAUTHORIZATION',
+  SUCCESS = 'SUCCESS'
+}

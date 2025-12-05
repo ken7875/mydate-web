@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #8F00FF;
+  --color-secondary: #007bff;
+  --color-secondary-light: #80d6ff;
+  --color-darkLight: #dee2e6;
+  --color-gary: #808080;
+  --color-danger-100: rgb(253, 245, 242);
+  --color-danger-200: rgb(235, 87, 87, 0.3);
+  --color-danger-300: rgb(235, 87, 87);
+}
+
+@layer base {
+  html,
+  body,
+  *::before,
+  *::after {
+    @apply box-border;
+  }
+  /* number input 移除上下按鈕 */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type=number] {
+    -moz-appearance:textfield; /* Firefox */
+  }
+  /* html,
+  body{
+    @apply w-screen h-screen overflow-x-hidden
+  } */
+}
+@layer utilities {
+  .storke-text {
+    -webkit-text-stroke: 1px #000000;
+    -webkit-text-fill-color: white;
+    font-size: 30px;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .bgBlur{
+    box-shadow: 0px 0px 20px #E033FF, 0 0 40px #E033FF, 0 0 80px #E033FF, 0 0 120px #E033FF, 0 0 200px #E033FF;
+  }
+  .transform-3d{
+    transform-style: preserve-3d;
+  }
+
+  .notion-link {
+    @apply underline inline cursor-pointer select-none text-inherit;
+  }
+
+  .button {
+    @apply p-[10px] flex justify-center items-center font-[700] rounded-[8px];
+  }
+
+  .button__primary {
+    @apply bg-primary border border-primary text-white;
+  }
+
+  .button__secondary {
+    @apply bg-secondary border border-secondary text-white bg-secondary;
+  }
+
+  .button__outline-primary {
+    @apply bg-transparent text-primary hover:bg-primary hover:text-white border border-primary;
+  }
+
+  .button__outline-darkLight {
+    @apply bg-transparent text-black hover:bg-[#dee2e6];
+  }
+
+  .button__gray {
+    @apply bg-gary text-white; /* 你原本寫 bg-gary，可能是拼錯 */
+  }
+
+  .button__none {
+    @apply bg-transparent border-0 text-black;
+  }
+  .popup-shadow{
+    @apply fixed top-0 left-0 w-full h-full bg-[rgba(0,0,0,0.3)] z-1000
+  }
+  /* .swiper-button{
+    @apply relative after:content-[''] after:absolute after:bg-white after:w-[1.5rem] after:h-[1.5rem] after:top-[55%] after:left-[50%] after:translate-x-[-50%] after:translate-y-[-50%] z-30 after:z-10;
+  }
+  .swiper-icon {
+    @apply text-red-600 relative z-20;
+  }
+  .activeCard{
+    @apply bg-black text-black shadow-lg shadow-black;
+  }
+  .bubble{
+    @apply absolute z-[-1] lg:w-[15vw] lg:h-[15vw] md:w-[30vw] md:h-[30vw] opacity-[0.8] object-cover rounded-[50%] first-of-type:top-[17%] first-of-type:left-[5%] sm:first-of-type:left-[9px];
+  }
+  .dateInput{
+    @apply w-full h-full text-center box-border flex justify-center items-center;
+    p{
+      @apply mb-0;
+    }
+  }
+  .input{
+    @apply py-[5px] px-[20px] border border-[#CED4DA] rounded-[5px] outline-none focus:shadow-[0_0_10px_0_#007bff] bg-white;
+  } */
+}
+
+@layer components {
+  .full-screen-container{
+    @apply w-full h-full px-5;
+  }
+}

@@ -1,0 +1,22 @@
+echo "🚀 Running Vitest before commit..."
+
+# CHANGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(vue|ts|js)$')
+# CJAMGED_FILES_NAME
+# for file in $CHANGED_FILES; do
+#   if [[ $file == src/components/* ]]; then
+#     TEST_FILE=""
+#     if [ -f $TEST_FILE ]; then
+#       echo "Running test for $TEST_FILE"
+#       yarn vitest run $TEST_FILE
+#     fi
+#   fi
+# done
+# yarn test:ci
+
+# RESULT=$?
+# if [ $RESULT -ne 0 ]; then
+#   echo "❌ Vitest failed. Commit aborted."
+#   exit 1
+# fi
+
+# echo "✅ All Vitest tests passed. Proceeding with commit."

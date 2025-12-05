@@ -1,0 +1,20 @@
+networks:
+  my-date:
+    driver: bridge
+
+services:
+  client:
+    image: my-date-client:latest
+    container_name: my-date-client
+    networks:
+        - my-date
+  server:
+    image: my-date-server:latest
+    container_name: my-date-server
+    networks:
+        - my-date
+  mysql-db:
+    image: my-date-mysql-db:latest
+    container_name: my-date-mysql-db
+    networks:
+        - my-date

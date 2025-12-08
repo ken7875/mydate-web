@@ -1,7 +1,7 @@
 <template>
   <ul ref="virtualWrap" class="h-full overflow-scroll">
     <li ref="listTop"></li>
-    <li v-for="item in list" :key="item.idx">
+    <li v-for="item in list" :key="item.idx" :data-test="item.idx">
       <slot :item="item"></slot>
     </li>
     <li ref="listBottom"></li>
@@ -33,22 +33,24 @@ const emit = defineEmits<{
 }>();
 
 const MAX_PAGE_COUNT = 4;
-const OFFSET = 2;
+const OFFSET = 1;
 const listBottom = ref<HTMLDivElement>();
 const listTop = ref<HTMLDivElement>();
-const initialized = ref(false);
 const startPage = ref(1);
 const currentPage = ref(1);
+// const initialized = ref(false);
 
-const initialize = () => {
-  if (!initialized.value && props.visible) {
-    emit('loadNewData', { page: currentPage.value, pageSize: props.perLoadNum });
-    initialized.value = true;
-  }
-};
+// const initialize = () => {
+//   if (!initialized.value && props.visible) {
+//     emit('loadNewData', { page: currentPage.value, pageSize: props.perLoadNum });
+//     initialized.value = true;
+//   }
+// };
+
 let stopNewPageVirtualListHandler: () => void = () => {};
 let stopPrevPageVirtualListHandler: () => void = () => {};
 
+// 數窗內最多限制DOM筆數
 const isExceedLimitData = computed(() => currentPage.value - startPage.value >= MAX_PAGE_COUNT);
 const totalPage = computed(() => Math.ceil(props.total / props.perLoadNum));
 
@@ -59,14 +61,13 @@ const loadNewPage = () => {
       if (isIntersecting && currentPage.value < totalPage.value) {
         currentPage.value++;
         emit('loadNewData', { page: currentPage.value, pageSize: props.perLoadNum });
-      }
-
-      if (isExceedLimitData.value) {
-        sliceTopPage();
+        if (isExceedLimitData.value) {
+          sliceTopPage();
+        }
       }
     },
     {
-      rootMargin: '0px 0px -30px 0px' // 提前 10px 觸發
+      rootMargin: '0px 0px 0px 0px' // 提前 30px 觸發
     }
   );
 
@@ -77,7 +78,7 @@ const virtualWrap = ref<HTMLElement>();
 async function maintainScrollAfterPrepend() {
   await nextTick();
   if (!virtualWrap.value) return;
-  virtualWrap.value.scrollTop += 500; // 補償捲動距離
+  virtualWrap.value!.scrollTop += 100; // 補償捲動距離
 }
 
 const loadPrevPage = () => {
@@ -87,23 +88,23 @@ const loadPrevPage = () => {
       if (isIntersecting && startPage.value > 1) {
         startPage.value--;
         emit('loadPrevData', { page: startPage.value, pageSize: props.perLoadNum });
-      }
-
-      if (isExceedLimitData.value) {
-        sliceBottomPage();
-        maintainScrollAfterPrepend();
+        if (isExceedLimitData.value) {
+          sliceBottomPage();
+          maintainScrollAfterPrepend();
+        }
       }
     },
     {
-      rootMargin: '-30px 0px 0px 0px' // 提前 10px 觸發
+      rootMargin: '0px 0px 0px 0px' // 提前 10px 觸發
     }
   );
 
   stopPrevPageVirtualListHandler = stop;
 };
 
-const initVirtualScrollHandler = () => {
+const initVirtualScrollHandler = async () => {
   if (props.total <= 0) return;
+  await nextTick();
 
   // 向下滾加載新頁面
   loadNewPage();
@@ -112,12 +113,12 @@ const initVirtualScrollHandler = () => {
 };
 
 const sliceTopPage = () => {
-  list.value = list.value.slice(OFFSET * props.perLoadNum);
+  list.value.splice(0, props.perLoadNum);
   startPage.value += OFFSET;
 };
 
 const sliceBottomPage = () => {
-  list.value = list.value.slice(0, list.value.length - OFFSET * props.perLoadNum);
+  list.value.splice(list.value.length - OFFSET * props.perLoadNum, props.perLoadNum);
   currentPage.value -= OFFSET;
 };
 
@@ -128,41 +129,18 @@ watch(
   }
 );
 
-// watch(
-//   currentPage,
-//   () => {
-//     if (currentPage.value - startPage.value > MAX_PAGE_COUNT) {
-//       sliceTopPage();
-//     } else if(){
-//       sliceBottomPage
-//     }
-//   },
-//   {
-//     deep: true
-//   }
-// );
-
 onMounted(() => {
   initVirtualScrollHandler();
 });
 
-watch(
-  () => props.visible,
-  (val) => {
-    if (!val) {
-      return;
-    }
-
-    initialize();
-  }
-);
-
 // watch(
-//   () => currentIndex.value,
+//   () => props.visible,
 //   (val) => {
-//     if (val >= props.total) {
-//       stopVirtualListHandler();
+//     if (!val) {
+//       return;
 //     }
+
+//     initialize();
 //   }
 // );
 

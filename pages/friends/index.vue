@@ -135,7 +135,6 @@ const showNewFriendsData = async ({ page, pageSize }: { page: number; pageSize: 
 };
 
 const showPrevFriendsData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
-  console.log(page, pageSize);
   await getAllFriendsHandler({
     page,
     pageSize

@@ -227,6 +227,7 @@ onMounted(() => {
   dragCardHandler();
 });
 
+// 當有新卡片加入需要重新綁定動畫
 watch(showingMeetUserList, () => {
   nextTick(() => {
     dragCardHandler();
@@ -236,4 +237,14 @@ watch(showingMeetUserList, () => {
 onUnmounted(() => {
   killDragAnimation();
 });
+
+watch(
+  requestUsers,
+  (val) => {
+    showingMeetUserList.value = cloneDeep([...val, ...meetUserList.value]);
+  },
+  {
+    deep: true
+  }
+);
 </script>

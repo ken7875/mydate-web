@@ -13,12 +13,11 @@ export const useFriends = defineStore('friends', () => {
 
   const getAllFriendsHandler = async ({ page = 1, pageSize = 15 }: Pagination) => {
     // 只需判斷是否到最後一頁, 若有新好友加入會被移動到最前面, 所以不需要更新請求
-    if (page * pageSize > totalFriends.value && friends.value.length > 0) return;
+    if (page * pageSize - totalFriends.value >= pageSize && friends.value.length > 0) return;
 
     const res = await getFriends({ page, pageSize });
     totalFriends.value = res.total;
     friends.value = res.data?.data || [];
-    // TODO for test
     friends.value = friends.value.map((item, index) => ({
       ...item,
       idx: `${page}` + `-${index}`
@@ -45,6 +44,7 @@ export const useFriends = defineStore('friends', () => {
 
   // websocket用, 當有新用戶加好友會即時通知
   const getNewFriendInvite = (data: Friends) => {
+    console.log('getNewFriendInvite', data);
     requestUsers.value.unshift({
       ...data
     });

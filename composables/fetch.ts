@@ -19,7 +19,7 @@ const myFetch = ({
 
   const apiFetch = $fetch.create({
     baseURL,
-    credentials: 'include',
+    // credentials: 'include',
     responseType: responseType,
     timeout: 3000,
     // ...fetchOptions,

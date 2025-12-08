@@ -101,6 +101,7 @@ export default class BaseWebsocket {
   }
 
   notify({ type, data, code }: { type: string; data: any; code: StatusCode }) {
+    console.log(`get type: ${type} | data: ${data} | code: ${code}`);
     this.subscribtion.notify({ type, data, code });
   }
 

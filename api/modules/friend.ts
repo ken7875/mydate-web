@@ -38,7 +38,7 @@ export const inviteFriend = (body: { friendId: string; status: FriendStatus }) =
   useHttp.post<{
     list: Friends[];
   }>({
-    url: '/friends/inviteFriends',
+    url: '/friends/inviteFriend',
     body
   });
 

@@ -3,18 +3,46 @@ networks:
     driver: bridge
 
 services:
+  vm:
+    image: my-date-vm:latest
+    container_name: my-date-vm
+    networks:
+      - my-date
+
   client:
     image: my-date-client:latest
     container_name: my-date-client
+    env_file:
+      - ./.env.prod
+    ports:
+      - 3000:3000
     networks:
-        - my-date
-  server:
-    image: my-date-server:latest
-    container_name: my-date-server
-    networks:
-        - my-date
+      - my-date
+
   mysql-db:
     image: my-date-mysql-db:latest
     container_name: my-date-mysql-db
+    # ports:
+    #   - 3307:3306
     networks:
-        - my-date
+      - my-date
+
+  server:
+    image: my-date-server:latest
+    container_name: my-date-server
+    environment:
+      JWT_SECRET: 52EUdsfEJWO58680kejWEKdeji43e56RWed456ew
+      EXPIRES_IN: 14d
+      DB_HOST: my-date-mysql-db
+      DB_NAME: mydate
+      DB_USER: root
+      DB_PASSWORD: 123456
+      DB_PORT: 3306
+      REDIS_HOST: my-date-redis
+      FRONT_END_HOST: http://localhost:3000
+    ports:
+      - 3001:3001
+    networks:
+      - my-date
+    depends_on:
+      - mysql-db

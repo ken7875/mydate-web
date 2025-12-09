@@ -1,5 +1,5 @@
 #build stage
-FROM node:lts-alpine as build
+FROM node:lts-alpine AS build
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ COPY --from=build /app/.output ./.output
 COPY ecosystem.config.js .
 
 # 暴露的連接埠
-EXPOSE 3000
+# EXPOSE 3000
 
 # 啟動應用程式
 ENTRYPOINT ["pm2-runtime", "start", "/app/ecosystem.config.js"]

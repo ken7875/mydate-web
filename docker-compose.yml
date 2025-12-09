@@ -3,9 +3,11 @@ networks:
     driver: bridge
 
 services:
-  vm:
-    image: my-date-vm:latest
-    container_name: my-date-vm
+  nginx:
+    image: my-date-nginx:latest
+    container_name: my-date-nginx
+    expose:
+      - 80
     networks:
       - my-date
 
@@ -14,14 +16,18 @@ services:
     container_name: my-date-client
     env_file:
       - ./.env.prod
-    ports:
-      - 3000:3000
+    expose:
+      - 3000
+    # ports:
+    #   - 3000:3000
     networks:
       - my-date
 
   mysql-db:
     image: my-date-mysql-db:latest
     container_name: my-date-mysql-db
+    ports:
+      - 3306
     # ports:
     #   - 3307:3306
     networks:
@@ -40,8 +46,9 @@ services:
       DB_PORT: 3306
       REDIS_HOST: my-date-redis
       FRONT_END_HOST: http://localhost:3000
-    ports:
-      - 3001:3001
+      ports: 3001
+    # ports:
+    #   - 3001:3001
     networks:
       - my-date
     depends_on:

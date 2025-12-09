@@ -1,6 +1,6 @@
 <template>
   <div>
-    <video autoplay ref="video" crossorigin="anonymous"></video>
+    <video autoplay ref="video" crossorigin="anonymous" controls muted playsinline></video>
   </div>
 </template>
 
@@ -19,21 +19,24 @@ const startVideo = () => {
   const videoSrc = `${publicPath.value}source-m3u8/${uuid}/output.m3u8`;
   if (Hls.isSupported()) {
     const hls = new Hls({
-      // 🔥 改用秒數，而不是 fragment count
       liveSyncDuration: 2, // 預期接近直播末端 2 秒
       liveMaxLatencyDuration: 5, // 最多落後 5 秒
       liveDurationInfinity: true,
 
-      // 🔥 讓播放更穩定
       maxLiveSyncPlaybackRate: 1.5, // 若落後，自動加速追上（超有效）
       backBufferLength: 5 // 保留 5 秒 buffer，避免卡頓
     });
     hls.attachMedia(video.value);
     hls.loadSource(videoSrc);
 
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      video.value.muted = false;
+      video.value.play().catch((err: Error) => console.log('Autoplay blocked:', err));
+    });
+
     // Optional: 追蹤是否真正在 sync
     hls.on(Hls.Events.LEVEL_UPDATED, (_, data) => {
-      console.log('Live edge:', data.details.liveEdge);
+      console.log('Live detail:', data.details);
       console.log('Player time:', video.value.currentTime);
     });
 
@@ -71,12 +74,14 @@ const startVideo = () => {
 
 onMounted(() => {
   if (import.meta.client) {
-    streamStore.subscribe({
-      type: 'video',
-      fnAry: [getRecord]
-    });
+    nextTick(() => {
+      streamStore.subscribe({
+        type: 'video',
+        fnAry: [getRecord]
+      });
 
-    startVideo();
+      startVideo();
+    });
   }
 });
 </script>

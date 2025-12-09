@@ -6,7 +6,7 @@ import BaseWebsocket from '@/utils/websocket/index';
 // TODO 將websocket本身監聽方法 心跳機制 對外方法做封裝拆分
 export const useNotification = defineStore('webSocket', () => {
   const runtimeConfig = useRuntimeConfig();
-  const url = `${runtimeConfig.public.wsBase}/notification` as string;
+  const url = `${runtimeConfig.public.wsBase}/notificationWs` as string;
   const websocketTool = new BaseWebsocket(url);
   // const authStore = useAuth();
   const subscribtion = useSubscribtion();

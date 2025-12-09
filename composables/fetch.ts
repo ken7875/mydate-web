@@ -1,7 +1,7 @@
 import type { BaseField } from '@/api/types/common';
 import errorHandler from '@/utils/errorHandler';
-import { useLoadingTool } from '../loading';
-import type { Gateway } from './types';
+import { useLoadingTool } from './loading';
+import type { Gateway } from './types/fetch';
 
 const myFetch = ({
   isMock = false,
@@ -16,10 +16,10 @@ const myFetch = ({
   const apiUrl = runtimeConfig.public.apiBase;
   const mockUrl = runtimeConfig.public.apiMock;
   const gatewayMap = {
-    normal: `${apiUrl}/`,
-    stream: `${apiUrl}/stream`
+    normal: `${apiUrl}/api`,
+    stream: `${apiUrl}/streamApi`
   };
-  const baseURL = isMock ? mockUrl : gatewayMap[gateway];
+  const baseURL = `${isMock ? mockUrl : gatewayMap[gateway]}`;
 
   const loadingTool = useLoadingTool();
 
@@ -81,14 +81,16 @@ export const useHttp = {
     url,
     params,
     isMock,
-    responseType
+    responseType,
+    gateway
   }: {
     url: string;
     params?: unknown;
     isMock?: boolean;
     responseType?: 'blob' | 'json' | 'stream';
+    gateway?: Gateway;
   }) =>
-    myFetch({ isMock, responseType })<BaseField<T, HasTotal>>(url, {
+    myFetch({ isMock, responseType, gateway })<BaseField<T, HasTotal>>(url, {
       method: 'get',
       params: params as URLSearchParams | undefined
     }),
@@ -96,32 +98,46 @@ export const useHttp = {
   post: <T>({
     url,
     body,
-    isMock
+    isMock,
+    gateway
     // headers = { 'Content-Type': 'application/json' }
   }: {
     url: string;
     body?: BodyInit | Record<string, unknown>;
     isMock?: boolean;
     headers?: HeadersInit;
+    gateway?: Gateway;
   }) => {
-    return myFetch({ isMock })<BaseField<T>>(url, { method: 'post', body });
+    return myFetch({ isMock, gateway })<BaseField<T>>(url, { method: 'post', body });
   },
 
   put: <T>({
     url,
     body,
-    isMock
+    isMock,
+    gateway
     // headers = { 'Content-Type': 'application/json' }
   }: {
     url: string;
     body?: BodyInit | Record<string, unknown>;
     isMock?: boolean;
     headers?: HeadersInit;
+    gateway?: Gateway;
   }) => {
-    return myFetch({ isMock })<BaseField<T>>(url, { method: 'put', body });
+    return myFetch({ isMock, gateway })<BaseField<T>>(url, { method: 'put', body });
   },
 
-  delete: <T>({ url, body, isMock }: { url: string; body?: Record<string, unknown>; isMock?: boolean }) => {
-    return myFetch({ isMock })<BaseField<T>>(url, { method: 'delete', body });
+  delete: <T>({
+    url,
+    body,
+    isMock,
+    gateway
+  }: {
+    url: string;
+    body?: Record<string, unknown>;
+    isMock?: boolean;
+    gateway: Gateway;
+  }) => {
+    return myFetch({ isMock, gateway })<BaseField<T>>(url, { method: 'delete', body });
   }
 };

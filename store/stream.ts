@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia';
 import { StatusCode } from '~/enums/common';
-import StreamWebsocket from '~/composables/index';
+import StreamWebsocket from '~/utils/websocket/stream';
 import { createStreamRoom } from '@/api/modules/stream';
 import type { CreateStreamRoomBody, GetRoomsResponse } from '@/api/types/stream';
 
 export const useStream = defineStore('stream', () => {
   const runtimeConfig = useRuntimeConfig();
-  const url = `${runtimeConfig.public.wsBase}/stream` as string;
+  const url = `${runtimeConfig.public.wsBase}/streamWs` as string;
   const websocketTool = new StreamWebsocket(url);
   // const authStore = useAuth();
   const subscribtion = useSubscribtion();

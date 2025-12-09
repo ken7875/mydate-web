@@ -3,3 +3,5 @@ export interface ErrorResponse extends Error {
   message: string;
   status: 'success' | 'fail';
 }
+
+export type Gateway = 'normal' | 'stream';

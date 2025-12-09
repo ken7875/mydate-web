@@ -23,11 +23,9 @@ export default defineNuxtConfig({
     public: {
       // apiBase: process.env.NODE_ENV === 'development' ? process.env.API_BASE_URL : process.env.API_BASE_URL_PROD
       apiBase: process.env.API_BASE_URL,
-      apiSsr: process.env.API_SSR_URL,
-      publicPath: process.env.PUBLIC_URL,
-      apiMock: process.env.API_MOCK_URL,
+      publicPath: `${process.env.PUBLIC_URL}/public`,
       wsBase: process.env.WS_BASE_URL,
-      wsStream: process.env.WS_STREAM_URL,
+      apiMock: process.env.API_MOCK_URL,
       mode: process.env.MODE
     }
   },

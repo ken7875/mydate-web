@@ -6,7 +6,7 @@ import type { CreateStreamRoomBody, GetRoomsResponse } from '@/api/types/stream'
 
 export const useStream = defineStore('stream', () => {
   const runtimeConfig = useRuntimeConfig();
-  const url = `${runtimeConfig.public.wsStream}/stream` as string;
+  const url = `${runtimeConfig.public.wsBase}/stream` as string;
   const websocketTool = new StreamWebsocket(url);
   // const authStore = useAuth();
   const subscribtion = useSubscribtion();

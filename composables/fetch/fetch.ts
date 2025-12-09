@@ -1,19 +1,25 @@
 import type { BaseField } from '@/api/types/common';
 import errorHandler from '@/utils/errorHandler';
-import { useLoadingTool } from './loading';
+import { useLoadingTool } from '../loading';
+import type { Gateway } from './types';
 
 const myFetch = ({
   isMock = false,
-  responseType = 'json'
+  responseType = 'json',
+  gateway = 'normal'
 }: {
   isMock?: boolean;
   responseType?: 'blob' | 'json' | 'stream';
+  gateway?: Gateway;
 }) => {
   const runtimeConfig = useRuntimeConfig();
   const apiUrl = runtimeConfig.public.apiBase;
-  const apiSsrUrl = runtimeConfig.public.apiSsr;
   const mockUrl = runtimeConfig.public.apiMock;
-  const baseURL = isMock ? mockUrl : import.meta.client ? apiUrl : apiSsrUrl;
+  const gatewayMap = {
+    normal: `${apiUrl}/`,
+    stream: `${apiUrl}/stream`
+  };
+  const baseURL = isMock ? mockUrl : gatewayMap[gateway];
 
   const loadingTool = useLoadingTool();
 

@@ -88,7 +88,7 @@ import { string } from 'yup';
 import { useAuth } from '@/store/auth';
 // import { useMessage } from '@/store/message';
 import type { User } from '@/api/types/user';
-import type { ErrorResponse } from '~/types/error';
+import type { ErrorResponse } from '@/composables/fetch/types';
 import mergeWith from 'lodash/mergeWith';
 import { storeToRefs } from 'pinia';
 // const websocketStore = useChatRoom();

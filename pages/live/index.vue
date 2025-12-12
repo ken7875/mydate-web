@@ -1,6 +1,6 @@
 <template>
   <div>
-    <Card v-for="(room, key) in streamRoomMap" :key="key" @click="goToLiveRoom(room[1].uuid)">
+    <Card v-for="(room, key) in streamRoomMap" :key="key" @click="goToLiveRoom(room[1])">
       <template #header></template>
       <template #body>
         <h2>{{ room[1].title }}</h2>
@@ -14,13 +14,19 @@
 import { getAllRooms } from '@/api/modules/stream';
 import { useStream } from '~/store/stream';
 import { storeToRefs } from 'pinia';
+import type { GetRoomsResponse } from '~/api/types/stream';
 
 const streamStore = useStream();
 // 由後端實作將直播間uuid存入db
 const { streamRoomMap } = storeToRefs(streamStore);
 const router = useRouter();
-const goToLiveRoom = (uuid: string) => {
-  router.push(`live/${uuid}`);
+const goToLiveRoom = (room: GetRoomsResponse) => {
+  router.push({
+    path: `live/${room.uuid}`,
+    query: {
+      ...room
+    }
+  });
 };
 const { data } = await useMyAsyncData('liveRooms', () => getAllRooms());
 streamStore.initRoom(data.value?.data || []);

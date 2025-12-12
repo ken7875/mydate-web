@@ -5,6 +5,7 @@ WORKDIR /app
 
 RUN apk add --no-cache \
     make \
+    curl \
     g++ \
     bash
 
@@ -21,6 +22,11 @@ RUN yarn install --frozen-lockfile && yarn cache clean
 COPY . .
 RUN yarn build
 FROM keymetrics/pm2:latest-alpine AS production
+
+RUN apk update && \
+    apk add curl bash && \
+    rm -rf /var/cache/apk/*
+# rm -rf /var/cache/apk/* 清理 APT 套件管理器快取檔案, 降低image大小
 
 WORKDIR /app
 

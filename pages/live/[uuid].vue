@@ -1,37 +1,63 @@
 <template>
-  <div>
-    <video autoplay ref="video" crossorigin="anonymous" controls muted playsinline></video>
+  <div class="relative w-full h-full">
+    <div
+      class="absolute top-0 left-0 z-10 w-full h-full bg-gray-200 flex justify-center items-center"
+      v-if="!isVideoStart"
+    >
+      直播準備中
+    </div>
+    <video class="w-full h-full" ref="video" crossorigin="anonymous" autoplay controls muted playsinline v-else></video>
+    <!-- <video class="w-full h-full" ref="video" crossorigin="anonymous" autoplay controls muted playsinline></video> -->
   </div>
 </template>
 
 <script setup lang="ts">
 import { useStream } from '@/store/stream';
 import Hls from 'hls.js';
+import { useAuth } from '~/store/auth';
+
+const authStore = useAuth();
+console.log(authStore.userInfo?.uuid);
 
 const streamStore = useStream();
-const { getRecord } = streamStore;
-
 const route = useRoute();
 const uuid = route.params.uuid;
 const video = ref();
-const publicPath = computed(() => useRuntimeConfig().public.publicPath);
-const startVideo = () => {
+const isVideoStart = ref<boolean>(route.query.status as unknown as boolean);
+const publicPath = computed(() => useRuntimeConfig().public.streamPublicPath);
+
+const startVideo = async (data: { uuid: string; status: boolean }) => {
+  isVideoStart.value = true;
+  if (uuid !== data.uuid) return;
+
+  await nextTick();
+  video.value.muted = true; // 確保初始靜音
+
   const videoSrc = `${publicPath.value}source-m3u8/${uuid}/output.m3u8`;
   if (Hls.isSupported()) {
+    // liveSyncDurationCount 要落後多少個fragment
+    // liveMaxLatencyDuration 要落後多少秒
     const hls = new Hls({
-      liveSyncDuration: 2, // 預期接近直播末端 2 秒
-      liveMaxLatencyDuration: 5, // 最多落後 5 秒
+      liveSyncDurationCount: 3, // 強制同步接近最新片段
+      liveMaxLatencyDurationCount: 5, // 強制同步接近最新片段
+      // liveSyncDuration: 2, // 只緩衝 2 個 segment
+      // liveMaxLatencyDuration: 5, // 最多允許 5 個 segment 緩衝
       liveDurationInfinity: true,
 
       maxLiveSyncPlaybackRate: 1.5, // 若落後，自動加速追上（超有效）
-      backBufferLength: 5 // 保留 5 秒 buffer，避免卡頓
+      backBufferLength: 5, // 保留 5 秒 buffer，避免卡頓
+      enableWorker: true // 允許在web worker處理.ts
     });
     hls.attachMedia(video.value);
     hls.loadSource(videoSrc);
 
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      video.value.muted = false;
-      video.value.play().catch((err: Error) => console.log('Autoplay blocked:', err));
+      video.value
+        .play()
+        .then(() => {
+          video.value.muted = false;
+        })
+        .catch((err: Error) => console.log('Autoplay blocked:', err));
     });
 
     // Optional: 追蹤是否真正在 sync
@@ -44,44 +70,37 @@ const startVideo = () => {
       console.log('HLS ERR:', data.type, data.details);
     });
 
-    // const hls = new Hls()
-    // let initialized = false;
-    // hls.on(Hls.Events.LEVEL_LOADED, (_, data) => {
-    //   if (initialized) return;
-    //   const details = data.details;
-
-    //   if (!details.fragments.length) return;
-
-    //   const lastFrag = details.fragments[details.fragments.length - 1];
-
-    //   // 跳到最新的片段
-    //   video.value.currentTime = lastFrag.start;
-    //   initialized = true;
-    // });
-
-    // hls.on(Hls.Events.MANIFEST_PARSED, () => {
-    //   hls.startLoad(); // 自動跳到最新
-    // });
-    // hls.on(Hls.Events.FRAG_CHANGED, (_, data) => {
-    //   const pdt = data.frag.programDateTime;
-    //   const now = Date.now();
-    //   const latency = (now - pdt) / 1000;
-
-    //   console.log('Live latency:', latency.toFixed(2), 'seconds');
-    // });
+    hls.on(Hls.Events.FRAG_CHANGED, (event, data) => {
+      const frag = data.frag;
+      console.log('正在播放的 fragment:', frag);
+    });
   }
 };
 
-onMounted(() => {
-  if (import.meta.client) {
-    nextTick(() => {
-      streamStore.subscribe({
-        type: 'video',
-        fnAry: [getRecord]
-      });
-
-      startVideo();
-    });
+const startVideoHandler = () => {
+  if (isVideoStart.value) {
+    return;
   }
+
+  streamStore.subscribe({
+    type: 'streamRoomStatus',
+    fnAry: [startVideo]
+  });
+};
+
+onMounted(() => {
+  // nextTick(() => {
+  //   startVideo({ uuid: 'e48cc509-e81f-4dac-8156-ebf246833562', status: true });
+  // });
+  if (import.meta.client) {
+    startVideoHandler();
+  }
+});
+
+onUnmounted(() => {
+  streamStore.unSubscribe({
+    type: 'streamRoomStatus',
+    fnAry: [startVideo]
+  });
 });
 </script>

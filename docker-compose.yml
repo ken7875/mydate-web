@@ -6,25 +6,18 @@ services:
   nginx:
     image: my-date-nginx:latest
     container_name: my-date-nginx
-    expose:
-      - 80
+    ports:
+      - 8099:80
     networks:
       - my-date
-
-  client:
-    image: my-date-client:latest
-    container_name: my-date-client
-    env_file:
-      - ./.env.prod
-    expose:
-      - 3000
-    # ports:
-    #   - 3000:3000
-    networks:
-      - my-date
+    depends_on:
+      server:
+        condition: service_healthy
+      client:
+        condition: service_healthy
 
   mysql-db:
-    image: my-date-mysql-db:latest
+    image: my-date-db:latest
     container_name: my-date-mysql-db
     ports:
       - 3306
@@ -32,6 +25,12 @@ services:
     #   - 3307:3306
     networks:
       - my-date
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p123456"] # 根據您的用戶名密碼調整
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s # 給予足夠時間啟動
 
   server:
     image: my-date-server:latest
@@ -44,12 +43,39 @@ services:
       DB_USER: root
       DB_PASSWORD: 123456
       DB_PORT: 3306
-      REDIS_HOST: my-date-redis
       FRONT_END_HOST: http://localhost:3000
       ports: 3001
     # ports:
     #   - 3001:3001
     networks:
       - my-date
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/version"]
+      interval: 30s # 檢查之間的時間間隔。
+      timeout: 5s
+      retries: 5
+      start_period: 45s
     depends_on:
-      - mysql-db
+      mysql-db:
+        condition: service_healthy # 等待 mysql-db 處於 health 狀態
+
+  client:
+    image: my-date-client:latest
+    container_name: my-date-client
+    env_file:
+      - ./.env.prod
+    expose:
+      - 3000
+    # ports:
+    #   - 3000:3000
+    networks:
+      - my-date
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      server:
+        condition: service_healthy

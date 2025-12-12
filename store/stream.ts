@@ -41,9 +41,9 @@ export const useStream = defineStore('stream', () => {
     websocketTool.websocketGlobalMessage(data);
   };
 
-  const getRecord = (data: Buffer) => {
-    console.log(data, 'data');
-  };
+  // const getRecord = (data: Buffer) => {
+  //   console.log(data, 'data');
+  // };
 
   const openStreamRoom = (body: CreateStreamRoomBody) => {
     createStreamRoom(body);
@@ -77,7 +77,7 @@ export const useStream = defineStore('stream', () => {
     notify,
     handleSend,
     websocketGlobalMessage,
-    getRecord,
+    // getRecord,
     openStreamRoom,
     addRoom,
     deleteRoom,

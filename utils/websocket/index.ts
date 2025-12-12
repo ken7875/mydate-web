@@ -1,5 +1,5 @@
 import { useAuth } from '@/store/auth';
-import { StatusCode } from '~/enums/common';
+import type { DataType } from './types';
 import { useWebsocketSubscribe } from '@/store/websocketSubscribe';
 import { useForceKickOut } from '@/utils/forceLogout';
 
@@ -100,7 +100,7 @@ export default class BaseWebsocket {
     this.subscribtion.unSubscribe({ type, fnAry });
   }
 
-  notify({ type, data, code }: { type: string; data: any; code: StatusCode }) {
+  notify({ type, data, code }: DataType<unknown>) {
     console.log(`get type: ${type} | data: ${data} | code: ${code}`);
     this.subscribtion.notify({ type, data, code });
   }

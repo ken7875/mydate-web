@@ -22,6 +22,7 @@ import {
   // faCircleXmark
   // faUserLarge,
   // faLocationDot,
+  faVideo,
   faXmark
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -49,6 +50,7 @@ library.add(
   // faCircleXmark
   // faUserLarge,
   // faLocationDot,
+  faVideo,
   faXmark
 );
 

@@ -67,6 +67,15 @@ export const useStream = defineStore('stream', () => {
     streamRoomMap.delete(uuid);
   };
 
+  const resetRoomStatus = (data: { uuid: string; status: boolean }) => {
+    const uuid = data.uuid;
+    const room = streamRoomMap.get(data.uuid)!;
+    streamRoomMap.set(uuid, {
+      ...room,
+      status: data.status
+    });
+  };
+
   return {
     subscribtion,
     streamRoomMap,
@@ -81,6 +90,7 @@ export const useStream = defineStore('stream', () => {
     openStreamRoom,
     addRoom,
     deleteRoom,
-    initRoom
+    initRoom,
+    resetRoomStatus
   };
 });

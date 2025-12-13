@@ -2,11 +2,21 @@
   <div class="relative w-full h-full">
     <div
       class="absolute top-0 left-0 z-10 w-full h-full bg-gray-200 flex justify-center items-center"
-      v-if="!isVideoStart"
+      v-show="!isVideoStart"
     >
       直播準備中
     </div>
-    <video class="w-full h-full" ref="video" crossorigin="anonymous" autoplay controls muted playsinline v-else></video>
+    <ClientOnly>
+      <video
+        class="w-full h-full object-cover"
+        ref="video"
+        crossorigin="anonymous"
+        autoplay
+        controls
+        playsinline
+        v-show="isVideoStart"
+      ></video>
+    </ClientOnly>
     <!-- <video class="w-full h-full" ref="video" crossorigin="anonymous" autoplay controls muted playsinline></video> -->
   </div>
 </template>
@@ -14,30 +24,44 @@
 <script setup lang="ts">
 import { useStream } from '@/store/stream';
 import Hls from 'hls.js';
-import { useAuth } from '~/store/auth';
-
-const authStore = useAuth();
-console.log(authStore.userInfo?.uuid);
+import { getRoomApi } from '@/api/modules/stream';
+import { messageTool } from '~/utils/message';
 
 const streamStore = useStream();
 const route = useRoute();
-const uuid = route.params.uuid;
+const uuid = route.params.uuid as string;
 const video = ref();
-const isVideoStart = ref<boolean>(route.query.status as unknown as boolean);
+const roomInfo = ref({
+  uuid: '',
+  title: '',
+  description: '',
+  image: '',
+  status: false
+});
+
+const getRoomInfo = async () => {
+  try {
+    const res = await getRoomApi(uuid || '');
+    roomInfo.value = res.data!;
+  } catch (error) {
+    messageTool().openMessage({
+      title: '錯誤',
+      content: '找不到直播間'
+    });
+  }
+};
+const isVideoStart = computed<boolean>(() => roomInfo.value.status);
 const publicPath = computed(() => useRuntimeConfig().public.streamPublicPath);
-
+let hls: Hls | null = null;
 const startVideo = async (data: { uuid: string; status: boolean }) => {
-  isVideoStart.value = true;
   if (uuid !== data.uuid) return;
-
-  await nextTick();
-  video.value.muted = true; // 確保初始靜音
+  roomInfo.value.status = data.status;
 
   const videoSrc = `${publicPath.value}source-m3u8/${uuid}/output.m3u8`;
   if (Hls.isSupported()) {
     // liveSyncDurationCount 要落後多少個fragment
     // liveMaxLatencyDuration 要落後多少秒
-    const hls = new Hls({
+    hls = new Hls({
       liveSyncDurationCount: 3, // 強制同步接近最新片段
       liveMaxLatencyDurationCount: 5, // 強制同步接近最新片段
       // liveSyncDuration: 2, // 只緩衝 2 個 segment
@@ -52,12 +76,11 @@ const startVideo = async (data: { uuid: string; status: boolean }) => {
     hls.loadSource(videoSrc);
 
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      video.value
-        .play()
-        .then(() => {
-          video.value.muted = false;
-        })
-        .catch((err: Error) => console.log('Autoplay blocked:', err));
+      video.value.play().catch((err: Error) => {
+        console.log('Autoplay blocked:', err);
+        video.value.muted = true;
+        video.value.play();
+      });
     });
 
     // Optional: 追蹤是否真正在 sync
@@ -79,6 +102,7 @@ const startVideo = async (data: { uuid: string; status: boolean }) => {
 
 const startVideoHandler = () => {
   if (isVideoStart.value) {
+    startVideo({ uuid: roomInfo.value?.uuid || '', status: true });
     return;
   }
 
@@ -89,12 +113,11 @@ const startVideoHandler = () => {
 };
 
 onMounted(() => {
-  // nextTick(() => {
-  //   startVideo({ uuid: 'e48cc509-e81f-4dac-8156-ebf246833562', status: true });
-  // });
-  if (import.meta.client) {
-    startVideoHandler();
-  }
+  getRoomInfo().then(() => {
+    if (import.meta.client) {
+      startVideoHandler();
+    }
+  });
 });
 
 onUnmounted(() => {
@@ -102,5 +125,7 @@ onUnmounted(() => {
     type: 'streamRoomStatus',
     fnAry: [startVideo]
   });
+
+  hls && hls.destroy();
 });
 </script>

@@ -19,3 +19,9 @@ export const getAllRooms = () =>
     gateway: 'stream'
     // params
   });
+
+export const getRoomApi = (uuid: string) =>
+  useHttp.get<GetRoomsResponse>({
+    url: `/stream/getRoom/${uuid}`,
+    gateway: 'stream'
+  });

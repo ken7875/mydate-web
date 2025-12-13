@@ -1,14 +1,23 @@
 <template>
-  <div class="w-full h-full flex flex-col items-center">
-    <video
-      id="video"
-      controls
-      autoplay
-      ref="video"
-      class="landscape:w-[70%] landscape:h-[80%] object-cover lg:landscape:w-[50%]"
-    ></video>
-    <button @click="start">開始</button>
-    <button @click="stop">停止</button>
+  <div class="w-full h-full flex flex-col items-center relative">
+    <!-- landscape:w-[70%] landscape:h-[80%] object-cover lg:landscape:w-[50%] -->
+    <video id="video" controls autoplay ref="video" class="w-full h-[70%] object-cover"></video>
+    <div class="flex justify-center mt-5">
+      <button @click="start" v-if="!onAir">
+        <div class="w-[60px] h-[60px] bg-primary rounded-[50%] flex justify-center items-center">
+          <client-only>
+            <font-awesome-icon :icon="['fas', 'video']" class="text-[1.8rem] cursor-pointer text-white" />
+          </client-only>
+        </div>
+      </button>
+      <button @click="stop" v-else>
+        <div class="w-[60px] h-[60px] bg-primary rounded-[50%] flex justify-center items-center">
+          <client-only>
+            <font-awesome-icon :icon="['fas', 'xmark']" class="text-[1.8rem] cursor-pointer text-white" />
+          </client-only>
+        </div>
+      </button>
+    </div>
   </div>
 </template>
 
@@ -22,6 +31,7 @@ let mediaRecorder: MediaRecorder | null = null;
 
 const streamStore = useStream();
 const authStore = useAuth();
+const onAir = ref(false);
 
 let stream: MediaStream | null = null;
 async function openVideo() {
@@ -88,6 +98,7 @@ const start = async () => {
         description: 'test room',
         image: null
       });
+      onAir.value = true;
 
       streamStore.init(authStore.token);
     } catch (error) {
@@ -98,6 +109,7 @@ const start = async () => {
 
 const stop = () => {
   console.log('stop camera');
+  onAir.value = false;
   mediaRecorder && mediaRecorder.stop();
   stopCamera();
   streamStore.handleClose();

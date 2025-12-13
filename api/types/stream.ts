@@ -10,4 +10,5 @@ export type GetRoomsResponse = {
   description: string;
   image: string;
   startTime: string;
+  status: boolean;
 };

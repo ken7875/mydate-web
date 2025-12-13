@@ -22,12 +22,16 @@ const { streamRoomMap } = storeToRefs(streamStore);
 const router = useRouter();
 const goToLiveRoom = (room: GetRoomsResponse) => {
   router.push({
-    path: `live/${room.uuid}`,
-    query: {
-      ...room
-    }
+    path: `live/${room.uuid}`
   });
 };
 const { data } = await useMyAsyncData('liveRooms', () => getAllRooms());
 streamStore.initRoom(data.value?.data || []);
+
+onMounted(() => {
+  streamStore.subscribe({
+    type: 'streamRoomStatus',
+    fnAry: [streamStore.resetRoomStatus]
+  });
+});
 </script>

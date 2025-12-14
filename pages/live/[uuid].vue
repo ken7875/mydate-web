@@ -29,6 +29,7 @@ import { messageTool } from '~/utils/message';
 
 const streamStore = useStream();
 const route = useRoute();
+const router = useRouter();
 const uuid = route.params.uuid as string;
 const video = ref();
 const roomInfo = ref({
@@ -44,10 +45,14 @@ const getRoomInfo = async () => {
     const res = await getRoomApi(uuid || '');
     roomInfo.value = res.data!;
   } catch (error) {
-    messageTool().openMessage({
-      title: '錯誤',
-      content: '找不到直播間'
-    });
+    messageTool()
+      .openMessage({
+        title: '錯誤',
+        content: '找不到直播間'
+      })
+      .then(() => {
+        router.push('/live');
+      });
   }
 };
 const isVideoStart = computed<boolean>(() => roomInfo.value.status);

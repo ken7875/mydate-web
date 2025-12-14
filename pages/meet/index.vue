@@ -1,6 +1,6 @@
 <template>
   <div class="relative full-screen-container">
-    <div class="absolute top-1/2 left-1/2 -translate-1/2 w-[80%] h-[85%]">
+    <div class="absolute top-1/2 left-1/2 -translate-1/2 w-[80%] h-[85%] z-10">
       <Card
         v-for="(item, idx) in showingMeetUserList"
         :key="item.uuid"
@@ -36,6 +36,24 @@
         <div class="translate-y-[-10px]">super Like</div>
         <div @click="likeDislikeAnimation('like')">V</div>
       </div>
+      <ClientOnly>
+        <Transition name="heart">
+          <font-awesome-icon
+            v-show="showingHeartIcon === 'heart'"
+            :icon="['fas', 'heart']"
+            class="absolute top-[40%] left-1/2 -translate-x-1/2 z-1003 text-[60px] text-red-500"
+          />
+        </Transition>
+      </ClientOnly>
+      <ClientOnly>
+        <Transition name="heart">
+          <font-awesome-icon
+            :icon="['fas', 'heart-crack']"
+            v-show="showingHeartIcon === 'heart-crack'"
+            class="absolute top-[40%] left-1/2 -translate-x-1/2 z-1003 text-[60px] text-green-400"
+          />
+        </Transition>
+      </ClientOnly>
     </div>
   </div>
 </template>
@@ -144,6 +162,7 @@ const killDragAnimation = () => {
   }
 };
 
+const showingHeartIcon = ref('');
 const dragCardHandler = () => {
   killDragAnimation();
 
@@ -157,20 +176,29 @@ const dragCardHandler = () => {
       gsap.to(this.target, {
         rotation
       });
+      if (this.x > 150) {
+        showingHeartIcon.value = 'heart';
+      } else if (this.x < -150) {
+        showingHeartIcon.value = 'heart-crack';
+      } else {
+        showingHeartIcon.value = '';
+      }
     },
     onRelease() {
       if (this.x > 150) {
+        likeRequestHandler();
         // 滑出左邊
-        gsap
-          .to(this.target, {
-            x: 500,
-            rotation: 30,
-            duration: 0.5,
-            onComplete: () => this.target.remove()
-          })
-          .then(() => {
-            likeRequestHandler();
-          });
+        gsap.to(this.target, {
+          x: 500,
+          rotation: 30,
+          duration: 0.5,
+          onComplete: () => {
+            this.target.remove();
+            setTimeout(() => {
+              showingHeartIcon.value = '';
+            }, 500);
+          }
+        });
       } else if (this.x < -150) {
         // 滑出右邊
         gsap
@@ -178,12 +206,18 @@ const dragCardHandler = () => {
             x: -500,
             rotation: -30,
             duration: 0.5,
-            onComplete: () => this.target.remove()
+            onComplete: () => {
+              this.target.remove();
+              setTimeout(() => {
+                showingHeartIcon.value = '';
+              }, 500);
+            }
           })
           .then(() => {
             dislikeRquestHandler();
           });
       } else {
+        showingHeartIcon.value = '';
         // 回到原位
         gsap.to(this.target, {
           x: 0,
@@ -248,3 +282,16 @@ watch(
   }
 );
 </script>
+
+<style scoped>
+.heart-enter-active,
+.heart-leave-active {
+  transform: scale((1.1));
+  transition: transform 0.1s ease;
+}
+
+.heart-enter-from,
+.heart-leave-to {
+  transform: scale(0);
+}
+</style>

@@ -23,7 +23,9 @@ import {
   // faUserLarge,
   // faLocationDot,
   faVideo,
-  faXmark
+  faXmark,
+  faHeart,
+  faHeartCrack
 } from '@fortawesome/free-solid-svg-icons';
 
 config.autoAddCss = false;
@@ -51,7 +53,9 @@ library.add(
   // faUserLarge,
   // faLocationDot,
   faVideo,
-  faXmark
+  faXmark,
+  faHeart,
+  faHeartCrack
 );
 
 export default defineNuxtPlugin((nuxtApp) => {

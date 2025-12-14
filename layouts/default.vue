@@ -1,6 +1,6 @@
 <template>
   <div class="w-full relative">
-    <header class="h-[65px] flex justify-end px-[20px] z-[10] py-[10px] bg-amber-200 sticky top-0 w-full">
+    <header class="h-[65px] flex justify-end px-[20px] z-[10] py-[10px] bg-primary sticky top-0 w-full">
       <nav>
         <NuxtLink to="/userInfo">
           <ClientOnly>
@@ -12,7 +12,7 @@
     <main class="h-[calc(100vh-65px*2)]">
       <slot></slot>
     </main>
-    <footer class="flex justify-around w-full h-[65px] z-[10] sticky bottom-0 bg-amber-300">
+    <footer class="flex justify-around w-full h-[65px] z-[10] sticky bottom-0 bg-primary">
       <div>
         <NuxtLink to="/meet">meet</NuxtLink>
       </div>

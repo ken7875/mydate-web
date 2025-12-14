@@ -39,7 +39,8 @@ export const inviteFriend = (body: { friendId: string; status: FriendStatus }) =
     list: Friends[];
   }>({
     url: '/friends/inviteFriend',
-    body
+    body,
+    needLoading: false
   });
 
 export const dislikeUser = (body: { friendId: string }) =>
@@ -47,11 +48,13 @@ export const dislikeUser = (body: { friendId: string }) =>
     list: Friends[];
   }>({
     url: '/friends/dislikeUser',
-    body
+    body,
+    needLoading: false
   });
 
 export const setFriendStatus = (body: { status: 1 | 2; friendId: string; userId: string }) =>
   useHttp.put({
     url: '/friends/setFriendStatus',
-    body
+    body,
+    needLoading: false
   });

@@ -4,6 +4,7 @@ networks:
 
 services:
   nginx:
+    pull_policy: never
     image: my-date-nginx:latest
     container_name: my-date-nginx
     ports:
@@ -17,6 +18,7 @@ services:
         condition: service_healthy
 
   mysql-db:
+    pull_policy: never
     image: my-date-db:latest
     container_name: my-date-mysql-db
     ports:
@@ -33,6 +35,7 @@ services:
       start_period: 45s # 給予足夠時間啟動
 
   server:
+    pull_policy: never
     image: my-date-server:latest
     container_name: my-date-server
     environment:
@@ -60,6 +63,7 @@ services:
         condition: service_healthy # 等待 mysql-db 處於 health 狀態
 
   client:
+    pull_policy: never
     image: my-date-client:latest
     container_name: my-date-client
     env_file:

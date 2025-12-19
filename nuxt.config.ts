@@ -45,8 +45,9 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     '@pinia-plugin-persistedstate/nuxt',
     'nuxt-lodash',
-    '@vueuse/nuxt'
     // '@hebilicious/vue-query-nuxt'
+    '@vueuse/nuxt',
+    'nuxt-security'
   ],
   // vueQuery: {
   //   stateKey: 'vue-query-nuxt',

@@ -4,11 +4,11 @@
       <img
         crossorigin="anonymous"
         :src="avatarPreviewUrl"
-        @error="getDefaultImg"
+        @error="getDefaultAvatar"
         @click="setAvatarsToggle = true"
         class="block w-[150px] h-[150px] border-2 rounded-[50%] object-cover"
       />
-      <p class="font-bold text-xl">{{ authStore.userInfo?.userName }}</p>
+      <p class="font-bold text-xl">{{ userInfoRes?.data?.userName }}</p>
     </div>
     <hr />
     <div class="my-5">
@@ -29,6 +29,7 @@
 
 <script setup lang="ts">
 import { useAuth } from '@/store/auth';
+import getDefaultAvatar from '@/utils/getDefaultAvatar';
 // import { getAvatarsApi } from '@/api/modules/auth';
 
 const FilterModal = defineAsyncComponent(() => import('./filterModal/index.vue'));
@@ -38,16 +39,16 @@ const SetAvatarModal = defineAsyncComponent(() => import('./setAvatarModal/index
 const router = useRouter();
 const authStore = useAuth();
 
+const { userInfoRes } = useUserInfoQuery();
 // const avatars = await useMyAsyncData('avatars', async () => await getAvatarsApi());
 const publicPath = computed(() => useRuntimeConfig().public.publicPath);
 // 用來給 img 顯示預覽
 // TODO 暫時抓最後一筆
 const avatarPreviewUrl = computed<string>(() =>
-  authStore.userInfo!.avatars?.length > 0
-    ? publicPath.value + authStore.userInfo!.avatars?.at(-1)
+  userInfoRes.value?.data?.avatars && userInfoRes.value?.data.avatars.length > 0
+    ? publicPath.value + userInfoRes.value?.data?.avatars?.at(-1)
     : '/images/default.jpg'
 );
-const getDefaultImg = (event: Event) => ((event.target as HTMLImageElement).src = '/images/default.jpg'); // 设置为默认图片
 
 const filterModalToggle = ref(false);
 const setUserInfoToggle = ref(false);

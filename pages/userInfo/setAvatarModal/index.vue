@@ -8,7 +8,7 @@
             <img
               crossorigin="anonymous"
               :src="avatarPreviewUrl"
-              @error="getDefaultImg"
+              @error="getDefaultAvatar"
               class="w-full h-full object-cover"
             />
           </label>
@@ -23,13 +23,14 @@
 import { setAvatars } from '@/api/modules/auth';
 import { useMessageStore } from '~/store/message';
 import { useAuth } from '@/store/auth';
+import getDefaultAvatar from '@/utils/getDefaultAvatar';
 
 const messageStore = useMessageStore();
 const authStore = useAuth();
 
 const isOpen = defineModel('isOpen', { required: true, default: false });
 
-const getDefaultImg = (event: Event) => ((event.target as HTMLImageElement).src = '/images/default.jpg'); // 设置为默认图片
+// const getDefaultImg = (event: Event) => ((event.target as HTMLImageElement).src = '/images/default.jpg'); // 设置为默认图片
 
 // 用來給 img 顯示預覽
 const publicPath = computed(() => useRuntimeConfig().public.publicPath);

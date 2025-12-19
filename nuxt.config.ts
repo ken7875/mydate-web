@@ -60,19 +60,14 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     '@pinia-plugin-persistedstate/nuxt',
     'nuxt-lodash',
-    // '@hebilicious/vue-query-nuxt'
+    '@hebilicious/vue-query-nuxt',
     '@vueuse/nuxt',
     'nuxt-security'
   ],
-  // vueQuery: {
-  //   stateKey: 'vue-query-nuxt',
-  //   // autoImports: ['useQuery', 'useQueries'],
-  //   queryClientOptions: {
-  //     defaultOptions: { queries: { staleTime: 5000 } } // default
-  //   },
-  //   // Pass the vue query plugin options here ....
-  //   vueQueryPluginOptions: {}
-  // },
+  vueQuery: {
+    stateKey: 'vue-query-nuxt',
+    vueQueryPluginOptions: {}
+  },
   css: ['@/assets/css/tailwinds.css', '@fortawesome/fontawesome-svg-core/styles.css'],
 
   build: {

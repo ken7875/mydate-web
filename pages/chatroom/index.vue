@@ -1,6 +1,6 @@
 <template>
   <div class="full-screen-container flex flex-col overflow-scroll scrollbar-none">
-    <div class="relative flex-1 p-[30px] overflow-y-auto">
+    <div class="relative flex-1 p-[30px] overflow-y-auto" ref="chatroomDom">
       <!-- 聊天消息將在這裡顯示 -->
       <template v-if="hasChatRecord">
         <div v-for="(record, index) in messageRecord" :key="index" class="mb-4">
@@ -29,6 +29,13 @@
         <p>快點開始你們的話題吧</p>
       </div>
     </div>
+    <div
+      v-show="isNewMessageTipsShow"
+      class="bg-[rgba(0,0,0,0.5)] text-white px-4 py-2 cursor-pointer"
+      @click="handleClickMessageTip"
+    >
+      {{ messageRecord.at(-1)?.message }}
+    </div>
     <div class="p-4 bg-gray-200">
       <div class="flex">
         <input
@@ -56,6 +63,7 @@ import { storeToRefs } from 'pinia';
 import type { Message } from '@/api/types/chat';
 import moment from 'moment';
 import { markAsReadApi } from '@/api/modules/chat';
+import { useNotification } from '@/store/notificationWebSocket';
 
 const routes = useRoute();
 const focusFriend = computed(() => ({
@@ -67,16 +75,73 @@ const focusFriend = computed(() => ({
 
 const authStore = useAuth();
 const chatStore = useChat();
+const notificationStore = useNotification();
 const { sendMessage, getMessageRecord, updateMessageRecord } = chatStore;
 const { messageRecord } = storeToRefs(chatStore);
 // const isFriend = computed(() => foucsFriend.value?.status === FriendStatus.Success);
 
+const { userInfoRes } = useUserInfoQuery();
+
+watch(
+  () => userInfoRes.value?.data?.uuid,
+  (val) => {
+    if (val) {
+      getMessageRecord({
+        senderId: val,
+        receiverId: focusFriend.value.uuid as string,
+        page: 1,
+        pageSize: 100
+      });
+    }
+  },
+  {
+    immediate: true
+  }
+);
+
+const chatroomDom = ref<HTMLDivElement | null>(null);
+
+const isNewMessageTipsShow = ref(false);
+let messageTipsTimeout: ReturnType<typeof setTimeout> | null = null;
+const buttonDistanceCalc = () => {
+  if (!chatroomDom.value) return 0;
+  const { scrollTop, clientHeight, scrollHeight } = chatroomDom.value;
+
+  return Math.abs(scrollHeight - clientHeight - scrollTop);
+};
+
+const scrollToBottom = async () => {
+  // 必須等待 nextTick，否則高度會是加入新訊息之前的舊高度
+  await nextTick();
+  if (chatroomDom.value) {
+    chatroomDom.value.scrollTo({
+      top: chatroomDom.value.scrollHeight,
+      behavior: 'smooth' // 使用 'smooth' 有平滑滾動效果，若要瞬間到位則用 'auto'
+    });
+  }
+};
+
+const toggleNewMessageTipsHandler = () => {
+  // if (buttonDistanceCalc() === 0) return;
+  // 若已經接近底部就直接滑到底
+  if (buttonDistanceCalc() < 50) {
+    scrollToBottom();
+    return;
+  }
+
+  if (messageTipsTimeout) {
+    clearTimeout(messageTipsTimeout);
+  }
+  isNewMessageTipsShow.value = true;
+
+  messageTipsTimeout = setTimeout(() => {
+    isNewMessageTipsShow.value = false;
+  }, 3000);
+};
 onMounted(() => {
-  getMessageRecord({
-    senderId: authStore.userInfo!.uuid,
-    receiverId: focusFriend.value.uuid as string,
-    page: 1,
-    pageSize: 100
+  notificationStore.subscribe({
+    type: 'chatRoom',
+    fnAry: [toggleNewMessageTipsHandler]
   });
 });
 
@@ -93,6 +158,7 @@ const hasChatRecord = computed(() => messageRecord.value.length > 0);
 const isSelf = (record: Message) => record.senderId === authStore.userInfo!.uuid;
 
 const waitToSendMessage = ref('');
+// TODO 發送新訊息跳到聊天室最下面
 const sendMessageHander = () => {
   if (!waitToSendMessage.value) return;
 
@@ -105,19 +171,30 @@ const sendMessageHander = () => {
     }
   ]);
 
-  // 樂觀更新
-  updateMessageRecord([
-    {
-      senderId: authStore.userInfo!.uuid as string,
-      receiverId: focusFriend.value.uuid as string,
-      message: waitToSendMessage.value,
-      sendTime: Date.now()
-    }
-  ]);
+  if (userInfoRes.value?.data) {
+    // 樂觀更新
+    updateMessageRecord([
+      {
+        senderId: userInfoRes.value.data.uuid as string,
+        receiverId: focusFriend.value.uuid as string,
+        message: waitToSendMessage.value,
+        sendTime: Date.now()
+      }
+    ]);
+    scrollToBottom();
+  }
 
   waitToSendMessage.value = '';
 };
 
+const handleClickMessageTip = () => {
+  if (messageTipsTimeout) {
+    clearTimeout(messageTipsTimeout);
+  }
+  isNewMessageTipsShow.value = false;
+
+  scrollToBottom();
+};
 const showDate = (start: number, end: number) => {
   if (!start) {
     return false;

@@ -10,6 +10,15 @@ export default defineNuxtConfig({
   experimental: {
     renderJsonPayloads: false
   },
+  security: {
+    csrf: true,
+    headers: {
+      contentSecurityPolicy: {
+        'img-src':
+          process.env.NODE_ENV === 'development' ? ["'self'", 'data:', 'http://localhost:3033'] : ["'self'", 'data:']
+      }
+    }
+  },
 
   ssr: true,
   devtools: { enabled: true },

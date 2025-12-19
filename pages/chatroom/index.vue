@@ -67,7 +67,7 @@ const focusFriend = computed(() => ({
 
 const authStore = useAuth();
 const chatStore = useChat();
-const { sendMessage, getMessageRecord } = chatStore;
+const { sendMessage, getMessageRecord, updateMessageRecord } = chatStore;
 const { messageRecord } = storeToRefs(chatStore);
 // const isFriend = computed(() => foucsFriend.value?.status === FriendStatus.Success);
 
@@ -99,6 +99,16 @@ const sendMessageHander = () => {
   sendMessage([
     {
       // senderId: authStore.userInfo!.uuid,
+      receiverId: focusFriend.value.uuid as string,
+      message: waitToSendMessage.value,
+      sendTime: Date.now()
+    }
+  ]);
+
+  // 樂觀更新
+  updateMessageRecord([
+    {
+      senderId: authStore.userInfo!.uuid as string,
       receiverId: focusFriend.value.uuid as string,
       message: waitToSendMessage.value,
       sendTime: Date.now()

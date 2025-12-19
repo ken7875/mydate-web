@@ -28,7 +28,7 @@ const myFetch = ({
   needLoading?: boolean;
 }) => {
   const runtimeConfig = useRuntimeConfig();
-  const apiUrl = runtimeConfig.public.apiBase;
+  const apiUrl = import.meta.client ? runtimeConfig.public.apiBase : runtimeConfig.public.apiBaseServer;
   const mockUrl = runtimeConfig.public.apiMock;
   const gatewayMap = {
     normal: `${apiUrl}/api`,

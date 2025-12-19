@@ -21,6 +21,7 @@
   </div>
 </template>
 
+<!-- 聊天室實作, 用戶進入房間通知, donate -->
 <script setup lang="ts">
 import { useStream } from '@/store/stream';
 import Hls from 'hls.js';

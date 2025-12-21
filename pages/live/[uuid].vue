@@ -26,9 +26,11 @@
 import { useStream } from '@/store/stream';
 import Hls from 'hls.js';
 import { getRoomApi } from '@/api/modules/stream';
-import { messageTool } from '~/utils/message';
+// import { messageTool } from '~/utils/message';
+import { useMessageStore } from '@/store/message';
 
 const streamStore = useStream();
+const messageStore = useMessageStore();
 const route = useRoute();
 const router = useRouter();
 const uuid = route.params.uuid as string;
@@ -40,18 +42,17 @@ const roomInfo = ref({
   image: '',
   status: false
 });
-
 const getRoomInfo = async () => {
   try {
     const res = await getRoomApi(uuid || '');
     roomInfo.value = res.data!;
   } catch (error) {
-    messageTool()
+    messageStore
       .openMessage({
         title: '錯誤',
         content: '找不到直播間'
       })
-      .then(() => {
+      ?.then(() => {
         router.push('/live');
       });
   }

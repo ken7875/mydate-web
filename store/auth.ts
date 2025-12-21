@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import type { User } from '~/api/types/user';
 import { Gender } from '@/enums/user';
-import { getAvatarsApi } from '@/api/modules/auth';
+// import { getAvatarsApi } from '@/api/modules/auth';
 
 const initUserInfo = {
   userName: '',
@@ -31,10 +31,6 @@ export const useAuth = defineStore(
     const userInfo = ref<User | null>(useCloneDeep(initUserInfo));
 
     // UserRsponse: Pick<User, 'uuid' | 'isPasswordSign'>
-    const setUserInfo = (userInfoParams: User) => {
-      if (!userInfoParams) return;
-      userInfo.value = userInfoParams;
-    };
     const setToken = (tokenParams: string) => {
       token.value = tokenParams;
     };
@@ -43,26 +39,24 @@ export const useAuth = defineStore(
       userInfo.value!.avatars = avatars;
     };
 
-    const getAvatars = async () => {
-      try {
-        const res = await getAvatarsApi();
-        userInfo.value!.avatars = res.data || [];
-      } catch (error) {
-        console.error('pinia getAvatars', error);
-      }
-    };
+    // const getAvatars = async () => {
+    //   try {
+    //     const res = await getAvatarsApi();
+    //     userInfo.value!.avatars = res.data || [];
+    //   } catch (error) {
+    //     console.error('pinia getAvatars', error);
+    //   }
+    // };
     const logout = () => {
-      setUserInfo(initUserInfo);
       setToken('');
     };
 
     return {
       token,
       userInfo,
-      setUserInfo,
       setToken,
       logout,
-      getAvatars,
+      // getAvatars,
       setAvatars
     };
   },

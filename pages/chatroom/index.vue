@@ -57,7 +57,6 @@
 
 <script setup lang="ts">
 import { useChat } from '@/store/chat';
-import { useAuth } from '@/store/auth';
 import { storeToRefs } from 'pinia';
 // import { FriendStatus } from '../../../enums/friend';
 import type { Message } from '@/api/types/chat';
@@ -73,7 +72,6 @@ const focusFriend = computed(() => ({
 }));
 // const { getFriendById } = friendsStore;
 
-const authStore = useAuth();
 const chatStore = useChat();
 const notificationStore = useNotification();
 const { sendMessage, getMessageRecord, updateMessageRecord } = chatStore;
@@ -155,16 +153,14 @@ onMounted(() => {
 // };
 
 const hasChatRecord = computed(() => messageRecord.value.length > 0);
-const isSelf = (record: Message) => record.senderId === authStore.userInfo!.uuid;
+const isSelf = (record: Message) => record.senderId === userInfoRes.value?.data?.uuid;
 
 const waitToSendMessage = ref('');
-// TODO 發送新訊息跳到聊天室最下面
 const sendMessageHander = () => {
   if (!waitToSendMessage.value) return;
 
   sendMessage([
     {
-      // senderId: authStore.userInfo!.uuid,
       receiverId: focusFriend.value.uuid as string,
       message: waitToSendMessage.value,
       sendTime: Date.now()

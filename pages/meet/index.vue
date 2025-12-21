@@ -70,14 +70,14 @@ import { storeToRefs } from 'pinia';
 import { cloneDeep, get } from 'lodash-es';
 import { inviteFriend, setFriendStatus, dislikeUser } from '@/api/modules/friend';
 import { FriendStatus } from '~/enums/friend';
-import { useAuth } from '~/store/auth';
 // import type { User } from '~/api/types/user';
 // import { useMessage } from '@/store/message';
 const publicPath = computed(() => useRuntimeConfig().public.publicPath);
 
 const settingsStore = useSettings();
 const friendsStore = useFriends();
-const authStore = useAuth();
+
+const { userInfoRes } = useUserInfoQuery();
 
 const { requestUsers } = storeToRefs(friendsStore);
 const { meetForm } = storeToRefs(settingsStore);
@@ -113,7 +113,7 @@ const likeRequestHandler = async () => {
     if (showingMeetUserList.value[0]?.status === FriendStatus.Pending) {
       await setFriendStatus({
         userId: showingMeetUserList.value[0]?.uuid || '',
-        friendId: authStore.userInfo?.uuid || '',
+        friendId: userInfoRes.value?.data?.uuid || '',
         status: FriendStatus.Success
       });
     } else {
@@ -130,7 +130,7 @@ const dislikeRquestHandler = async () => {
     if (showingMeetUserList.value[0]?.status === FriendStatus.Pending) {
       await setFriendStatus({
         userId: showingMeetUserList.value[0]?.uuid || '',
-        friendId: authStore.userInfo?.uuid || '',
+        friendId: userInfoRes.value?.data?.uuid || '',
         status: FriendStatus.Reject
       });
     } else {

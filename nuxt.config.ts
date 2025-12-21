@@ -7,9 +7,9 @@ import { removePagesMatching } from './utils/routes/tool';
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-30',
 
-  experimental: {
-    renderJsonPayloads: false
-  },
+  // experimental: {
+  //   renderJsonPayloads: false
+  // },
   security: {
     headers: {
       contentSecurityPolicy: {
@@ -67,6 +67,9 @@ export default defineNuxtConfig({
   vueQuery: {
     stateKey: 'vue-query-nuxt',
     vueQueryPluginOptions: {}
+  },
+  imports: {
+    dirs: ['vueQuery']
   },
   css: ['@/assets/css/tailwinds.css', '@fortawesome/fontawesome-svg-core/styles.css'],
 

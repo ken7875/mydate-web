@@ -87,10 +87,7 @@ import { string } from 'yup';
 // import { tokenCookie } from '@/utils/cookies';
 import { useAuth } from '@/store/auth';
 // import { useMessage } from '@/store/message';
-import type { User } from '@/api/types/user';
 import type { ErrorResponse } from '~/composables/types/fetch';
-import mergeWith from 'lodash/mergeWith';
-import { storeToRefs } from 'pinia';
 // const websocketStore = useChatRoom();
 // import { ErrorResponse } from '~/types/global';
 
@@ -102,7 +99,7 @@ const router = useRouter();
 
 const authStore = useAuth();
 // const msgStore = useMessage();
-const { setToken, setUserInfo } = authStore;
+const { setToken } = authStore;
 // const { openMessage } = msgStore;
 // const registerProcess = ref('email');
 // 需要再useField前先定義schema
@@ -160,18 +157,6 @@ const emailVerfiy = async () => {
 };
 
 const passwordErrorMsg = ref('');
-// 輸入驗證碼邏輯
-
-const setUserToStorage = ({
-  email,
-  isPasswordSign,
-  uuid,
-  userName,
-  phone
-}: Pick<User, 'email' | 'isPasswordSign' | 'uuid' | 'userName' | 'phone'>) => {
-  const { userInfo } = storeToRefs(authStore);
-  setUserInfo(mergeWith(userInfo.value, { email, isPasswordSign, uuid, userName, phone }));
-};
 
 const login = async () => {
   try {
@@ -189,7 +174,6 @@ const login = async () => {
 
     setToken(token);
     redirect();
-    setUserToStorage(res.data!);
     // websocketStore.init(token);
   } catch (error) {
     passwordErrorMsg.value = (error as ErrorResponse).message;
@@ -243,7 +227,6 @@ const loginTest = async (data: { email: string; password: string }) => {
 
     setToken(token);
     router.push('/meet');
-    setUserToStorage(res.data!);
     // websocketStore.init(token);
   } catch (error) {
     passwordErrorMsg.value = (error as ErrorResponse).message;

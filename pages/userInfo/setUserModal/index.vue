@@ -20,9 +20,11 @@
 import { useAuth } from '@/store/auth';
 import { useForm, useField } from 'vee-validate';
 import { object, string } from 'yup';
+import { useMessageStore } from '~/store/message';
 
 const isOpen = defineModel('isOpen', { required: true, default: false });
 const authStore = useAuth();
+const messageStore = useMessageStore();
 
 const validationSchema = object({
   userName: string().min(8, '暱稱最少8個字').max(13, '暱稱最多13個字').required('請輸入暱稱')
@@ -33,8 +35,24 @@ const { handleSubmit, errors: formError } = useForm({
 });
 
 const { value: userName } = useField<string>('userName', undefined, { initialValue: authStore.userInfo?.userName });
-
-const send = handleSubmit(async (values) => {
-  console.log(values);
+const { userInfoMutateHandler, userInfoRes } = useUserInfoQuery();
+const send = handleSubmit(async () => {
+  try {
+    if (!userInfoRes.value?.data) return;
+    const { email, uuid } = userInfoRes.value.data;
+    await userInfoMutateHandler({ userName: userName.value, email, uuid });
+  } catch (error) {
+    console.log('set user info fail:', error);
+  } finally {
+    messageStore
+      .openMessage({
+        title: '訊息',
+        content: '設定成功',
+        hasCancel: false
+      })
+      ?.finally(() => {
+        isOpen.value = false;
+      });
+  }
 });
 </script>

@@ -20,14 +20,12 @@
 </template>
 
 <script setup lang="ts">
-import { setAvatars } from '@/api/modules/auth';
+// import { setAvatars } from '@/api/modules/auth';
 import { useMessageStore } from '~/store/message';
-import { useAuth } from '@/store/auth';
 import getDefaultAvatar from '@/utils/getDefaultAvatar';
 
 const messageStore = useMessageStore();
-const authStore = useAuth();
-
+const { userInfoRes } = useUserInfoQuery();
 const isOpen = defineModel('isOpen', { required: true, default: false });
 
 // const getDefaultImg = (event: Event) => ((event.target as HTMLImageElement).src = '/images/default.jpg'); // 设置为默认图片
@@ -35,8 +33,8 @@ const isOpen = defineModel('isOpen', { required: true, default: false });
 // 用來給 img 顯示預覽
 const publicPath = computed(() => useRuntimeConfig().public.publicPath);
 const avatarPreviewUrl = ref<string>(
-  authStore.userInfo!.avatars?.length > 0
-    ? publicPath.value + authStore.userInfo!.avatars?.at(-1)
+  userInfoRes.value?.data && userInfoRes.value.data.avatars.length > 0
+    ? publicPath.value + userInfoRes.value.data.avatars?.at(-1)
     : '/images/default.jpg'
 );
 
@@ -73,21 +71,35 @@ const changeAvatar = (e: Event) => {
   };
 };
 
+const { avatarsMutateHandler } = useUserInfoQuery();
 const send = async () => {
   try {
     const formData = new FormData();
     formData.append('photos', avatars.value[0]);
 
-    await setAvatars(formData);
+    // await setAvatars(formData);
+    await avatarsMutateHandler(formData);
     messageStore.openMessage({
       title: '訊息',
       content: '頭像設定成功',
       hasCancel: false
     });
     isOpen.value = false;
-    authStore.getAvatars();
   } catch (error) {
     console.log('set avatar fail', error);
+    if (avatars.value.length < 1) {
+      messageStore.openMessage({
+        title: '訊息',
+        content: '請加入新頭像',
+        hasCancel: false
+      });
+    } else {
+      messageStore.openMessage({
+        title: '訊息',
+        content: '設定失敗',
+        hasCancel: false
+      });
+    }
   }
 };
 </script>

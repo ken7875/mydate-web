@@ -6,15 +6,13 @@
           <div class="w-[60px] h-[60px] rounded-[50%] overflow-hidden">
             <img
               class="w-full h-full mr-5"
-              :src="userInfoRes?.data?.avatars[0]"
+              :src="avatarPreviewUrl"
               alt="avatars"
               v-if="userInfoRes?.data?.avatars[0]"
+              crossorigin="anonymous"
             />
             <img class="w-full h-full" src="/images/default.jpg" alt="" />
           </div>
-          <ClientOnly>
-            {{ userInfoRes?.data?.userName }}
-          </ClientOnly>
         </NuxtLink>
       </nav>
     </header>
@@ -47,6 +45,7 @@ import { useNotification } from '@/store/notificationWebSocket';
 import { useChat } from '@/store/chat';
 import { useFriends } from '@/store/friends';
 import { useStream } from '~/store/stream';
+import { getUserInfo } from '@/api/modules/auth';
 
 const authStore = useAuth();
 const notificationStore = useNotification();
@@ -55,6 +54,22 @@ const friendStore = useFriends();
 const streamStore = useStream();
 
 const { userInfoRes } = useUserInfoQuery();
+
+const queryClient = useQueryClient();
+// 於server side渲染
+onServerPrefetch(async () => {
+  await queryClient.prefetchQuery({
+    queryKey: ['userInfo'],
+    queryFn: getUserInfo
+  });
+});
+
+const publicPath = computed(() => useRuntimeConfig().public.publicPath);
+const avatarPreviewUrl = computed<string>(() => {
+  return userInfoRes.value?.data && userInfoRes.value.data.avatars.length > 0
+    ? publicPath.value + userInfoRes.value.data.avatars?.at(0)
+    : '/images/default.jpg';
+});
 
 watch(
   () => authStore.token,

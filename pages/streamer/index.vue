@@ -31,6 +31,7 @@ let mediaRecorder: MediaRecorder | null = null;
 
 const streamStore = useStream();
 const authStore = useAuth();
+const { userInfoRes } = useUserInfoQuery();
 const onAir = ref(false);
 
 let stream: MediaStream | null = null;
@@ -91,7 +92,7 @@ onUnmounted(() => {
 const start = async () => {
   mediaRecorder && mediaRecorder.start(3000);
 
-  if (authStore.userInfo?.uuid) {
+  if (userInfoRes.value?.data?.uuid) {
     try {
       await streamStore.openStreamRoom({
         title: 'test',

@@ -32,14 +32,13 @@ import { useField, useForm } from 'vee-validate';
 import { object, string } from 'yup';
 import { setUserInfo as setUserInfoApi, setPassword as setPasswordApi } from '@/api/modules/auth';
 import { useRouter } from 'vue-router';
-import { useAuth } from '@/store/auth';
-import { storeToRefs } from 'pinia';
 
 const router = useRouter();
 
-const authStore = useAuth();
-const { userInfo } = storeToRefs(authStore);
-const { setUserInfo } = authStore;
+// const authStore = useAuth();
+// const { userInfo } = storeToRefs(authStore);
+const { userInfoRes } = useUserInfoQuery();
+// const { setUserInfo } = authStore;
 
 // 需要再useField前先定義schema
 const validationSchema = object({
@@ -57,17 +56,17 @@ const { value: userName } = useField<string>('userName', undefined);
 const { value: password } = useField<string>('password', undefined);
 
 const send = handleSubmit(async () => {
-  if (!userInfo.value) {
+  if (!userInfoRes.value?.data) {
     throw new Error('can not find user');
   }
 
   try {
     const userInfoReq = setUserInfoApi({
-      email: userInfo.value.email,
+      email: userInfoRes.value.data.email,
       userName: userName.value,
-      uuid: userInfo.value.uuid
+      uuid: userInfoRes.value.data.uuid
     });
-    const passwordReq = setPasswordApi({ email: userInfo.value.email, password: password.value });
+    const passwordReq = setPasswordApi({ email: userInfoRes.value.data.email, password: password.value });
     const apiResAry = await Promise.allSettled([userInfoReq, passwordReq]);
 
     if (apiResAry[0].status === 'fulfilled' && apiResAry[1].status === 'fulfilled') {
@@ -76,7 +75,8 @@ const send = handleSubmit(async () => {
         throw new Error('set user info fail!!');
       }
 
-      setUserInfo(userInfoRes!);
+      // TODO 改為vue-query
+      // setUserInfo(userInfoRes!);
       router.push('/');
     }
     // console.log(passwordRes, formError);

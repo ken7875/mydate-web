@@ -30,7 +30,6 @@
 <script setup lang="ts">
 import { useAuth } from '@/store/auth';
 import getDefaultAvatar from '@/utils/getDefaultAvatar';
-// import { getAvatarsApi } from '@/api/modules/auth';
 
 const FilterModal = defineAsyncComponent(() => import('./filterModal/index.vue'));
 const SetUserModal = defineAsyncComponent(() => import('./setUserModal/index.vue'));
@@ -40,7 +39,6 @@ const router = useRouter();
 const authStore = useAuth();
 
 const { userInfoRes } = useUserInfoQuery();
-// const avatars = await useMyAsyncData('avatars', async () => await getAvatarsApi());
 const publicPath = computed(() => useRuntimeConfig().public.publicPath);
 // 用來給 img 顯示預覽
 // TODO 暫時抓最後一筆

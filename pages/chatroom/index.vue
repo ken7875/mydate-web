@@ -162,6 +162,7 @@ const sendMessageHander = () => {
   sendMessage([
     {
       receiverId: focusFriend.value.uuid as string,
+      senderId: userInfoRes.value?.data?.uuid as string,
       message: waitToSendMessage.value,
       sendTime: Date.now()
     }

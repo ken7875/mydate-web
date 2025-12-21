@@ -78,6 +78,11 @@ import { useChat } from '@/store/chat';
 import { storeToRefs } from 'pinia';
 import type { Friends } from '@/api/types/friend';
 import { useNotification } from '@/store/notificationWebSocket';
+import type { Message } from '~/api/types/chat';
+
+defineOptions({
+  name: 'friends'
+});
 
 const router = useRouter();
 const friendsStore = useFriends();
@@ -87,18 +92,9 @@ const chatStore = useChat();
 const { getAllFriendsHandler } = friendsStore;
 
 const websocketStore = useNotification();
-const getUnReadCountHandlerClone = chatStore.getUnReadCountHandler.bind(null, friendsStore.friends);
-websocketStore.subscribe({
-  type: 'chatRoom',
-  fnAry: [getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage]
-});
-
-onBeforeUnmount(() => {
-  websocketStore.unSubscribe({
-    type: 'chatRoom',
-    fnAry: [getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage]
-  });
-});
+const getUnReadCountHandlerClone = (params: Message[]) => {
+  chatStore.getUnReadCountHandler(params.map((item) => item.senderId));
+};
 
 // 好友大頭照處理
 const publicPath = computed(() => useRuntimeConfig().public.publicPath);
@@ -152,9 +148,10 @@ const { data: previewMessagesObj } = await useMyAsyncData('getAllFriendsPreviewM
   chatStore.getAllFriendsPreviewMessage()
 );
 
-const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', () =>
-  chatStore.getUnReadCountHandler(friends.value)
-);
+const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', () => {
+  const friendsId = friends.value.map((friend) => friend.uuid);
+  return chatStore.getUnReadCountHandler(friendsId);
+});
 // onNuxtReady(() => {
 //   init();
 // });
@@ -187,6 +184,8 @@ const checkChatRoom = (friend: Friends) => {
       senderId: friend.uuid,
       sendTime: previewMessagesObj.value?.[friend.uuid]?.sendTime
     });
+
+    unReadCountData.value[friend.uuid] && (unReadCountData.value[friend.uuid].count = 0);
   }
 
   router.push({
@@ -200,4 +199,32 @@ const checkChatRoom = (friend: Friends) => {
 const openUserOperateMenu = () => {
   console.log('開啟操作好友選單');
 };
+
+websocketStore.subscribe({
+  type: 'chatRoom',
+  fnAry: [getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage]
+});
+
+onActivated(() => {
+  websocketStore.subscribe({
+    type: 'chatRoom',
+    fnAry: [getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage]
+  });
+  chatStore.getUnReadCountHandler(friends.value.map((friend) => friend.uuid));
+  chatStore.getAllFriendsPreviewMessage();
+});
+
+onDeactivated(() => {
+  websocketStore.unSubscribe({
+    type: 'chatRoom',
+    fnAry: [getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage]
+  });
+});
+
+onBeforeUnmount(() => {
+  websocketStore.unSubscribe({
+    type: 'chatRoom',
+    fnAry: [getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage]
+  });
+});
 </script>

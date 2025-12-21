@@ -11,10 +11,4 @@ export interface Message {
   sendTime: number;
 }
 
-export interface SendMessageParam {
-  receiverId: string;
-  message: string;
-  sendTime: number;
-}
-
 export type PreviewMessage = Record<string, Message & { friendId: string }>;

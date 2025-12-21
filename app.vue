@@ -1,6 +1,6 @@
 <template>
   <NuxtLayout>
-    <NuxtPage />
+    <NuxtPage :keepalive />
     <Loading v-show="loadingState"></Loading>
   </NuxtLayout>
 </template>
@@ -9,4 +9,8 @@
 import useLoadingState from './composables/loading/loadingState';
 
 const loadingState = useLoadingState();
+
+const keepalive = {
+  include: ['friends']
+};
 </script>

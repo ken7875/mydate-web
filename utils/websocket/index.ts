@@ -101,7 +101,7 @@ export default class BaseWebsocket {
   }
 
   notify({ type, data, code }: DataType<unknown>) {
-    console.log(`get type: ${type} | data: ${data} | code: ${code}`);
+    console.log(`get type: ${type} | data: ${JSON.stringify(data)} | code: ${code}`);
     this.subscribtion.notify({ type, data, code });
   }
 
@@ -139,7 +139,7 @@ export default class BaseWebsocket {
 
       const res = await new Response(event.data).json();
       const { type, data, code } = res;
-      console.log(res, 'res');
+      console.log(res, 'onmessage');
       this.notify({ type, data, code });
       if (res.code === 'UNAUTHORIZATION') {
         useForceKickOut();

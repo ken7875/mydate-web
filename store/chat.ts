@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia';
 import { useNotification } from '@/store/notificationWebSocket';
-import type { Message, GetMessageRecord, SendMessageParam } from '~/api/types/chat';
+import type { Message, GetMessageRecord } from '~/api/types/chat';
 import { getMessageRecordApi, getUnreadCount, getPreviewMessageApi } from '@/api/modules/chat';
-import type { Friends } from '~/api/types/friend';
 import type { PreviewMessage } from '@/api/types/chat';
 
 export const useChat = defineStore('chat', () => {
@@ -18,6 +17,7 @@ export const useChat = defineStore('chat', () => {
       page,
       pageSize
     });
+
     if (res.data?.data) {
       messageRecord.value = res.data?.data;
     }
@@ -27,15 +27,14 @@ export const useChat = defineStore('chat', () => {
     messageRecord.value.push(...message);
   };
 
-  const sendMessage = (message: SendMessageParam[]) => {
-    webSocketStore.handleSend<SendMessageParam[]>({
+  const sendMessage = (message: Message[]) => {
+    webSocketStore.handleSend<Message[]>({
       type: 'chatRoom',
       data: message
     });
   };
 
-  const getUnReadCountHandler = async (friends: Friends[]) => {
-    const friendIds = friends.map((friend) => friend.uuid);
+  const getUnReadCountHandler = async (friendIds: string[]) => {
     const res = await getUnreadCount({
       friendIds
     });

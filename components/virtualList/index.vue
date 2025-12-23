@@ -1,8 +1,8 @@
 <template>
   <ul ref="virtualWrap" class="h-full overflow-scroll">
     <li ref="listTop"></li>
-    <li v-for="item in list" :key="item.idx" :data-test="item.idx">
-      <slot :item="item"></slot>
+    <li v-for="(item, index) in list" :key="item.idx" :data-test="item.idx">
+      <slot :item="item" :key="item.idx" :index="index"></slot>
     </li>
     <li ref="listBottom"></li>
   </ul>
@@ -18,10 +18,12 @@ const props = withDefaults(
     perLoadNum?: number;
     total: number;
     visible?: boolean;
+    maxPageCount?: number;
   }>(),
   {
     perLoadNum: 20,
-    visible: true
+    visible: true,
+    maxPageCount: 4
   }
 );
 
@@ -32,7 +34,6 @@ const emit = defineEmits<{
   (e: 'loadPrevData', payload: { page: number; pageSize: number }): void;
 }>();
 
-const MAX_PAGE_COUNT = 4;
 const OFFSET = 1;
 const listBottom = ref<HTMLDivElement>();
 const listTop = ref<HTMLDivElement>();
@@ -51,7 +52,7 @@ let stopNewPageVirtualListHandler: () => void = () => {};
 let stopPrevPageVirtualListHandler: () => void = () => {};
 
 // 數窗內最多限制DOM筆數
-const isExceedLimitData = computed(() => currentPage.value - startPage.value >= MAX_PAGE_COUNT);
+const isExceedLimitData = computed(() => currentPage.value - startPage.value >= props.maxPageCount);
 const totalPage = computed(() => Math.ceil(props.total / props.perLoadNum));
 
 const loadNewPage = () => {

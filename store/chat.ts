@@ -9,7 +9,6 @@ export const useChat = defineStore('chat', () => {
   const messageRecord = ref<Message[]>([]);
   const unReadCount = ref<Record<string, { count: number }>>({});
   const previewMessage = ref<PreviewMessage>({});
-
   const getMessageRecord = async ({ senderId, receiverId, page, pageSize }: GetMessageRecord) => {
     const res = await getMessageRecordApi({
       senderId,
@@ -19,8 +18,14 @@ export const useChat = defineStore('chat', () => {
     });
 
     if (res.data?.data) {
+      res.data.data = res.data.data.map((item, index) => ({
+        ...item,
+        idx: `${page}` + `-${index}`
+      }));
       messageRecord.value = res.data?.data;
     }
+
+    return res;
   };
 
   const updateMessageRecord = (message: Message[]) => {
@@ -53,6 +58,7 @@ export const useChat = defineStore('chat', () => {
     messageRecord,
     unReadCount,
     previewMessage,
+    // messageRecordTotal,
     getMessageRecord,
     updateMessageRecord,
     sendMessage,

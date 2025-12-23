@@ -3,27 +3,35 @@
     <div class="relative flex-1 p-[30px] overflow-y-auto" ref="chatroomDom">
       <!-- 聊天消息將在這裡顯示 -->
       <template v-if="hasChatRecord">
-        <div v-for="(record, index) in messageRecord" :key="index" class="mb-4">
-          <div
-            class="bg-black opacity-5 text-white rounded-[10px] mx-auto w-fit p-[5px] mb-[3px]"
-            v-show="showDate(messageRecord[index - 1]?.sendTime, record.sendTime)"
-          >
-            <p class="text-[12px]">
-              {{ moment(record.sendTime).format('MM/DD') }}
-            </p>
-          </div>
-          <div
-            :class="[
-              'max-w-[70%] rounded-lg p-3 shadow relative chatBoxHorn',
-              isSelf(record) ? 'bg-primary text-white ml-auto chatBoxHorn__right' : 'bg-white chatBoxHorn__left'
-            ]"
-          >
-            <p class="text-sm">{{ record.message }}</p>
-            <p :class="[isSelf(record) ? 'text-gray-300' : 'text-gray-500', 'text-xs mt-1 text-right']">
-              {{ moment(record.sendTime).format('HH:mm') }}
-            </p>
-          </div>
-        </div>
+        <VirtualList
+          v-model:list="showingRecordList"
+          :perLoadNum="20"
+          :total="messageRecordRes.total!"
+          @loadNewData="showNewRecordData"
+          @loadPrevData="showPrevRecordData"
+        >
+          <template v-slot="{ item, index }">
+            <div
+              class="bg-black opacity-5 text-white rounded-[10px] mx-auto w-fit p-[5px] mb-[3px]"
+              v-show="showDate(messageRecord[index - 1]?.sendTime, item.sendTime)"
+            >
+              <p class="text-[12px]">
+                {{ moment(item.sendTime).format('MM/DD') }}
+              </p>
+            </div>
+            <div
+              :class="[
+                'max-w-[70%] rounded-lg p-3 shadow relative chatBoxHorn',
+                isSelf(item) ? 'bg-primary text-white ml-auto chatBoxHorn__right' : 'bg-white chatBoxHorn__left'
+              ]"
+            >
+              <p class="text-sm">{{ item.message }}</p>
+              <p :class="[isSelf(item) ? 'text-gray-300' : 'text-gray-500', 'text-xs mt-1 text-right']">
+                {{ moment(item.sendTime).format('HH:mm') }}
+              </p>
+            </div>
+          </template>
+        </VirtualList>
       </template>
       <div class="flex justify-center items-end w-full h-full" v-else>
         <p>快點開始你們的話題吧</p>
@@ -80,21 +88,13 @@ const { messageRecord } = storeToRefs(chatStore);
 
 const { userInfoRes } = useUserInfoQuery();
 
-watch(
-  () => userInfoRes.value?.data?.uuid,
-  (val) => {
-    if (val) {
-      getMessageRecord({
-        senderId: val,
-        receiverId: focusFriend.value.uuid as string,
-        page: 1,
-        pageSize: 100
-      });
-    }
-  },
-  {
-    immediate: true
-  }
+const { data: messageRecordRes } = await useMyAsyncData('messageRecord', () =>
+  getMessageRecord({
+    senderId: userInfoRes.value?.data?.uuid as string,
+    receiverId: focusFriend.value.uuid as string,
+    page: 1,
+    pageSize: 20
+  })
 );
 
 const chatroomDom = ref<HTMLDivElement | null>(null);
@@ -209,6 +209,30 @@ onBeforeRouteLeave(() => {
     sendTime: Math.ceil(Date.now() / 1000)
   });
 });
+
+// virtual list
+const showingRecordList = ref<Message[]>(messageRecordRes.value.data?.data || []);
+const showNewRecordData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
+  await getMessageRecord({
+    senderId: userInfoRes.value?.data?.uuid as string,
+    receiverId: focusFriend.value.uuid as string,
+    page,
+    pageSize
+  });
+
+  showingRecordList.value.push(...messageRecord.value);
+};
+
+const showPrevRecordData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
+  await getMessageRecord({
+    senderId: userInfoRes.value?.data?.uuid as string,
+    receiverId: focusFriend.value.uuid as string,
+    page,
+    pageSize
+  });
+
+  showingRecordList.value.unshift(...messageRecord.value);
+};
 </script>
 
 <!-- <style scoped lang="scss">

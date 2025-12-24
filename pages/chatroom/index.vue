@@ -1,19 +1,23 @@
 <template>
   <div class="full-screen-container flex flex-col overflow-scroll scrollbar-none">
-    <div class="relative flex-1 p-[30px] overflow-y-auto" ref="chatroomDom">
+    <div class="relative flex-1 p-[30px] overflow-y-auto" v-show="isSuccess">
       <!-- 聊天消息將在這裡顯示 -->
-      <template v-if="hasChatRecord">
+      <template v-if="Number(messageRecordTotal) > 0">
         <VirtualList
-          v-model:list="showingRecordList"
-          :perLoadNum="20"
-          :total="messageRecordRes.total!"
+          v-model:list="messageRecordQueryData"
+          :perLoadNum="pageSize"
+          :total="messageRecordTotal || 0"
+          :singleSide="true"
+          :loadDown="false"
+          ref="chatroomDom"
           @loadNewData="showNewRecordData"
-          @loadPrevData="showPrevRecordData"
         >
+          <!-- @loadNewData="fetchNextPage"
+          @loadPrevData="fetchPreviousPage" -->
           <template v-slot="{ item, index }">
             <div
               class="bg-black opacity-5 text-white rounded-[10px] mx-auto w-fit p-[5px] mb-[3px]"
-              v-show="showDate(messageRecord[index - 1]?.sendTime, item.sendTime)"
+              v-show="showDate(messageRecordQueryData[index - 1]?.sendTime, item.sendTime)"
             >
               <p class="text-[12px]">
                 {{ moment(item.sendTime).format('MM/DD') }}
@@ -42,7 +46,7 @@
       class="bg-[rgba(0,0,0,0.5)] text-white px-4 py-2 cursor-pointer"
       @click="handleClickMessageTip"
     >
-      {{ messageRecord.at(-1)?.message }}
+      {{ messageRecordQueryData.at(-1)?.message }}
     </div>
     <div class="p-4 bg-gray-200">
       <div class="flex">
@@ -65,12 +69,12 @@
 
 <script setup lang="ts">
 import { useChat } from '@/store/chat';
-import { storeToRefs } from 'pinia';
 // import { FriendStatus } from '../../../enums/friend';
 import type { Message } from '@/api/types/chat';
 import moment from 'moment';
 import { markAsReadApi } from '@/api/modules/chat';
 import { useNotification } from '@/store/notificationWebSocket';
+import VirtualList from '@/components/virtualList/index.vue';
 
 const routes = useRoute();
 const focusFriend = computed(() => ({
@@ -78,43 +82,42 @@ const focusFriend = computed(() => ({
   status: routes.query.status,
   userName: routes.query.userName
 }));
+const pageSize = 20;
 // const { getFriendById } = friendsStore;
 
 const chatStore = useChat();
 const notificationStore = useNotification();
-const { sendMessage, getMessageRecord, updateMessageRecord } = chatStore;
-const { messageRecord } = storeToRefs(chatStore);
+const { sendMessage } = chatStore;
 // const isFriend = computed(() => foucsFriend.value?.status === FriendStatus.Success);
 
 const { userInfoRes } = useUserInfoQuery();
-
-const { data: messageRecordRes } = await useMyAsyncData('messageRecord', () =>
-  getMessageRecord({
-    senderId: userInfoRes.value?.data?.uuid as string,
-    receiverId: focusFriend.value.uuid as string,
-    page: 1,
-    pageSize: 20
-  })
-);
-
-const chatroomDom = ref<HTMLDivElement | null>(null);
+// const { data: messageRecordRes } = await useMyAsyncData('messageRecord', () =>
+//   getMessageRecord({
+//     senderId: userInfoRes.value?.data?.uuid as string,
+//     receiverId: focusFriend.value.uuid as string,
+//     page: 1,
+//     pageSize: 20
+//   })
+// );
+const chatroomDom = ref<InstanceType<typeof VirtualList> | null>(null);
 
 const isNewMessageTipsShow = ref(false);
 let messageTipsTimeout: ReturnType<typeof setTimeout> | null = null;
 const buttonDistanceCalc = () => {
   if (!chatroomDom.value) return 0;
-  const { scrollTop, clientHeight, scrollHeight } = chatroomDom.value;
+  const { scrollTop, clientHeight, scrollHeight } = chatroomDom.value.virtualWrap!;
+  const toButtonDistance = Math.abs(scrollHeight - clientHeight - scrollTop);
 
-  return Math.abs(scrollHeight - clientHeight - scrollTop);
+  return toButtonDistance;
 };
 
 const scrollToBottom = async () => {
   // 必須等待 nextTick，否則高度會是加入新訊息之前的舊高度
   await nextTick();
-  if (chatroomDom.value) {
-    chatroomDom.value.scrollTo({
-      top: chatroomDom.value.scrollHeight,
-      behavior: 'smooth' // 使用 'smooth' 有平滑滾動效果，若要瞬間到位則用 'auto'
+  if (chatroomDom.value?.virtualWrap) {
+    chatroomDom.value.virtualWrap.scrollTo({
+      top: chatroomDom.value.virtualWrap.scrollHeight
+      // behavior: 'smooth' // 使用 'smooth' 有平滑滾動效果，若要瞬間到位則用 'auto'
     });
   }
 };
@@ -122,7 +125,8 @@ const scrollToBottom = async () => {
 const toggleNewMessageTipsHandler = () => {
   // if (buttonDistanceCalc() === 0) return;
   // 若已經接近底部就直接滑到底
-  if (buttonDistanceCalc() < 50) {
+  console.log(buttonDistanceCalc());
+  if (buttonDistanceCalc() < 100) {
     scrollToBottom();
     return;
   }
@@ -136,12 +140,6 @@ const toggleNewMessageTipsHandler = () => {
     isNewMessageTipsShow.value = false;
   }, 3000);
 };
-onMounted(() => {
-  notificationStore.subscribe({
-    type: 'chatRoom',
-    fnAry: [toggleNewMessageTipsHandler]
-  });
-});
 
 // const addFriendHandler = async (status: 1 | 2) => {
 //   try {
@@ -151,33 +149,30 @@ onMounted(() => {
 //     console.error(error, 'error');
 //   }
 // };
-
-const hasChatRecord = computed(() => messageRecord.value.length > 0);
 const isSelf = (record: Message) => record.senderId === userInfoRes.value?.data?.uuid;
 
+const updateMessageRecord = (body: Message[]) => {
+  updateQuery({
+    newMessage: body[0],
+    senderId: body[0].senderId,
+    receiverId: body[0].receiverId
+  });
+};
 const waitToSendMessage = ref('');
 const sendMessageHander = () => {
   if (!waitToSendMessage.value) return;
+  const newMessage = {
+    receiverId: focusFriend.value.uuid as string,
+    senderId: userInfoRes.value?.data?.uuid as string,
+    message: waitToSendMessage.value,
+    sendTime: Date.now()
+  };
 
-  sendMessage([
-    {
-      receiverId: focusFriend.value.uuid as string,
-      senderId: userInfoRes.value?.data?.uuid as string,
-      message: waitToSendMessage.value,
-      sendTime: Date.now()
-    }
-  ]);
+  sendMessage([newMessage]);
 
   if (userInfoRes.value?.data) {
     // 樂觀更新
-    updateMessageRecord([
-      {
-        senderId: userInfoRes.value.data.uuid as string,
-        receiverId: focusFriend.value.uuid as string,
-        message: waitToSendMessage.value,
-        sendTime: Date.now()
-      }
-    ]);
+    updateMessageRecord([newMessage]);
     scrollToBottom();
   }
 
@@ -211,77 +206,56 @@ onBeforeRouteLeave(() => {
 });
 
 // virtual list
-const showingRecordList = ref<Message[]>(messageRecordRes.value.data?.data || []);
-const showNewRecordData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
-  await getMessageRecord({
-    senderId: userInfoRes.value?.data?.uuid as string,
-    receiverId: focusFriend.value.uuid as string,
-    page,
-    pageSize
-  });
+const { getMessageRecordQuery, updateQuery } = useMessageQuery();
 
-  showingRecordList.value.push(...messageRecord.value);
+const {
+  data: messageRecordRes,
+  isSuccess,
+  fetchPreviousPage
+} = getMessageRecordQuery({
+  senderId: userInfoRes.value?.data?.uuid as string,
+  receiverId: focusFriend.value.uuid as string,
+  pageSize
+});
+const messageRecordTotal = computed(() => messageRecordRes.value?.pages.at(-1)?.total);
+
+const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => {
+  return (
+    messageRecordRes.value?.pages.flatMap((page, pageIdx) =>
+      page
+        .data!.data.map((item, index) => {
+          const currentPage = messageRecordRes.value?.pageParams[pageIdx];
+          return {
+            ...item,
+            idx: `${currentPage}` + `-${index}`
+          };
+        })
+        .reverse()
+    ) || []
+  );
+});
+
+const showNewRecordData = () => {
+  fetchPreviousPage();
 };
 
-const showPrevRecordData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
-  await getMessageRecord({
-    senderId: userInfoRes.value?.data?.uuid as string,
-    receiverId: focusFriend.value.uuid as string,
-    page,
-    pageSize
+onMounted(() => {
+  notificationStore.subscribe({
+    type: 'chatRoom',
+    fnAry: [updateMessageRecord, toggleNewMessageTipsHandler]
   });
+});
 
-  showingRecordList.value.unshift(...messageRecord.value);
-};
+const unWatch = watch(
+  messageRecordQueryData,
+  (val) => {
+    nextTick(() => {
+      if (val.length > 0) {
+        scrollToBottom();
+        unWatch();
+      }
+    });
+  },
+  { immediate: true }
+);
 </script>
-
-<!-- <style scoped lang="scss">
-.chatBoxHorn {
-  &:before {
-    content: '';
-    position: absolute;
-    width: 30px;
-    height: 40px;
-    background-color: white;
-  }
-  &:after {
-    content: '';
-    position: absolute;
-    width: 17px;
-    height: 40px;
-    background-color: #e4e8eb;
-  }
-  &__left {
-    &:before {
-      bottom: 0px;
-      top: -32px;
-      left: -25px;
-      z-index: -1;
-      border-bottom-left-radius: 43px;
-    }
-    &:after {
-      bottom: 0px;
-      top: -23px;
-      left: -12px;
-      z-index: -2;
-      border-bottom-left-radius: 20px;
-    }
-  }
-  &__right {
-    &:before {
-      bottom: 0px;
-      top: -32px;
-      right: -25px;
-      z-index: -1;
-      border-bottom-right-radius: 43px;
-    }
-    &:after {
-      bottom: 0px;
-      top: -23px;
-      right: -12px;
-      z-index: -2;
-      border-bottom-right-radius: 20px;
-    }
-  }
-}
-</style> -->

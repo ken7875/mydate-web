@@ -9,28 +9,29 @@ export const useChat = defineStore('chat', () => {
   const messageRecord = ref<Message[]>([]);
   const unReadCount = ref<Record<string, { count: number }>>({});
   const previewMessage = ref<PreviewMessage>({});
-  const getMessageRecord = async ({ senderId, receiverId, page, pageSize }: GetMessageRecord) => {
-    const res = await getMessageRecordApi({
-      senderId,
-      receiverId,
-      page,
-      pageSize
-    });
 
-    if (res.data?.data) {
-      res.data.data = res.data.data.map((item, index) => ({
-        ...item,
-        idx: `${page}` + `-${index}`
-      }));
-      messageRecord.value = res.data?.data;
-    }
+  // const getMessageRecord = async ({ senderId, receiverId, page, pageSize }: GetMessageRecord) => {
+  //   const res = await getMessageRecordApi({
+  //     senderId,
+  //     receiverId,
+  //     page,
+  //     pageSize
+  //   });
 
-    return res;
-  };
+  //   if (res.data?.data) {
+  //     res.data.data = res.data.data.map((item, index) => ({
+  //       ...item,
+  //       idx: `${page}` + `-${index}`
+  //     }));
+  //     messageRecord.value = res.data?.data;
+  //   }
 
-  const updateMessageRecord = (message: Message[]) => {
-    messageRecord.value.push(...message);
-  };
+  //   return res;
+  // };
+
+  // const updateMessageRecord = (message: Message[]) => {
+  //   messageRecord.value.push(...message);
+  // };
 
   const sendMessage = (message: Message[]) => {
     webSocketStore.handleSend<Message[]>({
@@ -59,8 +60,8 @@ export const useChat = defineStore('chat', () => {
     unReadCount,
     previewMessage,
     // messageRecordTotal,
-    getMessageRecord,
-    updateMessageRecord,
+    // getMessageRecord,
+    // updateMessageRecord,
     sendMessage,
     getUnReadCountHandler,
     getAllFriendsPreviewMessage

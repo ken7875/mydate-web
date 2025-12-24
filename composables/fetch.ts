@@ -68,7 +68,6 @@ const myFetch = ({
       if (response.headers.get('content-disposition') && response.status === 200) return response;
 
       loadingToggle(loadingTool, 'close', needLoading);
-
       // // 成功返回
       return response._data;
     },
@@ -91,7 +90,7 @@ const myFetch = ({
 
 // 自动导出
 export const useHttp = {
-  get: <T, HasTotal extends boolean = false>({
+  get: <T, HasPage extends boolean = false>({
     url,
     params,
     isMock,
@@ -105,11 +104,12 @@ export const useHttp = {
     responseType?: 'blob' | 'json' | 'stream';
     gateway?: Gateway;
     needLoading?: boolean;
-  }) =>
-    myFetch({ isMock, responseType, gateway, needLoading })<BaseField<T, HasTotal>>(url, {
+  }) => {
+    return myFetch({ isMock, responseType, gateway, needLoading })<BaseField<T, HasPage>>(url, {
       method: 'get',
       params: params as URLSearchParams | undefined
-    }),
+    });
+  },
 
   post: <T>({
     url,

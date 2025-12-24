@@ -1,10 +1,10 @@
 <template>
   <ul ref="virtualWrap" class="h-full overflow-scroll">
-    <li ref="listTop"></li>
+    <li ref="listTop" v-if="loadTop"></li>
     <li v-for="(item, index) in list" :key="item.idx" :data-test="item.idx">
       <slot :item="item" :key="item.idx" :index="index"></slot>
     </li>
-    <li ref="listBottom"></li>
+    <li ref="listBottom" v-if="loadDown"></li>
   </ul>
 </template>
 
@@ -19,11 +19,17 @@ const props = withDefaults(
     total: number;
     visible?: boolean;
     maxPageCount?: number;
+    singleSide?: boolean;
+    loadTop?: boolean;
+    loadDown?: boolean;
   }>(),
   {
     perLoadNum: 20,
     visible: true,
-    maxPageCount: 4
+    maxPageCount: 4,
+    loadTop: true,
+    loadDown: true,
+    singleSide: false
   }
 );
 
@@ -56,13 +62,18 @@ const isExceedLimitData = computed(() => currentPage.value - startPage.value >= 
 const totalPage = computed(() => Math.ceil(props.total / props.perLoadNum));
 
 const loadNewPage = () => {
+  // 若
+  const target = props.singleSide ? (props.loadTop ? listTop.value : listBottom.value) : listBottom.value;
   const { stop } = useIntersectionObserver(
-    listBottom.value,
+    target,
     ([{ isIntersecting }]) => {
       if (isIntersecting && currentPage.value < totalPage.value) {
         currentPage.value++;
         emit('loadNewData', { page: currentPage.value, pageSize: props.perLoadNum });
-        if (isExceedLimitData.value) {
+        if (props.singleSide && props.loadTop) {
+          maintainScrollAfterPrepend();
+        }
+        if (isExceedLimitData.value && !props.singleSide) {
           sliceTopPage();
         }
       }
@@ -107,10 +118,13 @@ const initVirtualScrollHandler = async () => {
   if (props.total <= 0) return;
   await nextTick();
 
-  // 向下滾加載新頁面
+  // 加載新頁面
   loadNewPage();
-  // 向上滾加載之前刪除的頁面
-  loadPrevPage();
+
+  // 加載之前刪除的頁面
+  if (props.singleSide) {
+    loadPrevPage();
+  }
 };
 
 const sliceTopPage = () => {
@@ -148,5 +162,9 @@ onMounted(() => {
 onUnmounted(() => {
   stopNewPageVirtualListHandler();
   stopPrevPageVirtualListHandler();
+});
+
+defineExpose({
+  virtualWrap
 });
 </script>

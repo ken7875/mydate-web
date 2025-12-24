@@ -3,7 +3,6 @@ import qs from 'qs';
 
 export const getMessageRecordApi = (message: GetMessageRecord) => {
   const queryString = qs.stringify(message);
-
   return useHttp.get<{
     data: Message[];
   }>({

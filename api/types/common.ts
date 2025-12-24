@@ -1,7 +1,9 @@
-export interface BaseField<T, HasTotal extends boolean = false> {
+export interface BaseField<T, HasPage extends boolean = false> {
   code: number;
   data?: T;
-  total: HasTotal extends true ? number : undefined;
+  total: HasPage extends true ? number : undefined;
+  page: HasPage extends true ? number : undefined;
+  pageSize: HasPage extends true ? number : undefined;
   message: string;
   status: 'success' | 'fail';
 }

@@ -42,14 +42,12 @@
 <script setup lang="ts">
 import { useAuth } from '@/store/auth';
 import { useNotification } from '@/store/notificationWebSocket';
-import { useChat } from '@/store/chat';
 import { useFriends } from '@/store/friends';
 import { useStream } from '~/store/stream';
 import { getUserInfo } from '@/api/modules/auth';
 
 const authStore = useAuth();
 const notificationStore = useNotification();
-const chatStore = useChat();
 const friendStore = useFriends();
 const streamStore = useStream();
 
@@ -80,10 +78,10 @@ watch(
           type: 'global',
           fnAry: [notificationStore.websocketGlobalMessage]
         });
-        notificationStore.subscribe({
-          type: 'chatRoom',
-          fnAry: [chatStore.updateMessageRecord]
-        });
+        // notificationStore.subscribe({
+        //   type: 'chatRoom',
+        //   fnAry: [chatStore.updateMessageRecord]
+        // });
         notificationStore.subscribe({
           type: 'inviteFriend',
           fnAry: [friendStore.getNewFriendInvite]

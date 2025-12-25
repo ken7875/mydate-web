@@ -47,8 +47,10 @@ export const useAuth = defineStore(
     //     console.error('pinia getAvatars', error);
     //   }
     // };
+    const queryClient = useQueryClient();
     const logout = () => {
       setToken('');
+      queryClient.clear();
     };
 
     return {

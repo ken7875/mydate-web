@@ -14,42 +14,6 @@
     </nav>
     <template v-if="totalFriends > 0">
       <div class="h-[calc(100%-60px-12px)]">
-        <!-- <div v-for="(friend, index) in newMessageAry" :key="index">
-          <div
-            :class="['flex w-full h-[5.5rem] cursor-pointer p-[5px] border-b-1 border-gray-300']"
-            @click="checkChatRoom(friend)"
-          >
-            <div class="w-[65px] h-[65px] rounded-[50%] overflow-hidden">
-              <client-only>
-                <img
-                  crossOrigin="anonymous"
-                  :src="publicPath + friend.avatars?.[0]"
-                  alt="friends avatar"
-                  class="block w-full h-full"
-                  @error="getDefaultImg"
-                />
-              </client-only>
-            </div>
-            <div class="w-[calc(100%-65px)] px-[5px]" @contextmenu.prevent="openUserOperateMenu">
-              <div class="flex justify-between items-center w-ful mb-[3px]">
-                <p class="font-bold leading-[1.5]">{{ friend.userName }}</p>
-                <p class="text-sm leading-[1.5]">下午 2:56</p>
-              </div>
-              <div class="flex justify-between items-center w-full">
-                <div class="w-[80%]">
-                  <p class="break-all" v-textSlice:[20]="previewMessagesObj?.[friend.uuid]?.message || ''"></p>
-                </div>
-                <div class="w-[20%] flex justify-center items-center" v-if="unReadCountData?.[friend.uuid]?.count">
-                  <div
-                    class="bg-primary leading-1 rounded-[50%] flex justify-center items-center min-w-[30px] h-[30px] px-[3px]"
-                  >
-                    <span class="font-[600] text-[14px]">{{ unReadCountData?.[friend.uuid]?.count || 0 }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div> -->
         <VirtualList
           v-model:list="showingFriendList"
           :perLoadNum="10"
@@ -169,11 +133,7 @@ const showPrevFriendsData = async ({ page, pageSize }: { page: number; pageSize:
 
 // 置頂新訊息
 const isFirstPageVisible = computed(() => showingFriendList.value[0].page === 1);
-// const newMessageAry = ref<Friends[]>([]);
 const addNewMessage = ({ user }: { user: Friends }) => {
-  // newMessageAry.value.unshift({
-  //   ...user
-  // });
   const userIndex = showingFriendList.value[0].index - 1;
   showingFriendList.value.unshift({
     ...user,
@@ -182,12 +142,6 @@ const addNewMessage = ({ user }: { user: Friends }) => {
     idx: `1-${userIndex}`
   });
 };
-
-// watch(isFirstPageVisible, (val) => {
-//   if (!val) {
-//     clearNewMessage();
-//   }
-// });
 
 const updateFriendsList = ({ user }: { user: Friends; message: Message }) => {
   const friendIndex = showingFriendList.value.findIndex((friend) => friend.uuid === user.uuid);

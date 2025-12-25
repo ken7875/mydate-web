@@ -75,6 +75,7 @@ import moment from 'moment';
 import { markAsReadApi } from '@/api/modules/chat';
 import { useNotification } from '@/store/notificationWebSocket';
 import VirtualList from '@/components/virtualList/index.vue';
+import type { Friends } from '~/api/types/friend';
 
 const routes = useRoute();
 const focusFriend = computed(() => ({
@@ -151,11 +152,11 @@ const toggleNewMessageTipsHandler = () => {
 // };
 const isSelf = (record: Message) => record.senderId === userInfoRes.value?.data?.uuid;
 
-const updateMessageRecord = (body: Message[]) => {
+const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
   updateQuery({
-    newMessage: body[0],
-    senderId: body[0].senderId,
-    receiverId: body[0].receiverId
+    newMessage: body.message[0],
+    senderId: body.message[0].senderId,
+    receiverId: body.message[0].receiverId
   });
 };
 const waitToSendMessage = ref('');
@@ -172,7 +173,9 @@ const sendMessageHander = () => {
 
   if (userInfoRes.value?.data) {
     // 樂觀更新
-    updateMessageRecord([newMessage]);
+    updateMessageRecord({
+      message: [newMessage]
+    });
     scrollToBottom();
   }
 

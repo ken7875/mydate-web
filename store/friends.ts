@@ -3,10 +3,11 @@ import { getFriends, getRequestUsers } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
 import { useMessageStore } from './message';
 import type { Pagination } from '~/api/types/common';
+import type { ShowingFriendList } from '@/pages/friends/types';
 
 export const useFriends = defineStore('friends', () => {
   const messageStore = useMessageStore();
-  const friends = ref<Friends[]>([]);
+  const friends = ref<ShowingFriendList>([]);
   const requestUsers = ref<Friends[]>([]);
   const searchingFriend = ref('');
   const totalFriends = ref(0);
@@ -17,10 +18,11 @@ export const useFriends = defineStore('friends', () => {
 
     const res = await getFriends({ page, pageSize });
     totalFriends.value = res.total;
-    friends.value = res.data?.data || [];
-    friends.value = friends.value.map((item, index) => ({
+    friends.value = (res.data?.data || []).map((item, index) => ({
       ...item,
-      idx: `${page}` + `-${index}`
+      idx: `${page}` + `-${index}`,
+      page,
+      index
     }));
 
     return res;

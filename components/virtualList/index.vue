@@ -1,10 +1,10 @@
 <template>
   <ul ref="virtualWrap" class="h-full overflow-scroll">
-    <li ref="listTop" v-if="loadTop"></li>
+    <li ref="listTop" v-if="loadTop" data-test="listTop"></li>
     <li v-for="(item, index) in list" :key="item.idx" :data-test="item.idx">
       <slot :item="item" :key="item.idx" :index="index"></slot>
     </li>
-    <li ref="listBottom" v-if="loadDown"></li>
+    <li ref="listBottom" v-if="loadDown" data-test="listDown"></li>
   </ul>
 </template>
 
@@ -122,7 +122,7 @@ const initVirtualScrollHandler = async () => {
   loadNewPage();
 
   // 加載之前刪除的頁面
-  if (props.singleSide) {
+  if (!props.singleSide) {
     loadPrevPage();
   }
 };

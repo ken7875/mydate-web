@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { useNotification } from '@/store/notificationWebSocket';
-import type { Message, GetMessageRecord } from '~/api/types/chat';
-import { getMessageRecordApi, getUnreadCount, getPreviewMessageApi } from '@/api/modules/chat';
+import type { Message } from '~/api/types/chat';
+import { getUnreadCount, getPreviewMessageApi } from '@/api/modules/chat';
 import type { PreviewMessage } from '@/api/types/chat';
 
 export const useChat = defineStore('chat', () => {

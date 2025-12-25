@@ -14,6 +14,42 @@
     </nav>
     <template v-if="totalFriends > 0">
       <div class="h-[calc(100%-60px-12px)]">
+        <!-- <div v-for="(friend, index) in newMessageAry" :key="index">
+          <div
+            :class="['flex w-full h-[5.5rem] cursor-pointer p-[5px] border-b-1 border-gray-300']"
+            @click="checkChatRoom(friend)"
+          >
+            <div class="w-[65px] h-[65px] rounded-[50%] overflow-hidden">
+              <client-only>
+                <img
+                  crossOrigin="anonymous"
+                  :src="publicPath + friend.avatars?.[0]"
+                  alt="friends avatar"
+                  class="block w-full h-full"
+                  @error="getDefaultImg"
+                />
+              </client-only>
+            </div>
+            <div class="w-[calc(100%-65px)] px-[5px]" @contextmenu.prevent="openUserOperateMenu">
+              <div class="flex justify-between items-center w-ful mb-[3px]">
+                <p class="font-bold leading-[1.5]">{{ friend.userName }}</p>
+                <p class="text-sm leading-[1.5]">下午 2:56</p>
+              </div>
+              <div class="flex justify-between items-center w-full">
+                <div class="w-[80%]">
+                  <p class="break-all" v-textSlice:[20]="previewMessagesObj?.[friend.uuid]?.message || ''"></p>
+                </div>
+                <div class="w-[20%] flex justify-center items-center" v-if="unReadCountData?.[friend.uuid]?.count">
+                  <div
+                    class="bg-primary leading-1 rounded-[50%] flex justify-center items-center min-w-[30px] h-[30px] px-[3px]"
+                  >
+                    <span class="font-[600] text-[14px]">{{ unReadCountData?.[friend.uuid]?.count || 0 }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div> -->
         <VirtualList
           v-model:list="showingFriendList"
           :perLoadNum="10"
@@ -40,7 +76,7 @@
               </div>
               <div class="w-[calc(100%-65px)] px-[5px]" @contextmenu.prevent="openUserOperateMenu">
                 <div class="flex justify-between items-center w-ful mb-[3px]">
-                  {{ item.idx }}
+                  <span v-if="isDev">{{ item.idx }}</span>
                   <p class="font-bold leading-[1.5]">{{ item.userName }}</p>
                   <p class="text-sm leading-[1.5]">下午 2:56</p>
                 </div>
@@ -79,11 +115,13 @@ import { storeToRefs } from 'pinia';
 import type { Friends } from '@/api/types/friend';
 import { useNotification } from '@/store/notificationWebSocket';
 import type { Message } from '~/api/types/chat';
+import type { User } from '~/api/types/user';
+import type { ShowingFriendList } from './types';
 
 defineOptions({
   name: 'friends'
 });
-
+const isDev = import.meta.dev;
 const router = useRouter();
 const friendsStore = useFriends();
 const { friends, searchingFriend, totalFriends } = storeToRefs(friendsStore);
@@ -92,42 +130,32 @@ const chatStore = useChat();
 const { getAllFriendsHandler } = friendsStore;
 
 const websocketStore = useNotification();
-const getUnReadCountHandlerClone = (params: Message[]) => {
-  chatStore.getUnReadCountHandler(params.map((item) => item.senderId));
+const getUnReadCountHandlerClone = (params: { user: User; message: Message[] }) => {
+  chatStore.getUnReadCountHandler(params.message.map((item) => item.senderId));
 };
 
 // 好友大頭照處理
 const publicPath = computed(() => useRuntimeConfig().public.publicPath);
 const getDefaultImg = (event: Event) => ((event.target as HTMLImageElement).src = '/images/testUser1.jpg'); // 设置为默认图片
 
-await getAllFriendsHandler({
-  page: 1,
-  pageSize: 10
-});
+const {} = await useMyAsyncData(
+  'friends',
+  async () =>
+    await getAllFriendsHandler({
+      page: 1,
+      pageSize: 10
+    })
+);
 
-// const { data: friendsData } = await useMyAsyncData('getAllFriendsHandler', async () => {
-//   try {
-//     const res = await getAllFriendsHandler({
-//       page: 1,
-//       pageSize: 10
-//     });
-
-//     return res;
-//   } catch (error) {
-//     console.log(error, 'friends error');
-//     return error;
-//   }
-// });
-
-// const showingFriendList = ref(friendsData.value?.data?.data || []);
-const showingFriendList = ref<Friends[]>([...friends.value]);
+const currentPage = ref(1);
+const showingFriendList = ref<ShowingFriendList>([...friends.value]);
 const showNewFriendsData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
   await getAllFriendsHandler({
     page,
     pageSize
   });
-
   showingFriendList.value.push(...friends.value);
+  currentPage.value = page;
 };
 
 const showPrevFriendsData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
@@ -135,14 +163,43 @@ const showPrevFriendsData = async ({ page, pageSize }: { page: number; pageSize:
     page,
     pageSize
   });
-
   showingFriendList.value.unshift(...friends.value);
+  currentPage.value = page;
 };
 
-// await getRequestUsersHandler({
-//   page: 1,
-//   pageSize: 25
+// 置頂新訊息
+const isFirstPageVisible = computed(() => showingFriendList.value[0].page === 1);
+// const newMessageAry = ref<Friends[]>([]);
+const addNewMessage = ({ user }: { user: Friends }) => {
+  // newMessageAry.value.unshift({
+  //   ...user
+  // });
+  const userIndex = showingFriendList.value[0].index - 1;
+  showingFriendList.value.unshift({
+    ...user,
+    index: userIndex,
+    page: 1,
+    idx: `1-${userIndex}`
+  });
+};
+
+// watch(isFirstPageVisible, (val) => {
+//   if (!val) {
+//     clearNewMessage();
+//   }
 // });
+
+const updateFriendsList = ({ user }: { user: Friends; message: Message }) => {
+  const friendIndex = showingFriendList.value.findIndex((friend) => friend.uuid === user.uuid);
+  const isFirstUser = isFirstPageVisible.value && friendIndex === 0;
+
+  if (isFirstUser) return;
+
+  showingFriendList.value.splice(friendIndex, 1);
+  if (isFirstPageVisible.value) {
+    addNewMessage({ user });
+  }
+};
 
 const { data: previewMessagesObj } = await useMyAsyncData('getAllFriendsPreviewMessage', () =>
   chatStore.getAllFriendsPreviewMessage()
@@ -152,9 +209,6 @@ const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', 
   const friendsId = friends.value.map((friend) => friend.uuid);
   return chatStore.getUnReadCountHandler(friendsId);
 });
-// onNuxtReady(() => {
-//   init();
-// });
 
 watch(
   () => chatStore.previewMessage,
@@ -200,15 +254,16 @@ const openUserOperateMenu = () => {
   console.log('開啟操作好友選單');
 };
 
+const chatRoomSubscribers = [updateFriendsList, getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage];
 websocketStore.subscribe({
   type: 'chatRoom',
-  fnAry: [getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage]
+  fnAry: chatRoomSubscribers
 });
 
 onActivated(() => {
   websocketStore.subscribe({
     type: 'chatRoom',
-    fnAry: [getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage]
+    fnAry: chatRoomSubscribers
   });
   chatStore.getUnReadCountHandler(friends.value.map((friend) => friend.uuid));
   chatStore.getAllFriendsPreviewMessage();
@@ -217,14 +272,14 @@ onActivated(() => {
 onDeactivated(() => {
   websocketStore.unSubscribe({
     type: 'chatRoom',
-    fnAry: [getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage]
+    fnAry: chatRoomSubscribers
   });
 });
 
 onBeforeUnmount(() => {
   websocketStore.unSubscribe({
     type: 'chatRoom',
-    fnAry: [getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage]
+    fnAry: chatRoomSubscribers
   });
 });
 </script>

@@ -31,10 +31,24 @@
           </div>
         </template>
       </Card>
-      <div class="absolute top-[85%] flex gap-[10px] justify-center w-full h-[50px]">
-        <div @click="likeDislikeAnimation('dislike')">X</div>
-        <div class="translate-y-[-10px]">super Like</div>
-        <div @click="likeDislikeAnimation('like')">V</div>
+      <div class="absolute top-[85%] flex gap-[50px] justify-center w-full h-[50px]">
+        <div
+          @click="likeDislikeAnimation('dislike')"
+          class="bg-gray-400 w-[60px] h-[60px] rounded-[50%] flex justify-center items-center"
+        >
+          <ClientOnly>
+            <font-awesome-icon :icon="['fas', 'heart-crack']" class="text-[40px] text-white" />
+          </ClientOnly>
+        </div>
+        <!-- <div class="translate-y-[-10px]">super Like</div> -->
+        <div
+          @click="likeDislikeAnimation('like')"
+          class="bg-red-500 w-[60px] h-[60px] rounded-[50%] flex justify-center items-center"
+        >
+          <ClientOnly>
+            <font-awesome-icon :icon="['fas', 'heart']" class="text-[30px] text-white" />
+          </ClientOnly>
+        </div>
       </div>
       <ClientOnly>
         <Transition name="heart">

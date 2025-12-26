@@ -261,7 +261,6 @@ const unWatch = watch(
   messageRecordQueryData,
   (val) => {
     nextTick(() => {
-      console.log(val, 'val');
       if (val.length > 0) {
         scrollToBottom();
         unWatch();

@@ -54,8 +54,6 @@ export default () => {
     receiverId: string;
   }) => {
     queryClient.setQueryData(['messageRecord', { id: [senderId, receiverId].sort().join('_') }], (oldData: any) => {
-      console.log(oldData, 'oldData');
-      // console.log(oldData, { senderId, receiverId }, 'oldData');
       // 如果目前沒資料，直接回傳
       if (!oldData) return oldData;
 
@@ -68,6 +66,7 @@ export default () => {
             if (index === array.length - 1) {
               return {
                 ...page,
+                total: page.total + 1,
                 // 假設你的 API 資料結構中，訊息存在 data.data 陣列裡
                 data: {
                   ...page.data,
@@ -80,6 +79,7 @@ export default () => {
         )
       };
     });
+    // queryClient.setQueryData();
   };
 
   // const queryClient = useQueryClient();

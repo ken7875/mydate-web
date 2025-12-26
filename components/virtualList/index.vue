@@ -148,17 +148,6 @@ onMounted(() => {
   initVirtualScrollHandler();
 });
 
-// watch(
-//   () => props.visible,
-//   (val) => {
-//     if (!val) {
-//       return;
-//     }
-
-//     initialize();
-//   }
-// );
-
 onUnmounted(() => {
   stopNewPageVirtualListHandler();
   stopPrevPageVirtualListHandler();

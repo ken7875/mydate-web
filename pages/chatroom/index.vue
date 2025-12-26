@@ -242,10 +242,18 @@ const showNewRecordData = () => {
   fetchPreviousPage();
 };
 
+const subscribeArys = [updateMessageRecord, toggleNewMessageTipsHandler];
 onMounted(() => {
   notificationStore.subscribe({
     type: 'chatRoom',
-    fnAry: [updateMessageRecord, toggleNewMessageTipsHandler]
+    fnAry: subscribeArys
+  });
+});
+
+onBeforeUnmount(() => {
+  notificationStore.unSubscribe({
+    type: 'chatRoom',
+    fnAry: subscribeArys
   });
 });
 
@@ -253,6 +261,7 @@ const unWatch = watch(
   messageRecordQueryData,
   (val) => {
     nextTick(() => {
+      console.log(val, 'val');
       if (val.length > 0) {
         scrollToBottom();
         unWatch();

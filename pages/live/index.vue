@@ -34,4 +34,11 @@ onMounted(() => {
     fnAry: [streamStore.resetRoomStatus]
   });
 });
+
+onUnmounted(() => {
+  streamStore.unSubscribe({
+    type: 'streamRoomStatus',
+    fnAry: [streamStore.resetRoomStatus]
+  });
+});
 </script>

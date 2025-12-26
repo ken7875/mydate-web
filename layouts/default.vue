@@ -101,6 +101,27 @@ watch(
 
         notificationStore.init(val);
       }
+    } else {
+      notificationStore.unSubscribe({
+        type: 'global',
+        fnAry: [notificationStore.websocketGlobalMessage]
+      });
+      notificationStore.unSubscribe({
+        type: 'inviteFriend',
+        fnAry: [friendStore.getNewFriendInvite]
+      });
+      notificationStore.unSubscribe({
+        type: 'setFriendStatus',
+        fnAry: [friendStore.getAllFriendsHandler]
+      });
+      notificationStore.unSubscribe({
+        type: 'addRoom',
+        fnAry: [streamStore.addRoom]
+      });
+      notificationStore.unSubscribe({
+        type: 'deleteRoom',
+        fnAry: [streamStore.deleteRoom]
+      });
     }
   },
   {

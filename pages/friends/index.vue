@@ -214,21 +214,21 @@ websocketStore.subscribe({
   fnAry: chatRoomSubscribers
 });
 
-onActivated(() => {
-  websocketStore.subscribe({
-    type: 'chatRoom',
-    fnAry: chatRoomSubscribers
-  });
-  chatStore.getUnReadCountHandler(friends.value.map((friend) => friend.uuid));
-  chatStore.getAllFriendsPreviewMessage();
-});
+// onActivated(() => {
+//   websocketStore.subscribe({
+//     type: 'chatRoom',
+//     fnAry: chatRoomSubscribers
+//   });
+//   chatStore.getUnReadCountHandler(friends.value.map((friend) => friend.uuid));
+//   chatStore.getAllFriendsPreviewMessage();
+// });
 
-onDeactivated(() => {
-  websocketStore.unSubscribe({
-    type: 'chatRoom',
-    fnAry: chatRoomSubscribers
-  });
-});
+// onDeactivated(() => {
+//   websocketStore.unSubscribe({
+//     type: 'chatRoom',
+//     fnAry: chatRoomSubscribers
+//   });
+// });
 
 onBeforeUnmount(() => {
   websocketStore.unSubscribe({

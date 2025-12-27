@@ -22,10 +22,10 @@
       "prettier/prettier": [
         "error",
         {
-          "printWidth": 120, // 看公司給的螢幕多大
-          "tabWidth": 2, // 建議tab都是2個空格寬
-          "singleQuote": true, // 古早時都用雙引號，但現在習慣單引號
-          "semi": true, // 看個人或團隊習慣，古早時JS一定要結尾分號
+          "printWidth": 120,
+          "tabWidth": 2,
+          "singleQuote": true,
+          "semi": true,
           "trailingComma": "none" // 結尾逗號
         }
       ],

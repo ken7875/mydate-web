@@ -1,10 +1,8 @@
 <template>
   <div class="w-full h-full overflow-scroll">
     <nav class="px-[12px] py-[8px] mb-[12px] h-[60px] shadow-[0_4px_6px_-1px_rgba(209,213,219,1)]">
-      <!-- <client-only>
-          <font-awesome-icon :icon="['fas', 'bars']" class="text-[1.2rem] cursor-pointer" />
-        </client-only> -->
-      <BaseInput v-model="friendsStore.searchingFriend" placeholder="請輸入用戶名稱">
+      <!-- TODO 完成搜尋單一好友功能 -->
+      <BaseInput v-model="searchingString" placeholder="請輸入用戶名稱" @input="searchFriendHandler">
         <template #suffix>
           <!-- <client-only>
             <font-awesome-icon :icon="['fas', 'magnifying-glass']" />
@@ -62,7 +60,7 @@
         </VirtualList>
       </div>
       <div v-show="showingFriendList.length === 0" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-        <p class="text-center">"{{ searchingFriend }}"</p>
+        <p class="text-center">"{{ searchingString }}"</p>
         <p>找不到符合資料</p>
       </div>
     </template>
@@ -88,7 +86,7 @@ defineOptions({
 const isDev = import.meta.dev;
 const router = useRouter();
 const friendsStore = useFriends();
-const { friends, searchingFriend, totalFriends } = storeToRefs(friendsStore);
+const { friends, totalFriends } = storeToRefs(friendsStore);
 
 const chatStore = useChat();
 const { getAllFriendsHandler } = friendsStore;
@@ -102,7 +100,7 @@ const getUnReadCountHandlerClone = (params: { user: User; message: Message[] }) 
 const publicPath = computed(() => useRuntimeConfig().public.publicPath);
 const getDefaultImg = (event: Event) => ((event.target as HTMLImageElement).src = '/images/testUser1.jpg'); // 设置为默认图片
 
-const {} = await useMyAsyncData(
+await useMyAsyncData(
   'friends',
   async () =>
     await getAllFriendsHandler({
@@ -199,7 +197,7 @@ const checkChatRoom = (friend: Friends) => {
   router.push({
     path: 'chatroom',
     query: {
-      ...friend
+      uuid: friend.uuid
     }
   });
 };
@@ -214,21 +212,15 @@ websocketStore.subscribe({
   fnAry: chatRoomSubscribers
 });
 
-// onActivated(() => {
-//   websocketStore.subscribe({
-//     type: 'chatRoom',
-//     fnAry: chatRoomSubscribers
-//   });
-//   chatStore.getUnReadCountHandler(friends.value.map((friend) => friend.uuid));
-//   chatStore.getAllFriendsPreviewMessage();
-// });
-
-// onDeactivated(() => {
-//   websocketStore.unSubscribe({
-//     type: 'chatRoom',
-//     fnAry: chatRoomSubscribers
-//   });
-// });
+const searchingString = ref('');
+const searchFriendHandler = useDebounceFn(async () => {
+  console.log(searchingString.value);
+  await getAllFriendsHandler({
+    page: 1,
+    pageSize: 25,
+    userName: searchingString.value
+  });
+}, 300);
 
 onBeforeUnmount(() => {
   websocketStore.unSubscribe({

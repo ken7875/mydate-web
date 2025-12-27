@@ -1,7 +1,7 @@
 <template>
   <ul ref="virtualWrap" class="h-full overflow-scroll">
     <li ref="listTop" v-if="loadTop" data-test="listTop"></li>
-    <li v-for="(item, index) in list" :key="item.idx" :data-test="item.idx">
+    <li v-for="(item, index) in list" :key="item.idx" :data-test="item.idx" :class="listClass">
       <slot :item="item" :key="item.idx" :index="index"></slot>
     </li>
     <li ref="listBottom" v-if="loadDown" data-test="listDown"></li>
@@ -22,6 +22,7 @@ const props = withDefaults(
     singleSide?: boolean;
     loadTop?: boolean;
     loadDown?: boolean;
+    listClass?: string;
   }>(),
   {
     perLoadNum: 20,
@@ -29,7 +30,8 @@ const props = withDefaults(
     maxPageCount: 4,
     loadTop: true,
     loadDown: true,
-    singleSide: false
+    singleSide: false,
+    listClass: ''
   }
 );
 

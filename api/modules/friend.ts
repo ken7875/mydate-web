@@ -1,8 +1,8 @@
-import type { Friends } from '../types/friend';
+import type { Friends, getFriendsParams } from '../types/friend';
 import type { Pagination } from '@/api/types/common';
 import { FriendStatus } from '@/enums/friend';
 
-export const getFriends = ({ page = 1, pageSize = 25 }: Pagination) =>
+export const getFriends = ({ page = 1, pageSize = 25, userName }: getFriendsParams) =>
   useHttp.get<
     {
       data: Friends[];
@@ -12,7 +12,8 @@ export const getFriends = ({ page = 1, pageSize = 25 }: Pagination) =>
     url: '/friends',
     params: {
       page,
-      pageSize
+      pageSize,
+      userName
     }
   });
 
@@ -27,11 +28,11 @@ export const getRequestUsers = ({ page = 1, pageSize = 25 }: Pagination) =>
     }
   });
 
-export const getFriend = (id: string) =>
+export const getFriend = ({ uuid }: { uuid: string }) =>
   useHttp.get<{
-    data: Friends[];
+    data: Friends;
   }>({
-    url: `/friends/${id}`
+    url: `/friends/${uuid}`
   });
 
 export const inviteFriend = (body: { friendId: string; status: FriendStatus }) =>

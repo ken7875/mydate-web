@@ -12,8 +12,11 @@ const useMyAsyncData = async <T>(key: string, fn: () => Promise<T>, options?: As
     pendingData
       .then((res) => {
         if (res.error.value?.statusCode && res.error.value?.statusCode !== 200) {
-          errorHandler(res.error.value.statusCode);
+          errorHandler((res.error.value.data as any)?.errorCode, res.error.value.statusCode);
         }
+      })
+      .catch((err) => {
+        console.log(err);
       })
       .finally(() => {
         loadingTool.close();

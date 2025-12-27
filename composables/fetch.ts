@@ -75,13 +75,22 @@ const myFetch = ({
     onResponseError({ response, error }) {
       loadingToggle(loadingTool, 'close', needLoading);
       if (!response.ok && import.meta.client) {
-        errorHandler(response.status);
+        errorHandler(response._data.error, response.status);
         // throw Promise.reject(response);
       }
       if (error) {
         console.log('onResponseError: ', error);
       }
-      return Promise.reject(response ?? null);
+      return Promise.reject({
+        statusCode: response._data.code as number,
+        message: response._data.message as string,
+        data: response._data as {
+          code: number;
+          message: string;
+          errorCode: string;
+          status: 'success' | 'fail';
+        }
+      });
     }
   });
 

@@ -1,67 +1,81 @@
 <template>
-  <div class="full-screen-container flex flex-col overflow-scroll scrollbar-none">
-    <div class="relative flex-1 p-[30px] overflow-y-auto" v-show="isSuccess">
-      <!-- 聊天消息將在這裡顯示 -->
-      <template v-if="Number(messageRecordTotal) > 0">
-        <VirtualList
-          v-model:list="messageRecordQueryData"
-          :perLoadNum="pageSize"
-          :total="messageRecordTotal || 0"
-          :singleSide="true"
-          :loadDown="false"
-          ref="chatroomDom"
-          @loadNewData="showNewRecordData"
-        >
-          <!-- @loadNewData="fetchNextPage"
-          @loadPrevData="fetchPreviousPage" -->
-          <template v-slot="{ item, index }">
-            <div
-              class="bg-black opacity-5 text-white rounded-[10px] mx-auto w-fit p-[5px] mb-[3px]"
-              v-show="showDate(messageRecordQueryData[index - 1]?.sendTime, item.sendTime)"
-            >
-              <p class="text-[12px]">
-                {{ moment(item.sendTime).format('MM/DD') }}
-              </p>
-            </div>
-            <div
-              :class="[
-                'max-w-[70%] rounded-lg p-3 shadow relative chatBoxHorn',
-                isSelf(item) ? 'bg-primary text-white ml-auto chatBoxHorn__right' : 'bg-white chatBoxHorn__left'
-              ]"
-            >
-              <p class="text-sm">{{ item.message }}</p>
-              <p :class="[isSelf(item) ? 'text-gray-300' : 'text-gray-500', 'text-xs mt-1 text-right']">
-                {{ moment(item.sendTime).format('HH:mm') }}
-              </p>
-            </div>
-          </template>
-        </VirtualList>
-      </template>
-      <div class="flex justify-center items-end w-full h-full" v-else>
-        <p>快點開始你們的話題吧</p>
+  <div class="relative w-full h-full">
+    <div class="h-[10%] w-full shadow sticky top-0 left-0 flex items-center">
+      <div class="w-[50px] h-[50px] rounded-[50%] overflow-hidden mr-3">
+        <ClientOnly>
+          <img
+            crossOrigin="anonymous"
+            :src="publicPath + friendInfo?.avatars?.[0]"
+            alt="friends avatar"
+            class="block w-full h-full"
+            @error="getDefaultAvatar"
+          />
+        </ClientOnly>
       </div>
+      <p>{{ friendInfo?.userName }}</p>
     </div>
-    <div
-      v-show="isNewMessageTipsShow"
-      class="bg-[rgba(0,0,0,0.5)] text-white px-4 py-2 cursor-pointer"
-      @click="handleClickMessageTip"
-    >
-      {{ messageRecordQueryData.at(-1)?.message }}
-    </div>
-    <div class="p-4 bg-gray-200">
-      <div class="flex">
-        <input
-          type="text"
-          placeholder="輸入消息..."
-          class="flex-1 p-2 rounded-l-md border border-gray-300 focus:outline-none focus:border-blue-500"
-          v-model="waitToSendMessage"
-        />
-        <button
-          class="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 focus:outline-none"
-          @click="sendMessageHander"
-        >
-          發送
-        </button>
+    <div class="flex flex-col overflow-scroll scrollbar-none w-full h-[90%]">
+      <div class="relative flex-1 px-[30px] py-[8px] overflow-y-auto" v-show="isSuccess">
+        <template v-if="Number(messageRecordTotal) > 0">
+          <VirtualList
+            v-model:list="messageRecordQueryData"
+            :perLoadNum="pageSize"
+            :total="messageRecordTotal || 0"
+            :singleSide="true"
+            :loadDown="false"
+            :listClass="'mb-5'"
+            ref="chatroomDom"
+            @loadNewData="showNewRecordData"
+          >
+            <template v-slot="{ item, index }">
+              <div
+                class="bg-black opacity-5 text-white rounded-[10px] mx-auto w-fit p-[5px] mb-[3px]"
+                v-show="showDate(messageRecordQueryData[index - 1]?.sendTime, item.sendTime)"
+              >
+                <p class="text-[12px]">
+                  {{ moment(item.sendTime).format('MM/DD') }}
+                </p>
+              </div>
+              <div
+                :class="[
+                  'max-w-[70%] rounded-lg p-3 shadow relative chatBoxHorn',
+                  isSelf(item) ? 'bg-primary text-white ml-auto chatBoxHorn__right' : 'bg-white chatBoxHorn__left'
+                ]"
+              >
+                <p class="text-sm">{{ item.message }}</p>
+                <p :class="[isSelf(item) ? 'text-gray-300' : 'text-gray-500', 'text-xs mt-1 text-right']">
+                  {{ moment(item.sendTime).format('HH:mm') }}
+                </p>
+              </div>
+            </template>
+          </VirtualList>
+        </template>
+        <div class="flex justify-center items-end w-full h-full" v-else>
+          <p>快點開始你們的話題吧</p>
+        </div>
+      </div>
+      <div
+        v-show="isNewMessageTipsShow"
+        class="bg-[rgba(0,0,0,0.5)] text-white px-4 py-2 cursor-pointer"
+        @click="handleClickMessageTip"
+      >
+        {{ messageRecordQueryData.at(-1)?.message }}
+      </div>
+      <div class="p-4 bg-gray-200">
+        <div class="flex">
+          <input
+            type="text"
+            placeholder="輸入消息..."
+            class="flex-1 p-2 rounded-l-md border border-gray-300 focus:outline-none focus:border-blue-500"
+            v-model="waitToSendMessage"
+          />
+          <button
+            class="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 focus:outline-none"
+            @click="sendMessageHander"
+          >
+            發送
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -69,42 +83,39 @@
 
 <script setup lang="ts">
 import { useChat } from '@/store/chat';
-// import { FriendStatus } from '../../../enums/friend';
+// import { useFriends } from '@/store/friends';
 import type { Message } from '@/api/types/chat';
 import moment from 'moment';
 import { markAsReadApi } from '@/api/modules/chat';
 import { useNotification } from '@/store/notificationWebSocket';
 import VirtualList from '@/components/virtualList/index.vue';
-import type { Friends } from '~/api/types/friend';
+import { getFriend } from '@/api/modules/friend';
+import type { Friends } from '@/api/types/friend';
+import getDefaultAvatar from '@/utils/getDefaultAvatar';
 
+const publicPath = computed(() => useRuntimeConfig().public.publicPath);
 const routes = useRoute();
 const focusFriend = computed(() => ({
-  uuid: routes.query.uuid,
-  status: routes.query.status,
-  userName: routes.query.userName
+  uuid: routes.query.uuid as string
 }));
 const pageSize = 20;
-// const { getFriendById } = friendsStore;
 
 const chatStore = useChat();
+
 const notificationStore = useNotification();
 const { sendMessage } = chatStore;
-// const isFriend = computed(() => foucsFriend.value?.status === FriendStatus.Success);
 
+const { data: friendData } = await useMyAsyncData(
+  'friend',
+  async () => await getFriend({ uuid: focusFriend.value.uuid })
+);
+
+const friendInfo = computed(() => friendData?.value?.data?.data);
 const { userInfoRes } = useUserInfoQuery();
-// const { data: messageRecordRes } = await useMyAsyncData('messageRecord', () =>
-//   getMessageRecord({
-//     senderId: userInfoRes.value?.data?.uuid as string,
-//     receiverId: focusFriend.value.uuid as string,
-//     page: 1,
-//     pageSize: 20
-//   })
-// );
 const chatroomDom = ref<InstanceType<typeof VirtualList> | null>(null);
-
 const isNewMessageTipsShow = ref(false);
 let messageTipsTimeout: ReturnType<typeof setTimeout> | null = null;
-const buttonDistanceCalc = () => {
+const bottomDistanceCalc = () => {
   if (!chatroomDom.value) return 0;
   const { scrollTop, clientHeight, scrollHeight } = chatroomDom.value.virtualWrap!;
   const toButtonDistance = Math.abs(scrollHeight - clientHeight - scrollTop);
@@ -124,10 +135,9 @@ const scrollToBottom = async () => {
 };
 
 const toggleNewMessageTipsHandler = () => {
-  // if (buttonDistanceCalc() === 0) return;
   // 若已經接近底部就直接滑到底
-  console.log(buttonDistanceCalc());
-  if (buttonDistanceCalc() < 100) {
+  console.log(bottomDistanceCalc());
+  if (bottomDistanceCalc() < 100) {
     scrollToBottom();
     return;
   }
@@ -142,14 +152,6 @@ const toggleNewMessageTipsHandler = () => {
   }, 3000);
 };
 
-// const addFriendHandler = async (status: 1 | 2) => {
-//   try {
-//     await setFriendStatus(status, foucsFriend.value.uuid);
-//     await getFriendById(foucsFriend.value.uuid);
-//   } catch (error) {
-//     console.error(error, 'error');
-//   }
-// };
 const isSelf = (record: Message) => record.senderId === userInfoRes.value?.data?.uuid;
 
 const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
@@ -225,15 +227,15 @@ const messageRecordTotal = computed(() => messageRecordRes.value?.pages.at(-1)?.
 const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => {
   return (
     messageRecordRes.value?.pages.flatMap((page, pageIdx) =>
-      page
-        .data!.data.map((item, index) => {
+      (
+        page?.data?.data?.map?.((item, index) => {
           const currentPage = messageRecordRes.value?.pageParams[pageIdx];
           return {
             ...item,
             idx: `${currentPage}` + `-${index}`
           };
-        })
-        .reverse()
+        }) || []
+      ).reverse()
     ) || []
   );
 });

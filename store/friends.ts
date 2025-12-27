@@ -1,22 +1,20 @@
 import { defineStore } from 'pinia';
 import { getFriends, getRequestUsers } from '@/api/modules/friend';
-import type { Friends } from '@/api/types/friend';
+import type { Friends, getFriendsParams } from '@/api/types/friend';
 import { useMessageStore } from './message';
-import type { Pagination } from '~/api/types/common';
 import type { ShowingFriendList } from '@/pages/friends/types';
 
 export const useFriends = defineStore('friends', () => {
   const messageStore = useMessageStore();
   const friends = ref<ShowingFriendList>([]);
   const requestUsers = ref<Friends[]>([]);
-  const searchingFriend = ref('');
   const totalFriends = ref(0);
 
-  const getAllFriendsHandler = async ({ page = 1, pageSize = 15 }: Pagination) => {
+  const getAllFriendsHandler = async ({ page = 1, pageSize = 15, userName }: getFriendsParams) => {
     // 只需判斷是否到最後一頁, 若有新好友加入會被移動到最前面, 所以不需要更新請求
     if (page * pageSize - totalFriends.value >= pageSize && friends.value.length > 0) return;
 
-    const res = await getFriends({ page, pageSize });
+    const res = await getFriends({ page, pageSize, ...(userName?.trim() && { userName: userName.trim() }) });
     totalFriends.value = res.total;
     friends.value = (res.data?.data || []).map((item, index) => ({
       ...item,
@@ -52,17 +50,8 @@ export const useFriends = defineStore('friends', () => {
     });
   };
 
-  // 輸入框篩選, 若輸入框為空值則顯示全部
-  // const showingFriendList = computed(() =>
-  //   friends.value.filter((friend) => {
-  //     const regex = new RegExp(searchingFriend.value, 'i');
-  //     return regex.test(friend.userName);
-  //   })
-  // );
-
   return {
     friends,
-    searchingFriend,
     // showingFriendList,
     requestUsers,
     totalFriends,

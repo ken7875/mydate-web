@@ -87,7 +87,6 @@ import { FriendStatus } from '~/enums/friend';
 // import type { User } from '~/api/types/user';
 // import { useMessage } from '@/store/message';
 const publicPath = computed(() => useRuntimeConfig().public.publicPath);
-
 const settingsStore = useSettings();
 const friendsStore = useFriends();
 

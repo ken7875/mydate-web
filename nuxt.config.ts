@@ -1,9 +1,8 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 // import { visualizer } from 'rollup-plugin-visualizer';
 import { removePagesMatching } from './utils/routes/tool';
-
 // import { viteMockServe } from 'vite-plugin-mock';
-const baseModule = [
+const baseModules = [
   '@nuxtjs/tailwindcss',
   '@pinia/nuxt',
   '@pinia-plugin-persistedstate/nuxt',
@@ -11,6 +10,23 @@ const baseModule = [
   '@hebilicious/vue-query-nuxt',
   '@vueuse/nuxt'
 ];
+const productionConfig = {
+  modules: baseModules.concat(['nuxt-security']),
+  security: {
+    headers: {
+      contentSecurityPolicy: {
+        'img-src': ["'self'", 'data:']
+      },
+      permissionsPolicy: {
+        // 允許自己 ('self') 使用麥克風和攝像頭
+        microphone: ['self'],
+        camera: ['self'],
+        // 如果還有用到地理位置，也可以加上
+        geolocation: ['self']
+      }
+    }
+  }
+};
 export default defineNuxtConfig({
   ...{
     compatibilityDate: '2025-07-30',
@@ -48,7 +64,8 @@ export default defineNuxtConfig({
       global: true,
       dirs: ['@/components']
     },
-    modules: process.env.NODE_ENV === 'production' ? baseModule.concat(['nuxt-security']) : baseModule,
+    // modules: process.env.NODE_ENV === 'production' ? baseModule.concat(['nuxt-security']) : baseModule,
+    modules: baseModules,
     vueQuery: {
       stateKey: 'vue-query-nuxt',
       vueQueryPluginOptions: {}
@@ -107,7 +124,7 @@ export default defineNuxtConfig({
     },
 
     hooks: {
-      'pages:extend'(pages) {
+      'pages:extend'(pages: any) {
         removePagesMatching(/\.ts$|components|\.spec\.ts$/, pages);
       }
     },
@@ -116,21 +133,5 @@ export default defineNuxtConfig({
       client: 'hidden'
     }
   },
-  ...{
-    security: {
-      headers: {
-        contentSecurityPolicy: {
-          'img-src':
-            process.env.NODE_ENV === 'development' ? ["'self'", 'http://localhost:3033', 'data:'] : ["'self'", 'data:']
-        },
-        permissionsPolicy: {
-          // 允許自己 ('self') 使用麥克風和攝像頭
-          microphone: ['self'],
-          camera: ['self'],
-          // 如果還有用到地理位置，也可以加上
-          geolocation: ['self']
-        }
-      }
-    }
-  }
+  ...(process.env.NODE_ENV === 'production' ? productionConfig : {})
 });

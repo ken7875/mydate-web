@@ -99,13 +99,13 @@ export default defineNuxtConfig({
         minify: 'terser',
         terserOptions: {
           compress: {
-            drop_console: false,
+            drop_console: process.env.MODE === 'production',
             drop_debugger: true
           }
         },
         // minify: 'terser',
         // rollupOptions: {},
-        sourcemap: true,
+        sourcemap: process.env.MODE !== 'production',
         rollupOptions: {
           output: {
             /**

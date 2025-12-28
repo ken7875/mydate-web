@@ -27,6 +27,36 @@ NODE 版本: 22.17.0
     yarn build
     ```
 
+## 📸 功能預覽
+<div style="width: 100%; display: flex; flex-wrap: wrap; gap: 10px;">
+  <div style="width: 49%;">
+    <h3>1. 登入介面<h3>
+    <img src="./.github/login.png" width="200" />
+  </div>
+  <div style="width: 49%;">
+    <h3>2. 抽卡介面</h3>
+    <img src="./.github/meet.png" width="200" />
+  </div>
+  <div style="width: 49%;">
+    <h3>3. 好友介面</h3>
+    <img src="./.github/friends.png" width="200" />
+  </div>
+  <div style="width: 49%;">
+    <h3>4. 聊天介面</h3>
+    <img src="./.github/chatroom.png" width="200" />
+  </div>
+  <div style="width: 49%;">
+    <h3>4. 直播介面</h3>
+    <p>開啟直播後需等待約10秒 - 15秒觀看直播間才會開始播放, 期間會顯示直播準播中</p>
+    <img src="./.github/stream.png" width="200" />
+  </div>
+  <div style="width: 49%;">
+    <h3>4. 觀看直播介面</h3>
+    <p>請先開啟直播才有聊天室出現, 聊天室出現後點擊聊天室介面就能觀看直播</p>
+    <img src="./.github/live.png" width="200" />
+  </div>
+</div>
+
 ## 專案結構
 
 這是一個典型的 Vue CLI 專案結構，您可以依此為基礎進行說明：

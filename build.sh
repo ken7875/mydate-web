@@ -38,6 +38,7 @@ if [ "$needPush" -eq 1 ]; then
   echo "Pushing ${IMAGE_NAME}:${TAG} to ${REGISTRY}..."
   docker tag ${IMAGE_NAME}:${TAG} ${REGISTRY}/${IMAGE_NAME}:${TAG}
   docker push ${REGISTRY}/${IMAGE_NAME}:${TAG}
+  docker rmi ${REGISTRY}/${IMAGE_NAME}:${TAG}
 
   if [ $? -ne 0 ]; then
     echo "Docker push failed."

@@ -21,10 +21,6 @@ services:
     # pull_policy: never
     image: kkkzou/my-date-db:latest
     container_name: my-date-mysql-db
-    ports:
-      - 3306
-    # ports:
-    #   - 3307:3306
     networks:
       - my-date
     healthcheck:

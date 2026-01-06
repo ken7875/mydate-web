@@ -32,7 +32,7 @@
                   format="webp"
                   width="65"
                   height="65"
-                  :placeholder="[65, 65, 0]"
+                  :placeholder="[65, 65, 100]"
                   :src="getDefaultAvatar(item.avatars[0], '/images/testUser1.jpg')"
                   alt="avatar"
                   class="w-full h-full object-cover"

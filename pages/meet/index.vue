@@ -8,16 +8,16 @@
         :style="{ zIndex: meetUserList.length - idx }"
       >
         <template #body>
-          <client-only>
-            <div class="h-full w-full absolute top-0 left-0">
-              <img
-                :src="publicPath + item.avatars[0]"
-                alt="avatar"
-                @error="getDefaultImg"
-                class="w-full h-full object-cover"
-              />
-            </div>
-          </client-only>
+          <div class="h-full w-full absolute top-0 left-0">
+            <NuxtImg
+              preload
+              crossorigin="anonymous"
+              format="webp"
+              :src="getDefaultAvatar(item.avatars[0], '/images/testUser1.jpg')"
+              alt="avatar"
+              class="w-full h-full object-cover"
+            />
+          </div>
           <div class="p-[8px] absolute bottom-0 text-white">
             <div v-if="item.status === FriendStatus.Pending" class="px-[8px] py-[3px] mb-[16px] bg-amber-600">
               <p>有人想認識你!</p>
@@ -84,9 +84,9 @@ import { storeToRefs } from 'pinia';
 import { cloneDeep, get } from 'lodash-es';
 import { inviteFriend, setFriendStatus, dislikeUser } from '@/api/modules/friend';
 import { FriendStatus } from '~/enums/friend';
+
 // import type { User } from '~/api/types/user';
 // import { useMessage } from '@/store/message';
-const publicPath = computed(() => useRuntimeConfig().public.publicPath);
 const settingsStore = useSettings();
 const friendsStore = useFriends();
 
@@ -115,8 +115,6 @@ watch(meetForm, () => {
   friendsStore.getRequestUsersHandler();
   getMeetUserListHandler();
 });
-
-const getDefaultImg = (event: Event) => ((event.target as HTMLImageElement).src = '/images/testUser1.jpg'); // 设置为默认图片
 
 gsap.registerPlugin(Draggable);
 
@@ -248,6 +246,7 @@ const dragCardHandler = () => {
 
 let tl: GSAPTimeline | null = null;
 const likeDislikeAnimation = (type: 'like' | 'dislike' | 'superlike') => {
+  showingHeartIcon.value = 'heart';
   const targets = gsap.utils.toArray('.card') as gsap.TweenTarget[];
   tl = gsap.timeline();
   if (type === 'like') {
@@ -256,15 +255,18 @@ const likeDislikeAnimation = (type: 'like' | 'dislike' | 'superlike') => {
       rotation: 30,
       duration: 0.5
     }).then(async () => {
+      showingHeartIcon.value = '';
       await likeRequestHandler();
       targets.shift();
     });
   } else if (type === 'dislike') {
+    showingHeartIcon.value = 'heart-crack';
     tl.to(targets[0], {
       x: -500,
       rotation: -30,
       duration: 0.5
     }).then(async () => {
+      showingHeartIcon.value = '';
       await dislikeRquestHandler();
       targets.shift();
     });

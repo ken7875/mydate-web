@@ -4,12 +4,13 @@
       <nav>
         <NuxtLink to="/userInfo" class="flex items-center">
           <div class="w-[60px] h-[60px] rounded-[50%] overflow-hidden">
-            <img
-              class="w-full h-full mr-5"
-              :src="avatarPreviewUrl"
-              alt="avatars"
-              v-if="userInfoRes?.data?.avatars[0]"
+            <NuxtImg
+              preload
               crossorigin="anonymous"
+              format="webp"
+              :src="getDefaultAvatar(userInfoRes?.data?.avatars?.at(0) || '')"
+              alt="avatar"
+              class="w-full h-full object-cover"
             />
             <img class="w-full h-full" src="/images/default.jpg" alt="" />
           </div>
@@ -60,13 +61,6 @@ onServerPrefetch(async () => {
     queryKey: ['userInfo'],
     queryFn: getUserInfo
   });
-});
-
-const publicPath = computed(() => useRuntimeConfig().public.publicPath);
-const avatarPreviewUrl = computed<string>(() => {
-  return userInfoRes.value?.data && userInfoRes.value.data.avatars.length > 0
-    ? publicPath.value + userInfoRes.value.data.avatars?.at(0)
-    : '/images/default.jpg';
 });
 
 watch(

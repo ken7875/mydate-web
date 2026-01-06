@@ -2,15 +2,14 @@
   <div class="relative w-full h-full">
     <div class="h-[10%] w-full shadow sticky top-0 left-0 flex items-center">
       <div class="w-[50px] h-[50px] rounded-[50%] overflow-hidden mr-3">
-        <ClientOnly>
-          <img
-            crossOrigin="anonymous"
-            :src="publicPath + friendInfo?.avatars?.[0]"
-            alt="friends avatar"
-            class="block w-full h-full"
-            @error="getDefaultAvatar"
-          />
-        </ClientOnly>
+        <NuxtImg
+          preload
+          crossorigin="anonymous"
+          format="webp"
+          :src="getDefaultAvatar(friendInfo?.avatars?.[0])"
+          alt="avatar"
+          class="w-full h-full object-cover"
+        />
       </div>
       <p>{{ friendInfo?.userName }}</p>
     </div>
@@ -91,9 +90,7 @@ import { useNotification } from '@/store/notificationWebSocket';
 import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
-import getDefaultAvatar from '@/utils/getDefaultAvatar';
 
-const publicPath = computed(() => useRuntimeConfig().public.publicPath);
 const routes = useRoute();
 const focusFriend = computed(() => ({
   uuid: routes.query.uuid as string

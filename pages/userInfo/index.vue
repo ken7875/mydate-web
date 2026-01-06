@@ -3,8 +3,7 @@
     <div class="my-5 flex flex-col items-center gap-3">
       <img
         crossorigin="anonymous"
-        :src="avatarPreviewUrl"
-        @error="getDefaultAvatar"
+        :src="getDefaultAvatar(userInfoRes?.data?.avatars?.at(-1))"
         @click="setAvatarsToggle = true"
         class="block w-[150px] h-[150px] border-2 rounded-[50%] object-cover"
       />
@@ -29,7 +28,6 @@
 
 <script setup lang="ts">
 import { useAuth } from '@/store/auth';
-import getDefaultAvatar from '@/utils/getDefaultAvatar';
 
 const FilterModal = defineAsyncComponent(() => import('./filterModal/index.vue'));
 const SetUserModal = defineAsyncComponent(() => import('./setUserModal/index.vue'));
@@ -39,14 +37,7 @@ const router = useRouter();
 const authStore = useAuth();
 
 const { userInfoRes } = useUserInfoQuery();
-const publicPath = computed(() => useRuntimeConfig().public.publicPath);
 // 用來給 img 顯示預覽
-// TODO 暫時抓最後一筆
-const avatarPreviewUrl = computed<string>(() =>
-  userInfoRes.value?.data?.avatars && userInfoRes.value?.data.avatars.length > 0
-    ? publicPath.value + userInfoRes.value?.data?.avatars?.at(-1)
-    : '/images/default.jpg'
-);
 
 const filterModalToggle = ref(false);
 const setUserInfoToggle = ref(false);

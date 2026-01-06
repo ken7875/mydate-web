@@ -26,15 +26,18 @@
               :data-idx="item.idx"
             >
               <div class="w-[65px] h-[65px] rounded-[50%] overflow-hidden">
-                <client-only>
-                  <img
-                    crossOrigin="anonymous"
-                    :src="publicPath + item.avatars?.[0]"
-                    alt="friends avatar"
-                    class="block w-full h-full"
-                    @error="getDefaultImg"
-                  />
-                </client-only>
+                <NuxtImg
+                  preload
+                  crossorigin="anonymous"
+                  format="webp"
+                  width="65"
+                  height="65"
+                  :placeholder="[65, 65, 0]"
+                  :src="getDefaultAvatar(item.avatars[0], '/images/testUser1.jpg')"
+                  alt="avatar"
+                  class="w-full h-full object-cover"
+                />
+                <!-- <img src="/images/testUser1.jpg" class="w-full h-full object-cover" alt="" /> -->
               </div>
               <div class="w-[calc(100%-65px)] px-[5px]" @contextmenu.prevent="openUserOperateMenu">
                 <div class="flex justify-between items-center w-ful mb-[3px]">
@@ -95,10 +98,6 @@ const websocketStore = useNotification();
 const getUnReadCountHandlerClone = (params: { user: User; message: Message[] }) => {
   chatStore.getUnReadCountHandler(params.message.map((item) => item.senderId));
 };
-
-// 好友大頭照處理
-const publicPath = computed(() => useRuntimeConfig().public.publicPath);
-const getDefaultImg = (event: Event) => ((event.target as HTMLImageElement).src = '/images/testUser1.jpg'); // 设置为默认图片
 
 await useMyAsyncData(
   'friends',

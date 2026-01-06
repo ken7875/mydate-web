@@ -5,12 +5,7 @@
         <ClientOnly>
           <input id="avatar" type="file" class="hidden" @change="changeAvatar" />
           <label class="block w-[150px] h-[150px] border-2 rounded-[50%] overflow-hidden" for="avatar">
-            <img
-              crossorigin="anonymous"
-              :src="avatarPreviewUrl"
-              @error="getDefaultAvatar"
-              class="w-full h-full object-cover"
-            />
+            <img crossorigin="anonymous" :src="avatarPreviewUrl" class="w-full h-full object-cover" />
           </label>
         </ClientOnly>
         <BaseButton class="button button__outline-primary w-full mb-3" @click="send">送出</BaseButton>
@@ -22,13 +17,10 @@
 <script setup lang="ts">
 // import { setAvatars } from '@/api/modules/auth';
 import { useMessageStore } from '~/store/message';
-import getDefaultAvatar from '@/utils/getDefaultAvatar';
 
 const messageStore = useMessageStore();
 const { userInfoRes } = useUserInfoQuery();
 const isOpen = defineModel('isOpen', { required: true, default: false });
-
-// const getDefaultImg = (event: Event) => ((event.target as HTMLImageElement).src = '/images/default.jpg'); // 设置为默认图片
 
 // 用來給 img 顯示預覽
 const publicPath = computed(() => useRuntimeConfig().public.publicPath);

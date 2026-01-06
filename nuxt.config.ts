@@ -8,7 +8,8 @@ const baseModules = [
   '@pinia-plugin-persistedstate/nuxt',
   'nuxt-lodash',
   '@hebilicious/vue-query-nuxt',
-  '@vueuse/nuxt'
+  '@vueuse/nuxt',
+  '@nuxt/image'
 ];
 const productionConfig = {
   modules: baseModules.concat(['nuxt-security']),

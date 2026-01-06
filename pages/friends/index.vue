@@ -1,7 +1,6 @@
 <template>
   <div class="w-full h-full overflow-scroll">
     <nav class="px-[12px] py-[8px] mb-[12px] h-[60px] shadow-[0_4px_6px_-1px_rgba(209,213,219,1)]">
-      <!-- TODO 完成搜尋單一好友功能 -->
       <BaseInput v-model="searchingString" placeholder="請輸入用戶名稱" @input="searchFriendHandler">
         <template #suffix>
           <!-- <client-only>

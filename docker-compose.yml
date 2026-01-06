@@ -4,8 +4,8 @@ networks:
 
 services:
   nginx:
-    pull_policy: never
-    image: my-date-nginx:latest
+    # pull_policy: never
+    image: kkkzou/my-date-nginx:latest
     container_name: my-date-nginx
     ports:
       - 8099:80
@@ -18,8 +18,8 @@ services:
         condition: service_healthy
 
   mysql-db:
-    pull_policy: never
-    image: my-date-db:latest
+    # pull_policy: never
+    image: kkkzou/my-date-db:latest
     container_name: my-date-mysql-db
     ports:
       - 3306
@@ -35,8 +35,8 @@ services:
       start_period: 45s # 給予足夠時間啟動
 
   server:
-    pull_policy: never
-    image: my-date-server:latest
+    # pull_policy: never
+    image: kkkzou/my-date-server:latest
     container_name: my-date-server
     environment:
       JWT_SECRET: 52EUdsfEJWO58680kejWEKdeji43e56RWed456ew
@@ -64,7 +64,7 @@ services:
 
   client:
     pull_policy: never
-    image: my-date-client:latest
+    image: kkkzou/my-date-client:latest
     container_name: my-date-client
     env_file:
       - ./.env.prod

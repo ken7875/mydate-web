@@ -63,7 +63,7 @@ services:
         condition: service_healthy # 等待 mysql-db 處於 health 狀態
 
   client:
-    pull_policy: never
+    # pull_policy: never
     image: kkkzou/my-date-client:latest
     container_name: my-date-client
     env_file:

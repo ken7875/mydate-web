@@ -84,9 +84,6 @@ export default defineNuxtConfig({
       compressPublicAssets: true // 壓縮 public assets 物件
     },
     vite: {
-      // esbuild: {
-      //   pure: process.env.NODE_ENV === 'production' ? ['console.log', 'debugger'] : []
-      // },
       plugins: [
         // visualizer({
         //   open: true,
@@ -109,10 +106,6 @@ export default defineNuxtConfig({
         sourcemap: process.env.MODE !== 'production',
         rollupOptions: {
           output: {
-            /**
-             * 2.以函数的形式使用
-             * 将第三方包全部打包在一个chunk中，名称叫 vendor
-             */
             // manualChunks(id) {
             //   if (id.includes('baseButton')) {
             //     console.log(id);

@@ -5,42 +5,46 @@ import { useForceKickOut } from '@/utils/forceLogout';
 
 export default class BaseWebsocket {
   url: string;
-  maxReconnectCount?: number;
+  maxReconnectCount: number;
   reconnectTimeout?: number;
   websocket: WebSocket | null = null;
   subscribtion = useWebsocketSubscribe();
+  unexpectedClose: boolean;
 
   // private
   #authStore = useAuth();
 
   #heartBeatTimeout: number | null = null;
   #waitServerHeartBeatTimeout: number | null = null;
-  #isForceClose = false;
-  #reconnectCount = 0;
+  reconnectCount: number;
+  isReconnecting: boolean;
 
   #options: {
     heartBeatTime: number;
     reconnectInterval: number;
-    reconnectTimes: number;
+    maxReconnectAttempts: number;
   };
   constructor(
     url: string,
-    maxReconnectCount?: number,
+    maxReconnectCount: number,
     reconnectTimeout?: number,
     options?: {
       heartBeatTime: number;
       reconnectInterval: number;
-      reconnectTimes: number;
+      maxReconnectAttempts: number;
     }
   ) {
     this.url = url;
     this.maxReconnectCount = maxReconnectCount || 3;
     this.reconnectTimeout = reconnectTimeout || 5000;
+    this.isReconnecting = false;
     this.#options = options || {
       heartBeatTime: 25000,
       reconnectInterval: 5000,
-      reconnectTimes: 3
+      maxReconnectAttempts: 3
     };
+    this.unexpectedClose = false;
+    this.reconnectCount = 0;
   }
 
   public isConnecting(): boolean {
@@ -53,13 +57,17 @@ export default class BaseWebsocket {
       return;
     }
 
-    this.websocket = new WebSocket(`${this.url}?token=${token}`);
-    this.websocket.binaryType = 'blob';
-    this.#isForceClose = false;
+    try {
+      this.websocket = new WebSocket(`${this.url}?token=${token}`);
+      this.websocket.binaryType = 'blob';
 
-    this.websocket.onopen = this.onopen.bind(this);
-    this.websocket.onclose = this.onclose.bind(this);
-    this.websocket.onmessage = this.onmessage.bind(this);
+      this.websocket.onopen = this.onopen.bind(this);
+      this.websocket.onclose = this.onclose.bind(this);
+      this.websocket.onmessage = this.onmessage.bind(this);
+    } catch (error) {
+      console.log('websocket建立失敗', error);
+      this.reconnect();
+    }
   }
 
   resetHeartBeat() {
@@ -73,25 +81,22 @@ export default class BaseWebsocket {
 
     this.#heartBeatTimeout = setTimeout(() => {
       this.websocket?.send('ping');
-      console.log('ping');
-
-      setTimeout(() => {
-        // this.handleClose();
-        console.log('reconnect', this.websocket?.readyState === WebSocket.CLOSED);
-        if (this.websocket?.readyState === WebSocket.CLOSED) {
-          this.reconnect();
-        }
-      }, 5000) as unknown as number;
     }, this.#options.heartBeatTime) as unknown as number;
   }
 
   reconnect() {
+    if (this.isReconnecting) return;
+    if (this.reconnectCount >= this.maxReconnectCount) {
+      console.log('websocket 自動重連次數已達上限, 請手動重連!!');
+      return;
+    }
+
+    this.isReconnecting = true;
     console.log('websocket reconnecting!!');
     setTimeout(() => {
-      if (this.#reconnectCount < this.maxReconnectCount!) {
-        this.#reconnectCount++;
-        this.init(this.#authStore.token);
-      }
+      this.reconnectCount++;
+      this.init(this.#authStore.token);
+      this.isReconnecting = false;
     }, this.reconnectTimeout);
   }
 
@@ -111,7 +116,6 @@ export default class BaseWebsocket {
   onopen() {
     console.log(`name: ${this.url} - socket on open`);
     console.log('options');
-    this.#options.reconnectTimes = 0;
     this.startHeartBeat();
   }
 
@@ -123,7 +127,7 @@ export default class BaseWebsocket {
     console.log(`name: ${this.url} - websocket close`, event.code);
     console.log(event, 'event');
 
-    // this.reconnect();
+    this.reconnect();
 
     clearTimeout(this.#heartBeatTimeout!);
   }
@@ -175,7 +179,6 @@ export default class BaseWebsocket {
   }
 
   handleClose() {
-    console.log('handle close');
     this.resetHeartBeat();
     if (this.websocket) {
       this.websocket.onopen = null;

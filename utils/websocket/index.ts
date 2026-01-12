@@ -14,10 +14,11 @@ export default class BaseWebsocket {
   // private
   #authStore = useAuth();
 
-  #heartBeatTimeout: number | null = null;
-  #waitServerHeartBeatTimeout: number | null = null;
+  #heartBeatTimer: number | null = null;
+  #waitServerHeartBeatTimer: number | null = null;
   reconnectCount: number;
   isReconnecting: boolean;
+  isHandleClose: boolean;
 
   #options: {
     heartBeatTime: number;
@@ -45,6 +46,7 @@ export default class BaseWebsocket {
     };
     this.unexpectedClose = false;
     this.reconnectCount = 0;
+    this.isHandleClose = true;
   }
 
   public isConnecting(): boolean {
@@ -60,6 +62,9 @@ export default class BaseWebsocket {
     try {
       this.websocket = new WebSocket(`${this.url}?token=${token}`);
       this.websocket.binaryType = 'blob';
+      this.reconnectCount = 0;
+      this.isReconnecting = false;
+      this.isHandleClose = false;
 
       this.websocket.onopen = this.onopen.bind(this);
       this.websocket.onclose = this.onclose.bind(this);
@@ -71,32 +76,36 @@ export default class BaseWebsocket {
   }
 
   resetHeartBeat() {
-    if (this.#heartBeatTimeout) clearTimeout(this.#heartBeatTimeout);
-    if (this.#waitServerHeartBeatTimeout) clearTimeout(this.#waitServerHeartBeatTimeout);
+    if (this.#heartBeatTimer) clearTimeout(this.#heartBeatTimer);
+    if (this.#waitServerHeartBeatTimer) clearTimeout(this.#waitServerHeartBeatTimer);
   }
 
   startHeartBeat() {
     this.resetHeartBeat();
     console.log('startHeartBeat');
 
-    this.#heartBeatTimeout = setTimeout(() => {
+    this.#heartBeatTimer = window.setTimeout(() => {
       this.websocket?.send('ping');
+      this.#waitServerHeartBeatTimer = window.setTimeout(() => {
+        console.warn('伺服器心跳回覆超時，主動斷開');
+        this.websocket?.close(1006, '等待心跳超時'); // 觸發 onclose 進行重連
+      }, 5000);
     }, this.#options.heartBeatTime) as unknown as number;
   }
 
   reconnect() {
-    if (this.isReconnecting) return;
+    if (this.isReconnecting || this.isHandleClose) return;
     if (this.reconnectCount >= this.maxReconnectCount) {
       console.log('websocket 自動重連次數已達上限, 請手動重連!!');
       return;
     }
 
     this.isReconnecting = true;
+    this.reconnectCount++;
     console.log('websocket reconnecting!!');
-    setTimeout(() => {
-      this.reconnectCount++;
+    // window.setTimeout避免型別錯誤
+    window.setTimeout(() => {
       this.init(this.#authStore.token);
-      this.isReconnecting = false;
     }, this.reconnectTimeout);
   }
 
@@ -126,10 +135,13 @@ export default class BaseWebsocket {
   onclose(event: Event) {
     console.log(`name: ${this.url} - websocket close`, event.code);
     console.log(event, 'event');
+    this.websocket = null;
 
-    this.reconnect();
+    if (!this.isHandleClose) {
+      this.reconnect();
+    }
 
-    clearTimeout(this.#heartBeatTimeout!);
+    clearTimeout(this.#heartBeatTimer!);
   }
 
   async onmessage(event: MessageEvent) {
@@ -179,15 +191,8 @@ export default class BaseWebsocket {
   }
 
   handleClose() {
+    this.isHandleClose = true; // 標記為人為關閉
     this.resetHeartBeat();
-    if (this.websocket) {
-      this.websocket.onopen = null;
-      this.websocket.onclose = null;
-      this.websocket.onmessage = null;
-      this.websocket.onerror = null;
-      this.websocket.close();
-      this.websocket = null;
-    }
   }
 
   unAuthHandler = () => {

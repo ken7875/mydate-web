@@ -35,9 +35,9 @@ export default class BaseWebsocket {
   ) {
     this.url = url;
     this.maxReconnectCount = maxReconnectCount || 3;
-    this.reconnectTimeout = reconnectTimeout || 5;
+    this.reconnectTimeout = reconnectTimeout || 5000;
     this.#options = options || {
-      heartBeatTime: 60000,
+      heartBeatTime: 25000,
       reconnectInterval: 5000,
       reconnectTimes: 3
     };
@@ -69,12 +69,15 @@ export default class BaseWebsocket {
 
   startHeartBeat() {
     this.resetHeartBeat();
+    console.log('startHeartBeat');
 
     this.#heartBeatTimeout = setTimeout(() => {
       this.websocket?.send('ping');
+      console.log('ping');
 
-      this.#waitServerHeartBeatTimeout = setTimeout(() => {
-        this.handleClose();
+      setTimeout(() => {
+        // this.handleClose();
+        console.log('reconnect', this.websocket?.readyState === WebSocket.CLOSED);
         if (this.websocket?.readyState === WebSocket.CLOSED) {
           this.reconnect();
         }
@@ -122,7 +125,7 @@ export default class BaseWebsocket {
 
     // this.reconnect();
 
-    clearInterval(this.#heartBeatTimeout!);
+    clearTimeout(this.#heartBeatTimeout!);
   }
 
   async onmessage(event: MessageEvent) {
@@ -174,8 +177,14 @@ export default class BaseWebsocket {
   handleClose() {
     console.log('handle close');
     this.resetHeartBeat();
-    this.websocket?.close(1000, 'Bye');
-    this.websocket = null;
+    if (this.websocket) {
+      this.websocket.onopen = null;
+      this.websocket.onclose = null;
+      this.websocket.onmessage = null;
+      this.websocket.onerror = null;
+      this.websocket.close();
+      this.websocket = null;
+    }
   }
 
   unAuthHandler = () => {

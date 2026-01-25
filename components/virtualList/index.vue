@@ -43,8 +43,8 @@ const emit = defineEmits<{
 }>();
 
 const OFFSET = 1;
-const listBottom = ref<HTMLDivElement>();
-const listTop = ref<HTMLDivElement>();
+const listBottom = useTemplateRef('listBottom');
+const listTop = useTemplateRef('listTop');
 const startPage = ref(1);
 const currentPage = ref(1);
 // const initialized = ref(false);
@@ -88,7 +88,7 @@ const loadNewPage = () => {
   stopNewPageVirtualListHandler = stop;
 };
 
-const virtualWrap = ref<HTMLElement>();
+const virtualWrap = useTemplateRef('virtualWrap');
 async function maintainScrollAfterPrepend() {
   await nextTick();
   if (!virtualWrap.value) return;

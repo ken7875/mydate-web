@@ -106,12 +106,9 @@ export default defineNuxtConfig({
         sourcemap: process.env.MODE !== 'production',
         rollupOptions: {
           output: {
-            // manualChunks(id) {
-            //   if (id.includes('baseButton')) {
-            //     console.log(id);
-            //     return 'baseButton';
-            //   }
-            // }
+            chunkFileNames: '_nuxt/chunks/[name].[hash].js',
+            entryFileNames: '_nuxt/entries/[name].[hash].js',
+            assetFileNames: '_nuxt/assets/[name].[hash].[ext]'
           }
         }
       }

@@ -106,7 +106,25 @@ export default defineNuxtConfig({
         sourcemap: process.env.MODE !== 'production',
         rollupOptions: {
           output: {
-            chunkFileNames: '_nuxt/chunks/[name].[hash].js',
+            chunkFileNames: (chunkInfo) => {
+              const pageRegex = /pages/i;
+              if (pageRegex.test?.(chunkInfo.facadeModuleId || '')) {
+                const pathAry = chunkInfo.facadeModuleId?.split('/') || [];
+                const fileNameIndex = pathAry.findIndex((item) => pageRegex.test(item));
+                const folderName = pathAry.slice(fileNameIndex + 1).reduce((acc, cur) => {
+                  if (/index.vue/.test(cur)) {
+                    return acc;
+                  } else {
+                    return acc + cur.replace(/[\[\]]|\.vue/g, '').replace(cur[0], cur[0].toUpperCase());
+                  }
+                }, '');
+                const chunkName = !folderName || /vue/.test(folderName) ? '[name]' : folderName;
+
+                return `_nuxt/chunks/${chunkName ?? ['[name]']}.[hash].js`;
+              }
+
+              return '_nuxt/chunks/[name].[hash].js';
+            },
             entryFileNames: '_nuxt/entries/[name].[hash].js',
             assetFileNames: '_nuxt/assets/[name].[hash].[ext]'
           }

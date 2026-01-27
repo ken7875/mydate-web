@@ -1,10 +1,11 @@
 <template>
   <div class="relative full-screen-container">
     <div class="absolute top-1/2 left-1/2 -translate-1/2 w-[80%] h-[85%] z-10">
+      <p class="p1">cc</p>
       <Card
         v-for="(item, idx) in showingMeetUserList"
         :key="item.uuid"
-        class="absolute w-full h-[80%] card"
+        class="absolute w-full h-[80%] card translate-x-[50px]"
         :style="{ zIndex: meetUserList.length - idx }"
       >
         <template #body>
@@ -69,6 +70,8 @@
         </Transition>
       </ClientOnly>
     </div>
+    <!-- <button @click="test">test</button> -->
+    <!-- <NuxtLink to="/friends">friends</NuxtLink> -->
   </div>
 </template>
 
@@ -85,6 +88,14 @@ import { cloneDeep, get } from 'lodash-es';
 import { inviteFriend, setFriendStatus, dislikeUser } from '@/api/modules/friend';
 import { FriendStatus } from '~/enums/friend';
 
+const test = () => {
+  showError({ statusCode: 403, message: '禁止進入' });
+};
+// onErrorCaptured((err, instance, info) => {
+//   console.log(err);
+
+//   return false;
+// });
 // import type { User } from '~/api/types/user';
 // import { useMessage } from '@/store/message';
 const settingsStore = useSettings();
@@ -308,5 +319,11 @@ watch(
 .heart-enter-from,
 .heart-leave-to {
   transform: scale(0);
+}
+
+.p1 {
+  display: inline;
+  transform: rotate(60deg);
+  object-fit: contain;
 }
 </style>

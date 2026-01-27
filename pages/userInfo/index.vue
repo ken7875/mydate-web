@@ -29,9 +29,9 @@
 <script setup lang="ts">
 import { useAuth } from '@/store/auth';
 
-const FilterModal = defineAsyncComponent(() => import('./filterModal/index.vue'));
-const SetUserModal = defineAsyncComponent(() => import('./setUserModal/index.vue'));
-const SetAvatarModal = defineAsyncComponent(() => import('./setAvatarModal/index.vue'));
+const FilterModal = defineAsyncComponent(() => import('./components/filterModal/index.vue'));
+const SetUserModal = defineAsyncComponent(() => import('./components/setUserModal/index.vue'));
+const SetAvatarModal = defineAsyncComponent(() => import('./components/setAvatarModal/index.vue'));
 
 const router = useRouter();
 const authStore = useAuth();

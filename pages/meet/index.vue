@@ -1,11 +1,10 @@
 <template>
   <div class="relative full-screen-container">
     <div class="absolute top-1/2 left-1/2 -translate-1/2 w-[80%] h-[85%] z-10">
-      <p class="p1">cc</p>
       <Card
         v-for="(item, idx) in showingMeetUserList"
         :key="item.uuid"
-        class="absolute w-full h-[80%] card translate-x-[50px]"
+        class="absolute w-full h-[80%] card"
         :style="{ zIndex: meetUserList.length - idx }"
       >
         <template #body>
@@ -319,11 +318,5 @@ watch(
 .heart-enter-from,
 .heart-leave-to {
   transform: scale(0);
-}
-
-.p1 {
-  display: inline;
-  transform: rotate(60deg);
-  object-fit: contain;
 }
 </style>

@@ -43,6 +43,12 @@ export default defineNuxtConfig({
       host: '0.0.0.0',
       port: 3000
     },
+    // postcss: {
+    //   plugins: {
+    //     autoprefixer: {},
+    //     cssnano: {} // css壓縮工具
+    //   }
+    // },
 
     runtimeConfig: {
       public: {

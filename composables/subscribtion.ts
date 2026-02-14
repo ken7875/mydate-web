@@ -15,32 +15,33 @@ export const useSubscribtion = () => {
   // <T extends { type: string; data: unknown }>
   const notify = (data: { type: string; data: unknown; code: StatusCode }) => {
     if (!subscriber.has(data.type)) {
-      console.error(`easy-booking-websocket: you do not have subscribe type **${data.type}**!!`);
+      // 改為 warn，避免後端廣播非當前頁面需要的資訊時報錯，造成誤判
+      console.warn(`easy-booking-websocket: no subscribers for type **${data.type}**`);
 
       return;
     }
 
     const deps = subscriber.get(data.type);
     deps?.forEach((fn) => {
-      fn(data.data);
+      try {
+        fn(data.data);
+      } catch (error) {
+        console.error(`Error executing subscriber for type ${data.type}:`, error);
+      }
     });
   };
 
   const unSubscribe = ({ type, fnAry }: { type: string; fnAry: ((...args: unknown[]) => void)[] }) => {
     const deps = subscriber.get(type);
     const res = deps?.filter((fn) => !fnAry.includes(fn)) || [];
-    subscriber.set(type, res);
+
+    // 若該 type 已無訂閱者，則從 Map 中移除以釋放記憶體
+    if (res.length === 0) {
+      subscriber.delete(type);
+    } else {
+      subscriber.set(type, res);
+    }
   };
-
-  // interface CC {
-  //   get value(): string;
-  // }
-
-  // const cc = {
-  //   value: '1'
-  // }
-
-  // let a: CC
 
   return {
     subscriber,

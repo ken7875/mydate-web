@@ -87,9 +87,6 @@ import { cloneDeep, get } from 'lodash-es';
 import { inviteFriend, setFriendStatus, dislikeUser } from '@/api/modules/friend';
 import { FriendStatus } from '~/enums/friend';
 
-const test = () => {
-  showError({ statusCode: 403, message: '禁止進入' });
-};
 // onErrorCaptured((err, instance, info) => {
 //   console.log(err);
 
@@ -106,6 +103,7 @@ const { requestUsers } = storeToRefs(friendsStore);
 const { meetForm } = storeToRefs(settingsStore);
 const meetUserList = ref<MeetUser[]>([]);
 const { data: userRes } = await useMyAsyncData('userList', () => getMeetUserList(meetForm.value));
+
 meetUserList.value = get(userRes.value, 'data.list', []);
 
 await useMyAsyncData('requestUserList', () => friendsStore.getRequestUsersHandler());

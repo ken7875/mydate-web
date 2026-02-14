@@ -19,8 +19,8 @@
           <RangeSlider v-model:start="form.age[0]" v-model:end="form.age[1]" :min="18" :max="50"></RangeSlider>
         </div>
       </div>
-      <div>
-        <button></button>
+      <div class="flex justify-center mt-5">
+        <BaseButton @click="submitHandler">搜尋</BaseButton>
       </div>
     </template>
   </Modal>
@@ -31,8 +31,18 @@ import { Gender } from '@/enums/user';
 import type { MeetingUserQuery } from '@/api/types/user';
 
 const isOpen = defineModel('isOpen', { required: true, default: false });
+
+const emit = defineEmits<{
+  (e: 'confirm', data: MeetingUserQuery): void;
+}>();
+
 const form: MeetingUserQuery = reactive({
   age: [18, 50],
   gender: Gender.Male
 });
+
+const submitHandler = () => {
+  emit('confirm', { ...form });
+  isOpen.value = false;
+};
 </script>

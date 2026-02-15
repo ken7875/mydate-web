@@ -62,8 +62,6 @@ export default class BaseWebsocket {
     try {
       this.websocket = new WebSocket(`${this.url}?token=${token}`);
       this.websocket.binaryType = 'blob';
-      this.reconnectCount = 0;
-      this.isReconnecting = false;
       this.isHandleClose = false;
 
       this.websocket.onopen = this.onopen.bind(this);
@@ -124,7 +122,8 @@ export default class BaseWebsocket {
 
   onopen() {
     console.log(`name: ${this.url} - socket on open`);
-    console.log('options');
+    this.reconnectCount = 0;
+    this.isReconnecting = false;
     this.startHeartBeat();
   }
 

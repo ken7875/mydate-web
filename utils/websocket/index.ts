@@ -5,11 +5,8 @@ import { useForceKickOut } from '@/utils/forceLogout';
 
 export default class BaseWebsocket {
   url: string;
-  maxReconnectCount: number;
-  reconnectTimeout?: number;
   websocket: WebSocket | null = null;
   subscribtion = useWebsocketSubscribe();
-  unexpectedClose: boolean;
 
   // private
   #authStore = useAuth();
@@ -27,24 +24,20 @@ export default class BaseWebsocket {
   };
   constructor(
     url: string,
-    maxReconnectCount: number,
-    reconnectTimeout?: number,
-    options?: {
+    options?: Partial<{
       heartBeatTime: number;
       reconnectInterval: number;
       maxReconnectAttempts: number;
-    }
+    }>
   ) {
     this.url = url;
-    this.maxReconnectCount = maxReconnectCount || 3;
-    this.reconnectTimeout = reconnectTimeout || 5000;
     this.isReconnecting = false;
-    this.#options = options || {
+    this.#options = {
       heartBeatTime: 25000,
       reconnectInterval: 5000,
-      maxReconnectAttempts: 3
+      maxReconnectAttempts: 3,
+      ...options
     };
-    this.unexpectedClose = false;
     this.reconnectCount = 0;
     this.isHandleClose = true;
   }
@@ -53,9 +46,13 @@ export default class BaseWebsocket {
     return this.websocket?.readyState === WebSocket.CONNECTING;
   }
 
+  public isOpen(): boolean {
+    return this.websocket?.readyState === WebSocket.OPEN;
+  }
+
   init(token: string) {
-    if (this.isConnecting()) {
-      console.log('WebSocket is already connected.');
+    if (this.isConnecting() || this.isOpen()) {
+      console.log('WebSocket is already connecting or open.');
       return;
     }
 
@@ -63,9 +60,11 @@ export default class BaseWebsocket {
       this.websocket = new WebSocket(`${this.url}?token=${token}`);
       this.websocket.binaryType = 'blob';
       this.isHandleClose = false;
+      this.isReconnecting = false;
 
       this.websocket.onopen = this.onopen.bind(this);
       this.websocket.onclose = this.onclose.bind(this);
+      this.websocket.onerror = this.onerror.bind(this);
       this.websocket.onmessage = this.onmessage.bind(this);
     } catch (error) {
       console.log('websocket建立失敗', error);
@@ -86,14 +85,14 @@ export default class BaseWebsocket {
       this.websocket?.send('ping');
       this.#waitServerHeartBeatTimer = window.setTimeout(() => {
         console.warn('伺服器心跳回覆超時，主動斷開');
-        this.websocket?.close(1006, '等待心跳超時'); // 觸發 onclose 進行重連
+        this.websocket?.close(4000, '等待心跳超時'); // 觸發 onclose 進行重連
       }, 5000);
     }, this.#options.heartBeatTime) as unknown as number;
   }
 
   reconnect() {
     if (this.isReconnecting || this.isHandleClose) return;
-    if (this.reconnectCount >= this.maxReconnectCount) {
+    if (this.reconnectCount >= this.#options.maxReconnectAttempts) {
       console.log('websocket 自動重連次數已達上限, 請手動重連!!');
       return;
     }
@@ -103,8 +102,9 @@ export default class BaseWebsocket {
     console.log('websocket reconnecting!!');
     // window.setTimeout避免型別錯誤
     window.setTimeout(() => {
+      console.log('is reconnected!!');
       this.init(this.#authStore.token);
-    }, this.reconnectTimeout);
+    }, this.#options.reconnectInterval);
   }
 
   subscribe({ type, fnAry }: { type: string; fnAry: ((...args: any[]) => void)[] }) {
@@ -123,7 +123,6 @@ export default class BaseWebsocket {
   onopen() {
     console.log(`name: ${this.url} - socket on open`);
     this.reconnectCount = 0;
-    this.isReconnecting = false;
     this.startHeartBeat();
   }
 
@@ -131,16 +130,15 @@ export default class BaseWebsocket {
     console.error('Websocket error:', event);
   }
 
-  onclose(event: Event) {
+  onclose(event: CloseEvent) {
     console.log(`name: ${this.url} - websocket close`, event.code);
-    console.log(event, 'event');
     this.websocket = null;
 
     if (!this.isHandleClose) {
       this.reconnect();
     }
 
-    clearTimeout(this.#heartBeatTimer!);
+    this.resetHeartBeat();
   }
 
   async onmessage(event: MessageEvent) {
@@ -155,12 +153,16 @@ export default class BaseWebsocket {
       //   return;
       // }
 
-      const res = await new Response(event.data).json();
-      const { type, data, code } = res;
-      console.log(res, 'onmessage');
-      this.notify({ type, data, code });
-      if (res.code === 'UNAUTHORIZATION') {
-        useForceKickOut();
+      try {
+        const res = await new Response(event.data).json();
+        const { type, data, code } = res;
+        console.log(res, 'onmessage');
+        this.notify({ type, data, code });
+        if (res.code === 'UNAUTHORIZATION') {
+          useForceKickOut();
+        }
+      } catch (error) {
+        console.error('WebSocket 訊息解析失敗:', error, event.data);
       }
     } else {
       console.error(this.websocket?.readyState, 'websocket is closed');
@@ -192,6 +194,8 @@ export default class BaseWebsocket {
   handleClose() {
     this.isHandleClose = true; // 標記為人為關閉
     this.resetHeartBeat();
+    this.websocket?.close();
+    this.websocket = null;
   }
 
   unAuthHandler = () => {

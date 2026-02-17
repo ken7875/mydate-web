@@ -3,6 +3,17 @@ import type { DataType } from './types';
 import { useWebsocketSubscribe } from '@/store/websocketSubscribe';
 import { useForceKickOut } from '@/utils/forceLogout';
 
+// 允許自動重連的 close code 白名單
+const RECONNECTABLE_CLOSE_CODES: ReadonlySet<number> = new Set([
+  1001, // Going Away — 伺服器關閉或頁面導航
+  1006, // Abnormal Closure — 未收到 close frame（網路斷線）
+  1011, // Internal Error — 伺服器內部錯誤
+  1012, // Service Restart — 伺服器重啟
+  1013, // Try Again Later — 伺服器暫時無法處理
+  1014, // Bad Gateway — 代理/閘道錯誤
+  4000 // 自訂：心跳超時主動斷開
+]);
+
 export default class BaseWebsocket {
   url: string;
   websocket: WebSocket | null = null;
@@ -16,6 +27,12 @@ export default class BaseWebsocket {
   reconnectCount: number;
   isReconnecting: boolean;
   isHandleClose: boolean;
+
+  // 預先綁定事件處理器，避免每次 init/reconnect 時重複建立新的函式物件
+  #boundOnOpen = this.onopen.bind(this);
+  #boundOnClose = this.onclose.bind(this);
+  #boundOnError = this.onerror.bind(this);
+  #boundOnMessage = this.onmessage.bind(this);
 
   #options: {
     heartBeatTime: number;
@@ -62,10 +79,10 @@ export default class BaseWebsocket {
       this.isHandleClose = false;
       this.isReconnecting = false;
 
-      this.websocket.onopen = this.onopen.bind(this);
-      this.websocket.onclose = this.onclose.bind(this);
-      this.websocket.onerror = this.onerror.bind(this);
-      this.websocket.onmessage = this.onmessage.bind(this);
+      this.websocket.onopen = this.#boundOnOpen;
+      this.websocket.onclose = this.#boundOnClose;
+      this.websocket.onerror = this.#boundOnError;
+      this.websocket.onmessage = this.#boundOnMessage;
     } catch (error) {
       console.log('websocket建立失敗', error);
       this.reconnect();
@@ -75,6 +92,9 @@ export default class BaseWebsocket {
   resetHeartBeat() {
     if (this.#heartBeatTimer) clearTimeout(this.#heartBeatTimer);
     if (this.#waitServerHeartBeatTimer) clearTimeout(this.#waitServerHeartBeatTimer);
+
+    this.#heartBeatTimer = null;
+    this.#waitServerHeartBeatTimer = null;
   }
 
   startHeartBeat() {
@@ -99,12 +119,17 @@ export default class BaseWebsocket {
 
     this.isReconnecting = true;
     this.reconnectCount++;
-    console.log('websocket reconnecting!!');
-    // window.setTimeout避免型別錯誤
+
+    // 指數退避 + 隨機抖動，避免多客戶端同時重連造成驚群效應
+    const delay = Math.min(
+      this.#options.reconnectInterval * Math.pow(2, this.reconnectCount - 1) + Math.random() * 1000,
+      30000
+    );
+    console.log(`websocket reconnecting (attempt ${this.reconnectCount}, delay ${Math.round(delay)}ms)`);
+
     window.setTimeout(() => {
-      console.log('is reconnected!!');
       this.init(this.#authStore.token);
-    }, this.#options.reconnectInterval);
+    }, delay);
   }
 
   subscribe({ type, fnAry }: { type: string; fnAry: ((...args: any[]) => void)[] }) {
@@ -133,62 +158,44 @@ export default class BaseWebsocket {
   onclose(event: CloseEvent) {
     console.log(`name: ${this.url} - websocket close`, event.code);
     this.websocket = null;
+    this.resetHeartBeat();
 
-    if (!this.isHandleClose) {
+    if (!this.isHandleClose && RECONNECTABLE_CLOSE_CODES.has(event.code)) {
       this.reconnect();
     }
-
-    this.resetHeartBeat();
   }
 
   async onmessage(event: MessageEvent) {
-    if (this.websocket?.readyState === WebSocket.OPEN) {
-      if (event.data === 'pong') {
-        this.startHeartBeat();
-        return;
-      }
+    // 統一取得字串：string 直接使用，Blob 透過 text() 解析
+    const raw = typeof event.data === 'string' ? event.data : await (event.data as Blob).text();
 
-      // if (event.data instanceof Blob && event.data.type === 'video/webm') {
-      //   this.notify({ type: 'video', data: event.data, code: StatusCode.SUCCESS });
-      //   return;
-      // }
+    if (raw === 'pong') {
+      this.startHeartBeat();
+      return;
+    }
 
-      try {
-        const res = await new Response(event.data).json();
-        const { type, data, code } = res;
-        console.log(res, 'onmessage');
-        this.notify({ type, data, code });
-        if (res.code === 'UNAUTHORIZATION') {
-          useForceKickOut();
-        }
-      } catch (error) {
-        console.error('WebSocket 訊息解析失敗:', error, event.data);
+    try {
+      const res = JSON.parse(raw);
+      const { type, data, code } = res;
+      console.log(res, 'onmessage');
+      this.notify({ type, data, code });
+      if (res.code === 'UNAUTHORIZATION') {
+        useForceKickOut();
       }
-    } else {
-      console.error(this.websocket?.readyState, 'websocket is closed');
-      this.websocket?.close();
+    } catch (error) {
+      console.error('WebSocket 訊息解析失敗:', error, event.data);
     }
   }
 
   handleSend<T = string, U = 'global'>(
     data: U extends 'video' ? Blob : { type: 'chatRoom' | 'global' | 'video'; data: T }
   ) {
-    // JSON → Uint8Array
     if (data instanceof Blob) {
-      this.websocket?.send?.(new Blob([data], { type: 'video/webm;codecs=vp8,opus' }));
+      this.websocket?.send?.(data);
       return;
     }
 
-    const encoder = new TextEncoder();
-    const uint8 = encoder.encode(JSON.stringify(data));
-
-    // 建立 Blob application/octet-stream
-    const blob = new Blob([uint8], { type: 'text/plain' });
-
-    // if (data.type === 'video') {
-    //   sendData = data.data as ArrayBuffer;
-    // }
-    this.websocket?.send?.(blob);
+    this.websocket?.send?.(JSON.stringify(data));
   }
 
   handleClose() {

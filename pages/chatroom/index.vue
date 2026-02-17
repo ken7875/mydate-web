@@ -65,6 +65,7 @@
           <input
             type="text"
             placeholder="輸入消息..."
+            maxlength="5000"
             class="flex-1 p-2 rounded-l-md border border-gray-300 focus:outline-none focus:border-blue-500"
             v-model="waitToSendMessage"
           />

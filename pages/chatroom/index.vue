@@ -83,13 +83,13 @@
 
 <script setup lang="ts">
 import { useChat } from '@/store/chat';
-// import { useFriends } from '@/store/friends';
 import type { Message } from '@/api/types/chat';
 import moment from 'moment';
 import { markAsReadApi } from '@/api/modules/chat';
 import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
+import { WsChannel } from '~/enums/websocket';
 
 const routes = useRoute();
 const focusFriend = computed(() => ({
@@ -243,9 +243,15 @@ const showNewRecordData = () => {
 let chatRoomChannel: BroadcastChannel | null = null;
 
 onMounted(() => {
-  chatRoomChannel = new BroadcastChannel('chatRoom');
+  chatRoomChannel = new BroadcastChannel(WsChannel.ChatRoom);
   chatRoomChannel.addEventListener('message', ({ data }) => {
-    [updateMessageRecord, toggleNewMessageTipsHandler].forEach((handler) => handler(data.data));
+    [updateMessageRecord, toggleNewMessageTipsHandler].forEach((handler) => {
+      try {
+        handler(data.data);
+      } catch (error) {
+        console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
+      }
+    });
   });
 });
 

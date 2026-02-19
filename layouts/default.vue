@@ -46,6 +46,7 @@ import { useNotification } from '@/store/notificationWebSocket';
 import { useFriends } from '@/store/friends';
 import { useStream } from '~/store/stream';
 import { getUserInfo } from '@/api/modules/auth';
+import { WsChannel } from '~/enums/websocket';
 
 const authStore = useAuth();
 const notificationStore = useNotification();
@@ -65,22 +66,32 @@ onServerPrefetch(async () => {
 
 const globalChannels: BroadcastChannel[] = [];
 
-onMounted(() => {
-  const channelHandlers: [string, ((data: any) => void)[]][] = [
-    ['global', [(data) => notificationStore.websocketGlobalMessage(data)]],
-    ['inviteFriend', [(data) => friendStore.getNewFriendInvite(data)]],
-    ['setFriendStatus', [(data) => friendStore.getAllFriendsHandler(data)]],
-    ['addRoom', [(data) => streamStore.addRoom(data)]], // TODO 優化為有訂閱該主播再全域通知，之後將其移動到chatroom
-    ['deleteRoom', [(data) => streamStore.deleteRoom(data)]] // TODO 同上
+const createNotificationWsListener = () => {
+  const channelHandlers: { type: WsChannel; handlers: ((data: any) => void)[] }[] = [
+    { type: WsChannel.Global, handlers: [(data) => notificationStore.websocketGlobalMessage(data)] },
+    { type: WsChannel.InviteFriend, handlers: [(data) => friendStore.getNewFriendInvite(data)] },
+    { type: WsChannel.SetFriendStatus, handlers: [() => friendStore.getAllFriendsHandler({ page: 1, pageSize: 15 })] },
+    { type: WsChannel.AddRoom, handlers: [(data) => streamStore.addRoom(data)] }, // TODO 優化為有訂閱該主播再全域通知，之後將其移動到chatroom
+    { type: WsChannel.DeleteRoom, handlers: [(data) => streamStore.deleteRoom(data)] } // TODO 同上
   ];
 
-  for (const [type, handlers] of channelHandlers) {
+  for (const { type, handlers } of channelHandlers) {
     const ch = new BroadcastChannel(type);
     ch.addEventListener('message', ({ data }) => {
-      handlers.forEach((handler) => handler(data.data));
+      handlers.forEach((handler) => {
+        try {
+          handler(data.data);
+        } catch (error) {
+          console.error(`Error in BroadcastChannel handler for type ${type}:`, error);
+        }
+      });
     });
     globalChannels.push(ch);
   }
+};
+
+onMounted(() => {
+  createNotificationWsListener();
 });
 
 onBeforeUnmount(() => {

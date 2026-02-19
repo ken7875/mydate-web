@@ -74,12 +74,12 @@
 import { markAsReadApi } from '@/api/modules/chat';
 import { useFriends } from '@/store/friends';
 import { useChat } from '@/store/chat';
-// import { useAuth } from '@/store/auth';
 import { storeToRefs } from 'pinia';
 import type { Friends } from '@/api/types/friend';
 import type { Message } from '~/api/types/chat';
 import type { User } from '~/api/types/user';
 import type { ShowingFriendList } from './types';
+import { WsChannel } from '~/enums/websocket';
 
 defineOptions({
   name: 'friends'
@@ -87,42 +87,38 @@ defineOptions({
 const isDev = import.meta.dev;
 const router = useRouter();
 const friendsStore = useFriends();
-const { friends, totalFriends } = storeToRefs(friendsStore);
+const { totalFriends } = storeToRefs(friendsStore);
 
 const chatStore = useChat();
 const { getAllFriendsHandler } = friendsStore;
 
-const getUnReadCountHandlerClone = (params: { user: User; message: Message[] }) => {
+const handleUnReadCountUpdate = (params: { user: User; message: Message[] }) => {
   chatStore.getUnReadCountHandler(params.message.map((item) => item.senderId));
 };
 
-await useMyAsyncData(
-  'friends',
-  async () =>
-    await getAllFriendsHandler({
-      page: 1,
-      pageSize: 10
-    })
+const { data: initialFriends } = await useMyAsyncData('friends', () =>
+  getAllFriendsHandler({
+    page: 1,
+    pageSize: 10
+  })
 );
 
 const currentPage = ref(1);
-const showingFriendList = ref<ShowingFriendList>([...friends.value]);
+const showingFriendList = ref<ShowingFriendList>([...(initialFriends.value || [])]);
 const showNewFriendsData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
-  await getAllFriendsHandler({
-    page,
-    pageSize
-  });
-  showingFriendList.value.push(...friends.value);
-  currentPage.value = page;
+  const data = await getAllFriendsHandler({ page, pageSize });
+  if (data) {
+    showingFriendList.value.push(...data);
+    currentPage.value = page;
+  }
 };
 
 const showPrevFriendsData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
-  await getAllFriendsHandler({
-    page,
-    pageSize
-  });
-  showingFriendList.value.unshift(...friends.value);
-  currentPage.value = page;
+  const data = await getAllFriendsHandler({ page, pageSize });
+  if (data) {
+    showingFriendList.value.unshift(...data);
+    currentPage.value = page;
+  }
 };
 
 // 置頂新訊息
@@ -154,7 +150,7 @@ const { data: previewMessagesObj } = await useMyAsyncData('getAllFriendsPreviewM
 );
 
 const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', () => {
-  const friendsId = friends.value.map((friend) => friend.uuid);
+  const friendsId = showingFriendList.value.map((friend) => friend.uuid);
   return chatStore.getUnReadCountHandler(friendsId);
 });
 
@@ -205,22 +201,29 @@ const openUserOperateMenu = () => {
 let chatRoomChannel: BroadcastChannel | null = null;
 
 onMounted(() => {
-  chatRoomChannel = new BroadcastChannel('chatRoom');
+  chatRoomChannel = new BroadcastChannel(WsChannel.ChatRoom);
   chatRoomChannel.addEventListener('message', ({ data }) => {
-    [updateFriendsList, getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage].forEach((handler) =>
-      handler(data.data)
-    );
+    [updateFriendsList, handleUnReadCountUpdate, chatStore.getAllFriendsPreviewMessage].forEach((handler) => {
+      try {
+        handler(data.data);
+      } catch (error) {
+        console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
+      }
+    });
   });
 });
 
 const searchingString = ref('');
 const searchFriendHandler = useDebounceFn(async () => {
-  console.log(searchingString.value);
-  await getAllFriendsHandler({
+  const data = await getAllFriendsHandler({
     page: 1,
     pageSize: 25,
     userName: searchingString.value
   });
+  if (data) {
+    showingFriendList.value = data;
+    currentPage.value = 1;
+  }
 }, 300);
 
 onBeforeUnmount(() => {

@@ -150,7 +150,6 @@ export default class BaseWebsocket {
   notify({ type, data, code }: DataType<unknown>) {
     console.log(`get type: ${type} | data: ${JSON.stringify(data)} | code: ${code}`);
     this.subscribeHandler?.broadcast(type, data, code);
-    this.subscribtion.notify({ type, data, code });
   }
 
   onopen() {

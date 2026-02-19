@@ -19,7 +19,7 @@ const createSubscribeHandler = () => {
   };
 
   return {
-    subs,
+    subs: subs as ReadonlyMap<string, BroadcastChannel>,
     broadcast,
     remove,
     removeAll

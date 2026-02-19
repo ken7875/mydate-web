@@ -77,7 +77,6 @@ import { useChat } from '@/store/chat';
 // import { useAuth } from '@/store/auth';
 import { storeToRefs } from 'pinia';
 import type { Friends } from '@/api/types/friend';
-import { useNotification } from '@/store/notificationWebSocket';
 import type { Message } from '~/api/types/chat';
 import type { User } from '~/api/types/user';
 import type { ShowingFriendList } from './types';
@@ -93,7 +92,6 @@ const { friends, totalFriends } = storeToRefs(friendsStore);
 const chatStore = useChat();
 const { getAllFriendsHandler } = friendsStore;
 
-const websocketStore = useNotification();
 const getUnReadCountHandlerClone = (params: { user: User; message: Message[] }) => {
   chatStore.getUnReadCountHandler(params.message.map((item) => item.senderId));
 };
@@ -162,9 +160,9 @@ const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', 
 
 watch(
   () => chatStore.previewMessage,
-  (val) => {
+  (previewMessage) => {
     if (previewMessagesObj.value) {
-      Object.entries(val).forEach(([key, val]) => {
+      Object.entries(previewMessage).forEach(([key, val]) => {
         previewMessagesObj.value![key] = val;
       });
     }
@@ -173,9 +171,9 @@ watch(
 
 watch(
   () => chatStore.unReadCount,
-  (val) => {
+  (unReadCount) => {
     if (previewMessagesObj.value) {
-      Object.entries(val).forEach(([key, val]) => {
+      Object.entries(unReadCount).forEach(([key, val]) => {
         unReadCountData.value![key] = val;
       });
     }
@@ -204,10 +202,15 @@ const openUserOperateMenu = () => {
   console.log('開啟操作好友選單');
 };
 
-const chatRoomSubscribers = [updateFriendsList, getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage];
-websocketStore.subscribe({
-  type: 'chatRoom',
-  fnAry: chatRoomSubscribers
+let chatRoomChannel: BroadcastChannel | null = null;
+
+onMounted(() => {
+  chatRoomChannel = new BroadcastChannel('chatRoom');
+  chatRoomChannel.addEventListener('message', ({ data }) => {
+    [updateFriendsList, getUnReadCountHandlerClone, chatStore.getAllFriendsPreviewMessage].forEach((handler) =>
+      handler(data.data)
+    );
+  });
 });
 
 const searchingString = ref('');
@@ -221,9 +224,7 @@ const searchFriendHandler = useDebounceFn(async () => {
 }, 300);
 
 onBeforeUnmount(() => {
-  websocketStore.unSubscribe({
-    type: 'chatRoom',
-    fnAry: chatRoomSubscribers
-  });
+  chatRoomChannel?.close();
+  chatRoomChannel = null;
 });
 </script>

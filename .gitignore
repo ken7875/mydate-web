@@ -18,6 +18,8 @@ logs
 .fleet
 .idea
 CLAUDE.md
+review.md
+settings.local.json
 # Local env files
 # .env
 # .env.*

@@ -2,6 +2,7 @@ import { useAuth } from '@/store/auth';
 import type { DataType } from './types';
 import { useWebsocketSubscribe } from '@/store/websocketSubscribe';
 import { useForceKickOut } from '@/utils/forceLogout';
+import createSubscribeHandler from './subscribe';
 
 // 允許自動重連的 close code 白名單
 const RECONNECTABLE_CLOSE_CODES: ReadonlySet<number> = new Set([
@@ -39,6 +40,8 @@ export default class BaseWebsocket {
     reconnectInterval: number;
     maxReconnectAttempts: number;
   };
+  protected subscribeHandler: ReturnType<typeof createSubscribeHandler> | null = null;
+
   constructor(
     url: string,
     options?: Partial<{
@@ -57,8 +60,12 @@ export default class BaseWebsocket {
     };
     this.reconnectCount = 0;
     this.isHandleClose = true;
+    if (process.client) {
+      this.subscribeHandler = createSubscribeHandler();
+    }
   }
 
+  // TODO 需要補上 broadcastChannel 避免開多頁籤 ws 重連
   public isConnecting(): boolean {
     return this.websocket?.readyState === WebSocket.CONNECTING;
   }
@@ -142,6 +149,7 @@ export default class BaseWebsocket {
 
   notify({ type, data, code }: DataType<unknown>) {
     console.log(`get type: ${type} | data: ${JSON.stringify(data)} | code: ${code}`);
+    this.subscribeHandler?.broadcast(type, data, code);
     this.subscribtion.notify({ type, data, code });
   }
 
@@ -180,7 +188,9 @@ export default class BaseWebsocket {
       console.log(res, 'onmessage');
       this.notify({ type, data, code });
       if (res.code === 'UNAUTHORIZATION') {
+        this.handleClose();
         useForceKickOut();
+        return;
       }
     } catch (error) {
       console.error('WebSocket 訊息解析失敗:', error, event.data);
@@ -203,25 +213,10 @@ export default class BaseWebsocket {
     this.resetHeartBeat();
     this.websocket?.close();
     this.websocket = null;
+    this.subscribeHandler?.removeAll();
   }
 
-  unAuthHandler = () => {
-    this.#authStore.logout();
-    this.handleClose();
-    // this.#message.openMessage({
-    //   title: '錯誤',
-    //   content: '請重新登入!',
-    //   type: 'error',
-    //   hasCancel: false
-    // });
-  };
-
   websocketGlobalMessage(data: any) {
-    switch (data.code) {
-      case 'UNAUTHORIZATION':
-        this.unAuthHandler();
-        break;
-    }
-    console.log(`websocket status: ${data.code} | websocket data: ${data.data}`);
+    console.log(`websocket global message data: ${JSON.stringify(data)}`);
   }
 }

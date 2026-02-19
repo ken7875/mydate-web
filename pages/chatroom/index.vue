@@ -87,7 +87,6 @@ import { useChat } from '@/store/chat';
 import type { Message } from '@/api/types/chat';
 import moment from 'moment';
 import { markAsReadApi } from '@/api/modules/chat';
-import { useNotification } from '@/store/notificationWebSocket';
 import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
@@ -100,7 +99,6 @@ const pageSize = 20;
 
 const chatStore = useChat();
 
-const notificationStore = useNotification();
 const { sendMessage } = chatStore;
 
 const { data: friendData } = await useMyAsyncData(
@@ -195,8 +193,8 @@ const showDate = (start: number, end: number) => {
     return false;
   }
 
-  let startDay = moment(start).day();
-  let endDay = moment(end).day();
+  const startDay = moment(start).day();
+  const endDay = moment(end).day();
 
   return endDay - startDay > 0;
 };
@@ -242,19 +240,18 @@ const showNewRecordData = () => {
   fetchPreviousPage();
 };
 
-const subscribeArys = [updateMessageRecord, toggleNewMessageTipsHandler];
+let chatRoomChannel: BroadcastChannel | null = null;
+
 onMounted(() => {
-  notificationStore.subscribe({
-    type: 'chatRoom',
-    fnAry: subscribeArys
+  chatRoomChannel = new BroadcastChannel('chatRoom');
+  chatRoomChannel.addEventListener('message', ({ data }) => {
+    [updateMessageRecord, toggleNewMessageTipsHandler].forEach((handler) => handler(data.data));
   });
 });
 
 onBeforeUnmount(() => {
-  notificationStore.unSubscribe({
-    type: 'chatRoom',
-    fnAry: subscribeArys
-  });
+  chatRoomChannel?.close();
+  chatRoomChannel = null;
 });
 
 const unWatch = watch(

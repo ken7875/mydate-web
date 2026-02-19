@@ -63,59 +63,36 @@ onServerPrefetch(async () => {
   });
 });
 
+const globalChannels: BroadcastChannel[] = [];
+
+onMounted(() => {
+  const channelHandlers: [string, ((data: any) => void)[]][] = [
+    ['global', [(data) => notificationStore.websocketGlobalMessage(data)]],
+    ['inviteFriend', [(data) => friendStore.getNewFriendInvite(data)]],
+    ['setFriendStatus', [(data) => friendStore.getAllFriendsHandler(data)]],
+    ['addRoom', [(data) => streamStore.addRoom(data)]], // TODO 優化為有訂閱該主播再全域通知，之後將其移動到chatroom
+    ['deleteRoom', [(data) => streamStore.deleteRoom(data)]] // TODO 同上
+  ];
+
+  for (const [type, handlers] of channelHandlers) {
+    const ch = new BroadcastChannel(type);
+    ch.addEventListener('message', ({ data }) => {
+      handlers.forEach((handler) => handler(data.data));
+    });
+    globalChannels.push(ch);
+  }
+});
+
+onBeforeUnmount(() => {
+  globalChannels.forEach((ch) => ch.close());
+  globalChannels.length = 0;
+});
+
 watch(
   () => authStore.token,
   (val) => {
-    if (process.client) {
-      if (val) {
-        notificationStore.subscribe({
-          type: 'global',
-          fnAry: [notificationStore.websocketGlobalMessage]
-        });
-        // notificationStore.subscribe({
-        //   type: 'chatRoom',
-        //   fnAry: [chatStore.updateMessageRecord]
-        // });
-        notificationStore.subscribe({
-          type: 'inviteFriend',
-          fnAry: [friendStore.getNewFriendInvite]
-        });
-        notificationStore.subscribe({
-          type: 'setFriendStatus',
-          fnAry: [friendStore.getAllFriendsHandler]
-        });
-        notificationStore.subscribe({
-          type: 'addRoom',
-          fnAry: [streamStore.addRoom]
-        });
-        notificationStore.subscribe({
-          type: 'deleteRoom',
-          fnAry: [streamStore.deleteRoom]
-        });
-
-        notificationStore.init(val);
-      }
-    } else {
-      notificationStore.unSubscribe({
-        type: 'global',
-        fnAry: [notificationStore.websocketGlobalMessage]
-      });
-      notificationStore.unSubscribe({
-        type: 'inviteFriend',
-        fnAry: [friendStore.getNewFriendInvite]
-      });
-      notificationStore.unSubscribe({
-        type: 'setFriendStatus',
-        fnAry: [friendStore.getAllFriendsHandler]
-      });
-      notificationStore.unSubscribe({
-        type: 'addRoom',
-        fnAry: [streamStore.addRoom]
-      });
-      notificationStore.unSubscribe({
-        type: 'deleteRoom',
-        fnAry: [streamStore.deleteRoom]
-      });
+    if (process.client && val) {
+      notificationStore.init(val);
     }
   },
   {

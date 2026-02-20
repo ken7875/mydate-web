@@ -151,6 +151,7 @@ const { data: previewMessagesObj } = await useMyAsyncData('getAllFriendsPreviewM
 
 const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', () => {
   const friendsId = showingFriendList.value.map((friend) => friend.uuid);
+  if (friendsId.length === 0) return {};
   return chatStore.getUnReadCountHandler(friendsId);
 });
 

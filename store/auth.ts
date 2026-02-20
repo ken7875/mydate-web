@@ -79,7 +79,13 @@ export const useAuth = defineStore(
         pick: ['token'],
         serializer: {
           serialize: (value) => value.token,
-          deserialize: (value) => JSON.parse(value).token
+          deserialize: (value) => {
+            try {
+              return JSON.parse(value).token;
+            } catch {
+              return value || '';
+            }
+          }
         }
       }
     ]

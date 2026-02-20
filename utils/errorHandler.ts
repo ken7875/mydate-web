@@ -5,7 +5,7 @@ export default useDebounceFn(async (errorCode: string, statusCode: number) => {
   const messageStore = await import('@/store/message');
   switch (errorCode) {
     case 'NO_THIS_FRIEND':
-      return messageStore.useMessageStore().openMessage({
+      return messageStore.useMessage().openMessage({
         title: '錯誤',
         content: '沒有這個好友',
         type: 'error',
@@ -18,7 +18,7 @@ export default useDebounceFn(async (errorCode: string, statusCode: number) => {
       useForceKickOut();
       break;
     default:
-      messageStore.useMessageStore().openMessage({
+      messageStore.useMessage().openMessage({
         title: '錯誤',
         content: '系統錯誤',
         type: 'error',

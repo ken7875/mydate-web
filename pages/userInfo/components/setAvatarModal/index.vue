@@ -16,9 +16,9 @@
 
 <script setup lang="ts">
 // import { setAvatars } from '@/api/modules/auth';
-import { useMessageStore } from '~/store/message';
+import { useMessage } from '~/store/message';
 
-const messageStore = useMessageStore();
+const messageStore = useMessage();
 const { userInfoRes } = useUserInfoQuery();
 const isOpen = defineModel('isOpen', { required: true, default: false });
 

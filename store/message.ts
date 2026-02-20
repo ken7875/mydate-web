@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import type { Config } from '~/utils/message/types';
 import { messageTool } from '~/utils/message';
 
-export const useMessageStore = defineStore('message', () => {
+export const useMessage = defineStore('message', () => {
   const messageMap = ref(new Map<string, Config>());
 
   const openMessage = (config: Config) => {

@@ -20,11 +20,11 @@
 import { useAuth } from '@/store/auth';
 import { useForm, useField } from 'vee-validate';
 import { object, string } from 'yup';
-import { useMessageStore } from '~/store/message';
+import { useMessage } from '~/store/message';
 
 const isOpen = defineModel('isOpen', { required: true, default: false });
 const authStore = useAuth();
-const messageStore = useMessageStore();
+const messageStore = useMessage();
 
 const validationSchema = object({
   userName: string().min(8, '暱稱最少8個字').max(13, '暱稱最多13個字').required('請輸入暱稱')

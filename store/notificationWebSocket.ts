@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { StatusCode } from '~/enums/common';
 import BaseWebsocket from '@/utils/websocket/index';
 
-export const useNotification = defineStore('webSocket', () => {
+export const useNotification = defineStore('notification', () => {
   const runtimeConfig = useRuntimeConfig();
   const url = `${runtimeConfig.public.wsBase}/notificationWs` as string;
   const websocketTool = new BaseWebsocket(url);

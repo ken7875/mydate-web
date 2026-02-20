@@ -27,10 +27,10 @@ import { useStream } from '@/store/stream';
 import Hls from 'hls.js';
 import { getRoomApi } from '@/api/modules/stream';
 // import { messageTool } from '~/utils/message';
-import { useMessageStore } from '@/store/message';
+import { useMessage } from '@/store/message';
 
 const streamStore = useStream();
-const messageStore = useMessageStore();
+const messageStore = useMessage();
 const route = useRoute();
 const router = useRouter();
 const uuid = route.params.uuid as string;

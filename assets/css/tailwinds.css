@@ -4,5 +4,5 @@
 @import "./atoms/utils.css";
 @import "./molecules/button.css";
 @import "./molecules/input.css";
-@import "./organisms/overlay.css";
+@import "./molecules/overlay.css";
 @import "./templates/layout.css";

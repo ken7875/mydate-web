@@ -1,5 +1,5 @@
 <template>
-  <div class="popup-shadow" @click.stop.self.prevent="handleAction('cancel')">
+  <div class="overlay" @click.stop.self.prevent="handleAction('cancel')">
     <Card
       :class="[
         'relative z-message lg:w-[35%] w-[80%] h-[200px] px-[2rem] py-[1rem] animate-scale top-[30%] left-1/2 -translate-x-1/2',

@@ -9,7 +9,7 @@
       }"
       :class="[
         `absolute bg-primary flex justify-center items-center rounded-[50%] text-white text-[10px] ${
-          $props.nums ? 'w-[15px] h-[15px]' : 'w-[8px] h-[8px]'
+          $props.nums ? 'w-[15px] h-[15px]' : 'w-2 h-2'
         }`
       ]"
     >

@@ -1,0 +1,5 @@
+@layer components {
+  .full-screen-container {
+    @apply w-full h-full px-5;
+  }
+}

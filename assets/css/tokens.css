@@ -1,0 +1,59 @@
+@theme {
+  /* === Colors: Primitive === */
+  --color-primary: #8F00FF;
+  --color-secondary: #007bff;
+  --color-secondary-light: #80d6ff;
+  --color-darkLight: #dee2e6;
+  --color-gray: #808080;
+  --color-success: #2da94f;
+  --color-warning: #f59e0b;
+  --color-danger-100: rgb(253, 245, 242);
+  --color-danger-200: rgb(235, 87, 87, 0.3);
+  --color-danger-300: rgb(235, 87, 87);
+
+  /* === Colors: Input states === */
+  --color-input-bg: #f1f5f9;                              /* 預設背景（對應 slate-100）*/
+  --color-input-border: var(--color-darkLight);           /* 預設邊框 */
+  --color-input-bg-error: var(--color-danger-100);        /* 錯誤背景（淡紅）*/
+  --color-input-border-error: var(--color-danger-300);    /* 錯誤邊框 */
+  --color-input-bg-disabled: var(--color-darkLight);      /* 禁用背景 */
+  --color-input-border-disabled: var(--color-darkLight);  /* 禁用邊框 */
+  --color-input-text-disabled: var(--color-gray);         /* 禁用文字 */
+
+  /* === Colors: Button states === */
+  --color-btn-primary: var(--color-primary);
+  --color-btn-secondary: var(--color-secondary);
+  --color-btn-disabled: var(--color-darkLight);
+  --color-btn-error: var(--color-danger-300);
+  --color-btn-success: var(--color-success);
+  --color-btn-warning: var(--color-warning);
+
+  /* === Colors: Text states === */
+  --color-text-primary: var(--color-primary);       /* 品牌主色文字 */
+  --color-text-secondary: var(--color-gray);        /* 次要/輔助說明文字 */
+  --color-text-disabled: var(--color-darkLight);    /* 禁用狀態 */
+  --color-text-error: var(--color-danger-300);      /* 錯誤狀態 */
+  --color-text-success: var(--color-success);       /* 成功狀態 */
+  --color-text-warning: var(--color-warning);       /* 警告狀態 */
+  --color-text-placeholder: var(--color-gray);      /* placeholder、欄位提示 */
+  --color-text-inverse: #ffffff;                    /* 深色背景上的反白文字 */
+
+  /* === Z-index scale === */
+  --z-navbar: 100;
+  --z-modalShadow: 900;
+  --z-modal: 901;
+  --z-shadow: 1000;
+  --z-message: 1001;
+  --z-loading: 1002;
+
+  /* === Typography === */
+  --font-family-sans: 'Noto Sans TC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* === Animations === */
+  --animate-scale: scale 0.2s linear;
+}
+
+@keyframes scale {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}

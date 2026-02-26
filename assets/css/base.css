@@ -1,0 +1,23 @@
+@layer base {
+  html,
+  body {
+    @apply font-sans;
+  }
+
+  html,
+  body,
+  *::before,
+  *::after {
+    @apply box-border;
+  }
+  /* number input 移除上下按鈕 */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type=number] {
+    -moz-appearance: textfield; /* Firefox */
+  }
+}

@@ -34,17 +34,13 @@
         placeholder="Paste login code"
         data-test="password-input"
       />
-      <BaseButton
-        class="border-2 rounded-[4px] w-full py-[6px] border-danger-200 button__outline-primary mb-3 text-danger-300"
-        type="submit"
-        data-test="login-button"
-      >
+      <BaseButton class="w-full mb-[15px]" type="submit" data-test="login-button">
         <!-- {{ `continue with ${isMailPass ? 'password' : 'email'}` }} -->
         {{ `continue with ${registerProcess}` }}
       </BaseButton>
       <!-- login test user -->
       <BaseButton
-        class="border-2 rounded-[4px] w-full py-[6px] border-danger-200 button__outline-primary mb-3 text-danger-300"
+        class="w-full mb-[15px]"
         type="button"
         data-test="login-button"
         @click="
@@ -56,7 +52,7 @@
         >asd@mail.com</BaseButton
       >
       <BaseButton
-        class="border-2 rounded-[4px] w-full py-[6px] border-danger-200 button__outline-primary mb-3 text-danger-300"
+        class="w-full mb-[15px]"
         type="button"
         data-test="login-button"
         @click="

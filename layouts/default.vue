@@ -17,7 +17,7 @@
         </NuxtLink>
       </nav>
     </header>
-    <main class="h-[calc(100vh-80px*2)]">
+    <main class="h-[calc(100dvh-80px*2)]">
       <slot></slot>
     </main>
     <footer class="flex justify-around w-full h-[80px] z-[10] sticky bottom-0 bg-primary">

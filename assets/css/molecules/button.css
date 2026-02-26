@@ -1,0 +1,49 @@
+@layer components {
+  .button {
+    @apply p-[10px] flex justify-center items-center font-[700] rounded-[8px];
+  }
+
+  /* === Filled variants === */
+  .button__primary {
+    @apply bg-btn-primary border border-btn-primary text-white;
+  }
+
+  .button__secondary {
+    @apply bg-btn-secondary border border-btn-secondary text-white;
+  }
+
+  .button__error {
+    @apply bg-btn-error border border-btn-error text-white;
+  }
+
+  .button__success {
+    @apply bg-btn-success border border-btn-success text-white;
+  }
+
+  .button__warning {
+    @apply bg-btn-warning border border-btn-warning text-white;
+  }
+
+  .button__gray {
+    @apply bg-gray border border-gray text-white;
+  }
+
+  /* === Outline variants === */
+  .button__outline-primary {
+    @apply bg-transparent text-btn-primary hover:bg-btn-primary hover:text-white border border-btn-primary;
+  }
+
+  .button__outline-darkLight {
+    @apply bg-transparent text-black hover:bg-darkLight border border-darkLight;
+  }
+
+  /* === Ghost variant === */
+  .button__none {
+    @apply bg-transparent border-0 text-black;
+  }
+
+  /* === Disabled state === */
+  .button__disabled {
+    @apply bg-btn-disabled border border-btn-disabled text-text-disabled cursor-not-allowed opacity-60;
+  }
+}

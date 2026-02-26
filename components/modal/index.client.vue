@@ -19,8 +19,8 @@
               <slot />
             </div>
             <div>
-              <BaseButton @click="confirm">確認</BaseButton>
-              <BaseButton @click="cancel">取消</BaseButton>
+              <BaseButton :styleType="'confirm'" @click="confirm">確認</BaseButton>
+              <BaseButton :styleType="'cancel'" @click="cancel">取消</BaseButton>
             </div>
           </div>
         </template>

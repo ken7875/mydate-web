@@ -11,13 +11,9 @@
     </div>
     <hr />
     <div class="my-5">
-      <BaseButton class="button button__outline-primary w-full mb-3" @click="setUserInfoToggle = true"
-        >我的檔案</BaseButton
-      >
-      <BaseButton class="button button__outline-primary w-full mb-3" @click="filterModalToggle = true"
-        >配對調整</BaseButton
-      >
-      <BaseButton class="button button__outline-primary w-full" @click="logoutHandler">登出</BaseButton>
+      <BaseButton class="w-full mb-3" @click="setUserInfoToggle = true">我的檔案</BaseButton>
+      <BaseButton class="w-full mb-3" @click="filterModalToggle = true">配對調整</BaseButton>
+      <BaseButton class="w-full" @click="logoutHandler">登出</BaseButton>
     </div>
     <hr />
     <FilterModal v-model:isOpen="filterModalToggle" v-if="filterModalToggle" />

@@ -3,7 +3,7 @@ export const useForceKickOut = async () => {
   console.warn('logout', error);
   return import('@/store/message').then((res) => {
     res
-      .useMessageStore()
+      .useMessage()
       .openMessage({
         title: '錯誤',
         content: '請重新登入',

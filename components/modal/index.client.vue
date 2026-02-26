@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div class="popup-shadow" @click.stop.self.prevent="closePopoutFunc" v-if="isOpen" data-test="modal-shadow">
+    <div class="overlay" @click.stop.self.prevent="closePopoutFunc" v-if="isOpen" data-test="modal-shadow">
       <Card
         :class="[
           'overflow-scroll bg-white rounded-lg h-[90vh] w-[90vw] relative z-modal animate-scale top-[50%] left-[50%] -translate-1/2 p-3'
@@ -19,8 +19,8 @@
               <slot />
             </div>
             <div>
-              <BaseButton @click="confirm">確認</BaseButton>
-              <BaseButton @click="cancel">取消</BaseButton>
+              <BaseButton :styleType="'confirm'" @click="confirm">確認</BaseButton>
+              <BaseButton :styleType="'cancel'" @click="cancel">取消</BaseButton>
             </div>
           </div>
         </template>

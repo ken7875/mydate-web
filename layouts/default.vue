@@ -17,7 +17,7 @@
         </NuxtLink>
       </nav>
     </header>
-    <main class="h-[calc(100vh-80px*2)]">
+    <main class="h-[calc(100dvh-80px*2)]">
       <slot></slot>
     </main>
     <footer class="flex justify-around w-full h-[80px] z-[10] sticky bottom-0 bg-primary">
@@ -46,6 +46,7 @@ import { useNotification } from '@/store/notificationWebSocket';
 import { useFriends } from '@/store/friends';
 import { useStream } from '~/store/stream';
 import { getUserInfo } from '@/api/modules/auth';
+import { WsChannel } from '~/enums/websocket';
 
 const authStore = useAuth();
 const notificationStore = useNotification();
@@ -63,59 +64,46 @@ onServerPrefetch(async () => {
   });
 });
 
+const globalChannels: BroadcastChannel[] = [];
+
+const createNotificationWsListener = () => {
+  const channelHandlers: { type: WsChannel; handlers: ((data: any) => void)[] }[] = [
+    { type: WsChannel.Global, handlers: [(data) => notificationStore.websocketGlobalMessage(data)] },
+    { type: WsChannel.InviteFriend, handlers: [(data) => friendStore.getNewFriendInvite(data)] },
+    { type: WsChannel.SetFriendStatus, handlers: [() => friendStore.getAllFriendsHandler({ page: 1, pageSize: 15 })] },
+    { type: WsChannel.AddRoom, handlers: [(data) => streamStore.addRoom(data)] }, // TODO 優化為有訂閱該主播再全域通知，之後將其移動到chatroom
+    { type: WsChannel.DeleteRoom, handlers: [(data) => streamStore.deleteRoom(data)] } // TODO 同上
+  ];
+
+  for (const { type, handlers } of channelHandlers) {
+    const ch = new BroadcastChannel(type);
+    ch.addEventListener('message', ({ data }) => {
+      handlers.forEach((handler) => {
+        try {
+          handler(data.data);
+        } catch (error) {
+          console.error(`Error in BroadcastChannel handler for type ${type}:`, error);
+        }
+      });
+    });
+    globalChannels.push(ch);
+  }
+};
+
+onMounted(() => {
+  createNotificationWsListener();
+});
+
+onBeforeUnmount(() => {
+  globalChannels.forEach((ch) => ch.close());
+  globalChannels.length = 0;
+});
+
 watch(
   () => authStore.token,
   (val) => {
-    if (process.client) {
-      if (val) {
-        notificationStore.subscribe({
-          type: 'global',
-          fnAry: [notificationStore.websocketGlobalMessage]
-        });
-        // notificationStore.subscribe({
-        //   type: 'chatRoom',
-        //   fnAry: [chatStore.updateMessageRecord]
-        // });
-        notificationStore.subscribe({
-          type: 'inviteFriend',
-          fnAry: [friendStore.getNewFriendInvite]
-        });
-        notificationStore.subscribe({
-          type: 'setFriendStatus',
-          fnAry: [friendStore.getAllFriendsHandler]
-        });
-        notificationStore.subscribe({
-          type: 'addRoom',
-          fnAry: [streamStore.addRoom]
-        });
-        notificationStore.subscribe({
-          type: 'deleteRoom',
-          fnAry: [streamStore.deleteRoom]
-        });
-
-        notificationStore.init(val);
-      }
-    } else {
-      notificationStore.unSubscribe({
-        type: 'global',
-        fnAry: [notificationStore.websocketGlobalMessage]
-      });
-      notificationStore.unSubscribe({
-        type: 'inviteFriend',
-        fnAry: [friendStore.getNewFriendInvite]
-      });
-      notificationStore.unSubscribe({
-        type: 'setFriendStatus',
-        fnAry: [friendStore.getAllFriendsHandler]
-      });
-      notificationStore.unSubscribe({
-        type: 'addRoom',
-        fnAry: [streamStore.addRoom]
-      });
-      notificationStore.unSubscribe({
-        type: 'deleteRoom',
-        fnAry: [streamStore.deleteRoom]
-      });
+    if (process.client && val) {
+      notificationStore.init(val);
     }
   },
   {

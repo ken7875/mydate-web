@@ -8,8 +8,6 @@ export const useStream = defineStore('stream', () => {
   const runtimeConfig = useRuntimeConfig();
   const url = `${runtimeConfig.public.wsBase}/streamWs` as string;
   const websocketTool = new StreamWebsocket(url);
-  // const authStore = useAuth();
-  const subscribtion = useSubscribtion();
   const streamRoomMap = reactive<Map<string, GetRoomsResponse>>(new Map());
 
   const init = (token: string) => {
@@ -77,7 +75,6 @@ export const useStream = defineStore('stream', () => {
   };
 
   return {
-    subscribtion,
     streamRoomMap,
     init,
     handleClose,

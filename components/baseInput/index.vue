@@ -7,12 +7,13 @@
       </div>
       <input
         v-bind="{ ...$attrs }"
+        :disabled="disabled"
         type="text"
-        :class="['outline-none bg-slate-100 border-2 rounded-[4px] p-[6px]', { 'px-[28px]': $slots.suffix }]"
+        :class="['input', { 'px-[28px]': $slots.suffix, input__error: error, input__disabled: disabled }]"
         @input="(e: Event) => $emit('update:modelValue', (e.target as HTMLInputElement).value)"
       />
     </div>
-    <p :class="['text-red-500 font-bold']" v-if="error">{{ error }}</p>
+    <p class="text-text-error font-bold" v-if="error">{{ error }}</p>
   </div>
 </template>
 
@@ -21,16 +22,12 @@ interface Props {
   modelValue: string | number;
   label?: string;
   error?: string;
+  disabled?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  modelValue: ''
+  modelValue: '',
+  disabled: false
 });
 const { label } = toRefs(props);
-// withDefaults(defineProps<Props>(), {
-//     blockLabel
-// });
-// const emit = defineEmits<{
-//   (e: 'update:modelValue', value: string | number): void;
-// }>();
 </script>

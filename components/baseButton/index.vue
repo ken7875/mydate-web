@@ -10,15 +10,17 @@ defineOptions({
 });
 
 const styleMap = computed(() => ({
+  default: 'button button__outline-primary',
   confirm: 'button button__primary',
   cancel: 'button button__outline-primary'
 }));
 
-defineProps<{
-  styleType?: keyof typeof styleMap.value;
-}>();
+withDefaults(
+  defineProps<{
+    styleType?: keyof typeof styleMap.value;
+  }>(),
+  {
+    styleType: 'default'
+  }
+);
 </script>
-
-<!-- <style scoped lang="scss">
-.
-</style> -->

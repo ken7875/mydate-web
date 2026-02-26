@@ -1,0 +1,15 @@
+@layer components {
+  .input {
+    @apply outline-none rounded-[4px] p-[6px] border-2
+      bg-input-bg border-input-border;
+  }
+
+  .input__error {
+    @apply bg-input-bg-error border-input-border-error;
+  }
+
+  .input__disabled {
+    @apply bg-input-bg-disabled border-input-border-disabled
+      text-input-text-disabled cursor-not-allowed;
+  }
+}

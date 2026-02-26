@@ -71,7 +71,7 @@
           />
           <button
             class="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 focus:outline-none"
-            @click="sendMessageHander"
+            @click="sendMessageHandler"
           >
             發送
           </button>
@@ -83,14 +83,13 @@
 
 <script setup lang="ts">
 import { useChat } from '@/store/chat';
-// import { useFriends } from '@/store/friends';
 import type { Message } from '@/api/types/chat';
 import moment from 'moment';
 import { markAsReadApi } from '@/api/modules/chat';
-import { useNotification } from '@/store/notificationWebSocket';
 import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
+import { WsChannel } from '~/enums/websocket';
 
 const routes = useRoute();
 const focusFriend = computed(() => ({
@@ -100,7 +99,6 @@ const pageSize = 20;
 
 const chatStore = useChat();
 
-const notificationStore = useNotification();
 const { sendMessage } = chatStore;
 
 const { data: friendData } = await useMyAsyncData(
@@ -160,7 +158,7 @@ const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
   });
 };
 const waitToSendMessage = ref('');
-const sendMessageHander = () => {
+const sendMessageHandler = () => {
   if (!waitToSendMessage.value) return;
   const newMessage = {
     receiverId: focusFriend.value.uuid as string,
@@ -195,8 +193,8 @@ const showDate = (start: number, end: number) => {
     return false;
   }
 
-  let startDay = moment(start).day();
-  let endDay = moment(end).day();
+  const startDay = moment(start).day();
+  const endDay = moment(end).day();
 
   return endDay - startDay > 0;
 };
@@ -242,19 +240,24 @@ const showNewRecordData = () => {
   fetchPreviousPage();
 };
 
-const subscribeArys = [updateMessageRecord, toggleNewMessageTipsHandler];
+let chatRoomChannel: BroadcastChannel | null = null;
+
 onMounted(() => {
-  notificationStore.subscribe({
-    type: 'chatRoom',
-    fnAry: subscribeArys
+  chatRoomChannel = new BroadcastChannel(WsChannel.ChatRoom);
+  chatRoomChannel.addEventListener('message', ({ data }) => {
+    [updateMessageRecord, toggleNewMessageTipsHandler].forEach((handler) => {
+      try {
+        handler(data.data);
+      } catch (error) {
+        console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
+      }
+    });
   });
 });
 
 onBeforeUnmount(() => {
-  notificationStore.unSubscribe({
-    type: 'chatRoom',
-    fnAry: subscribeArys
-  });
+  chatRoomChannel?.close();
+  chatRoomChannel = null;
 });
 
 const unWatch = watch(

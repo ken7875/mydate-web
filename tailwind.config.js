@@ -16,50 +16,7 @@ module.exports = {
       borderWidth: {
         DEFAULT: '1px'
       },
-      zIndex: {
-        navbar: '100',
-        shadow: '1000',
-        message: '1001',
-        loading: '1002',
-        modalShadow: '900',
-        modal: '901'
-      },
-      keyframes: {
-        cardFadeIn: {
-          '0%': {
-            opacity: 1
-          },
-          '10%': {
-            opacity: 0
-          },
-          '100%': {
-            opacity: 1,
-            transform: 'translateY(-30px)'
-          }
-        },
-        changeBgMode: {
-          '0%': {
-            backgroundColor: '#FFFFFF'
-          },
-          '100%': {
-            backgroundColor: '#000000'
-          }
-        },
-        wiggle: {
-          '0%, 100%': { transform: 'rotate(-3deg)' },
-          '50%': { transform: 'rotate(3deg)' }
-        },
-        scale: {
-          '0%': { transform: 'scale(0)' },
-          '100%': { transform: 'scale(1)' }
-        }
-      },
-      animation: {
-        cardFadeInAnimate: 'cardFadeIn 0.5s ease-in-out both',
-        changeBgMode: 'changeBgMode 0.5s',
-        wiggle: 'wiggle 0.5s ease-in-out',
-        scale: 'scale 0.2s linear'
-      },
+      // Design tokens (colors, z-index, animations) → assets/css/tokens.css
       container: {
         center: true,
         screens: {
@@ -71,6 +28,7 @@ module.exports = {
         }
       }
     },
+    // === Atoms: perspective scale ===
     perspectiveLevel: {
       1: '100px',
       2: '200px',
@@ -85,6 +43,7 @@ module.exports = {
       20: '2000px'
     }
   },
+  // === Plugins: custom utilities ===
   plugins: [
     plugin(function ({ matchUtilities, theme }) {
       matchUtilities(

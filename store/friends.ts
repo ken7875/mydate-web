@@ -27,6 +27,8 @@ export const useFriends = defineStore('friends', () => {
     return res.data?.data || [];
   };
 
+  const dequeueRequestUser = () => requestUsers.value.shift();
+
   // websocket用, 當有新用戶加好友會即時通知
   const getNewFriendInvite = (data: Friends) => {
     console.log('getNewFriendInvite', data);
@@ -40,6 +42,7 @@ export const useFriends = defineStore('friends', () => {
     totalFriends,
     getAllFriendsHandler,
     getRequestUsersHandler,
-    getNewFriendInvite
+    getNewFriendInvite,
+    dequeueRequestUser
   };
 });

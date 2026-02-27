@@ -5,7 +5,7 @@
         v-for="(item, idx) in showingMeetUserList"
         :key="item.uuid"
         class="absolute w-full h-[80%] card"
-        :style="{ zIndex: meetUserList.length - idx }"
+        :style="{ zIndex: showingMeetUserList.length - idx }"
       >
         <template #body>
           <div class="h-full w-full absolute top-0 left-0">
@@ -83,7 +83,7 @@ import { Gender } from '~/enums/user';
 import { useSettings } from '@/store/settings';
 import { useFriends } from '~/store/friends';
 import { storeToRefs } from 'pinia';
-import { cloneDeep, get } from 'lodash-es';
+import { get } from 'lodash-es';
 import { inviteFriend, setFriendStatus, dislikeUser } from '@/api/modules/friend';
 import { FriendStatus } from '~/enums/friend';
 
@@ -110,13 +110,30 @@ await useMyAsyncData('requestUserList', () => friendsStore.getRequestUsersHandle
 
 // 邀請者應該要排在卡牌最上層
 // 注意: meetUserList並沒有status(好友狀態數值)
-const showingMeetUserList = ref<MeetUser[]>([]);
-showingMeetUserList.value = cloneDeep([...requestUsers.value, ...meetUserList.value]);
+const MAX_SHOWING_LENGTH = 5;
+const showingMeetUserList = computed<MeetUser[]>(() =>
+  [...requestUsers.value, ...meetUserList.value].slice(0, MAX_SHOWING_LENGTH)
+);
 
-const getMeetUserListHandler = async () => {
-  const res = await getMeetUserList(meetForm.value);
-  meetUserList.value = get(res, 'data.list', []);
-  showingMeetUserList.value = cloneDeep([...requestUsers.value, ...meetUserList.value]);
+const isFetching = ref(false);
+const getMeetUserListHandler = async (append = false) => {
+  if (isFetching.value) return;
+  isFetching.value = true;
+  try {
+    const res = await getMeetUserList(meetForm.value);
+    const newItems = get(res, 'data.list', []) as MeetUser[];
+    meetUserList.value = append ? [...meetUserList.value, ...newItems] : newItems;
+  } finally {
+    isFetching.value = false;
+  }
+};
+
+const meetUserDataHandler = () => {
+  if (requestUsers.value.length > 0) {
+    friendsStore.dequeueRequestUser();
+  } else {
+    meetUserList.value.shift();
+  }
 };
 
 watch(meetForm, () => {
@@ -138,7 +155,8 @@ const likeRequestHandler = async () => {
     } else {
       await inviteFriend({ friendId: showingMeetUserList.value[0].uuid, status: FriendStatus.Pending });
     }
-    showingMeetUserList.value.shift();
+
+    meetUserDataHandler();
   } catch (error) {
     console.log(error, 'like request fail!!');
   }
@@ -155,17 +173,18 @@ const dislikeRquestHandler = async () => {
     } else {
       await dislikeUser({ friendId: showingMeetUserList.value[0].uuid });
     }
-    showingMeetUserList.value.shift();
+
+    meetUserDataHandler();
   } catch (error) {
     console.log(error, 'dislike request fail!!');
   }
 };
 
 watch(
-  showingMeetUserList,
+  meetUserList,
   (val) => {
-    if (val.length === 0) {
-      getMeetUserListHandler();
+    if (val.length <= 2) {
+      getMeetUserListHandler(true);
     }
   },
   {
@@ -294,16 +313,6 @@ watch(showingMeetUserList, () => {
 onUnmounted(() => {
   killDragAnimation();
 });
-
-watch(
-  requestUsers,
-  (val) => {
-    showingMeetUserList.value = cloneDeep([...val, ...meetUserList.value]);
-  },
-  {
-    deep: true
-  }
-);
 </script>
 
 <style scoped>

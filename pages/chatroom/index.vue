@@ -14,7 +14,7 @@
       <p>{{ friendInfo?.userName }}</p>
     </div>
     <div class="flex flex-col overflow-scroll scrollbar-none w-full h-[90%]">
-      <div class="relative flex-1 px-[30px] py-[8px] overflow-y-auto h-full" v-show="isSuccess">
+      <div class="relative flex-1 px-[30px] py-[8px] overflow-y-auto h-full">
         <template v-if="Number(messageRecordTotal) > 0">
           <VirtualList
             v-model:list="messageRecordQueryData"
@@ -209,11 +209,7 @@ onBeforeRouteLeave(() => {
 // virtual list
 const { getMessageRecordQuery, updateQuery } = useMessageQuery();
 
-const {
-  data: messageRecordRes,
-  isSuccess,
-  fetchPreviousPage
-} = getMessageRecordQuery({
+const { data: messageRecordRes, fetchPreviousPage } = getMessageRecordQuery({
   senderId: userInfoRes.value?.data?.uuid as string,
   receiverId: focusFriend.value.uuid as string,
   pageSize

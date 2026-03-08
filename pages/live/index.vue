@@ -15,6 +15,7 @@ import { getAllRooms } from '@/api/modules/stream';
 import { useStream } from '~/store/stream';
 import { storeToRefs } from 'pinia';
 import type { GetRoomsResponse } from '~/api/types/stream';
+import { WsChannel } from '~/enums/websocket';
 
 const streamStore = useStream();
 // 由後端實作將直播間uuid存入db
@@ -28,17 +29,8 @@ const goToLiveRoom = (room: GetRoomsResponse) => {
 const { data } = await useMyAsyncData('liveRooms', () => getAllRooms());
 streamStore.initRoom(data.value?.data || []);
 
-onMounted(() => {
-  streamStore.subscribe({
-    type: 'streamRoomStatus',
-    fnAry: [streamStore.resetRoomStatus]
-  });
-});
-
-onUnmounted(() => {
-  streamStore.unSubscribe({
-    type: 'streamRoomStatus',
-    fnAry: [streamStore.resetRoomStatus]
-  });
+useWsChannel([{ type: WsChannel.StreamRoomStatus, handler: streamStore.resetRoomStatus }], {
+  subscribe: streamStore.subscribe,
+  unsubscribe: streamStore.unSubscribe
 });
 </script>

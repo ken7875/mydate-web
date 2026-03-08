@@ -27,11 +27,21 @@ export const useNotification = defineStore('notification', () => {
     websocketTool.websocketGlobalMessage(data);
   };
 
+  const subscribe = (type: string, handler: (data: any) => void) => {
+    websocketTool.subscribe(type, handler);
+  };
+
+  const unsubscribe = (type: string, handler: (data: any) => void) => {
+    websocketTool.unsubscribe(type, handler);
+  };
+
   return {
     init,
     handleClose,
     notify,
     handleSend,
-    websocketGlobalMessage
+    websocketGlobalMessage,
+    subscribe,
+    unsubscribe
   };
 });

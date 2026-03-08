@@ -240,25 +240,17 @@ const showNewRecordData = () => {
   fetchPreviousPage();
 };
 
-let chatRoomChannel: BroadcastChannel | null = null;
-
-onMounted(() => {
-  chatRoomChannel = new BroadcastChannel(WsChannel.ChatRoom);
-  chatRoomChannel.addEventListener('message', ({ data }) => {
-    [updateMessageRecord, toggleNewMessageTipsHandler].forEach((handler) => {
-      try {
-        handler(data.data);
-      } catch (error) {
-        console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
-      }
-    });
+const chatRoomHandler = (data: any) => {
+  [updateMessageRecord, toggleNewMessageTipsHandler].forEach((handler) => {
+    try {
+      handler(data);
+    } catch (error) {
+      console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
+    }
   });
-});
+};
 
-onBeforeUnmount(() => {
-  chatRoomChannel?.close();
-  chatRoomChannel = null;
-});
+useWsChannel([{ type: WsChannel.ChatRoom, handler: chatRoomHandler }]);
 
 const unWatch = watch(
   messageRecordQueryData,

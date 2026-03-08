@@ -142,10 +142,7 @@ const startVideoHandler = () => {
     return;
   }
 
-  streamStore.subscribe({
-    type: 'streamRoomStatus',
-    fnAry: [startVideo]
-  });
+  streamStore.subscribe('streamRoomStatus', startVideo);
 };
 
 onMounted(() => {
@@ -157,10 +154,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  streamStore.unSubscribe({
-    type: 'streamRoomStatus',
-    fnAry: [startVideo]
-  });
+  streamStore.unSubscribe('streamRoomStatus', startVideo);
 
   hls && hls.destroy();
 });

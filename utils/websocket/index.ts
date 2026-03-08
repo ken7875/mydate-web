@@ -1,6 +1,5 @@
 import { useAuth } from '@/store/auth';
 import type { DataType } from './types';
-import { useWebsocketSubscribe } from '@/store/websocketSubscribe';
 import { useForceKickOut } from '@/utils/forceLogout';
 import createSubscribeHandler from './subscribe';
 
@@ -18,8 +17,6 @@ const RECONNECTABLE_CLOSE_CODES: ReadonlySet<number> = new Set([
 export default class BaseWebsocket {
   url: string;
   websocket: WebSocket | null = null;
-  subscribtion = useWebsocketSubscribe();
-
   // private
   #authStore = useAuth();
 
@@ -140,17 +137,17 @@ export default class BaseWebsocket {
     }, delay);
   }
 
-  subscribe({ type, fnAry }: { type: string; fnAry: ((...args: any[]) => void)[] }) {
-    this.subscribtion.subscribe({ type, fnAry });
-  }
-
-  unSubscribe({ type, fnAry }: { type: string; fnAry: ((...args: any[]) => void)[] }) {
-    this.subscribtion.unSubscribe({ type, fnAry });
-  }
-
   notify({ type, data, code }: DataType<unknown>) {
     console.log(`get type: ${type} | data: ${JSON.stringify(data)} | code: ${code}`);
     this.subscribeHandler?.broadcast(type, data, code);
+  }
+
+  subscribe(type: string, handler: (data: any) => void) {
+    this.subscribeHandler?.subscribe(type, handler);
+  }
+
+  unsubscribe(type: string, handler: (data: any) => void) {
+    this.subscribeHandler?.unsubscribe(type, handler);
   }
 
   onopen() {

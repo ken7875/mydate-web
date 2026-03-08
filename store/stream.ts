@@ -15,12 +15,12 @@ export const useStream = defineStore('stream', () => {
     websocketTool.init(token);
   };
 
-  const subscribe = ({ type, fnAry }: { type: string; fnAry: ((...args: any[]) => void)[] }) => {
-    websocketTool.subscribe({ type, fnAry });
+  const subscribe = (type: string, handler: (...args: any[]) => void) => {
+    websocketTool.subscribe(type, handler);
   };
 
-  const unSubscribe = ({ type, fnAry }: { type: string; fnAry: ((...args: any[]) => void)[] }) => {
-    websocketTool.unSubscribe({ type, fnAry });
+  const unSubscribe = (type: string, handler: (...args: any[]) => void) => {
+    websocketTool.unsubscribe(type, handler);
   };
 
   const notify = ({ type, data, code }: { type: string; data: any; code: StatusCode }) => {

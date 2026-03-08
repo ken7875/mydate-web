@@ -199,20 +199,17 @@ const openUserOperateMenu = () => {
   console.log('開啟操作好友選單');
 };
 
-let chatRoomChannel: BroadcastChannel | null = null;
-
-onMounted(() => {
-  chatRoomChannel = new BroadcastChannel(WsChannel.ChatRoom);
-  chatRoomChannel.addEventListener('message', ({ data }) => {
-    [updateFriendsList, handleUnReadCountUpdate, chatStore.getAllFriendsPreviewMessage].forEach((handler) => {
-      try {
-        handler(data.data);
-      } catch (error) {
-        console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
-      }
-    });
+const chatRoomHandler = (data: any) => {
+  [updateFriendsList, handleUnReadCountUpdate, chatStore.getAllFriendsPreviewMessage].forEach((handler) => {
+    try {
+      handler(data);
+    } catch (error) {
+      console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
+    }
   });
-});
+};
+
+useWsChannel([{ type: WsChannel.ChatRoom, handler: chatRoomHandler }]);
 
 const searchingString = ref('');
 const searchFriendHandler = useDebounceFn(async () => {
@@ -226,9 +223,4 @@ const searchFriendHandler = useDebounceFn(async () => {
     currentPage.value = 1;
   }
 }, 300);
-
-onBeforeUnmount(() => {
-  chatRoomChannel?.close();
-  chatRoomChannel = null;
-});
 </script>

@@ -3,7 +3,7 @@ import { StatusCode } from '~/enums/common';
 
 export default class StreamWebsocket extends BaseWebsocket {
   override notify({ type, data, code }: { type: string; data: any; code: StatusCode }) {
-    this.subscribtion.notify({ type, data, code });
+    this.subscribeHandler?.broadcast(type, data, code);
   }
 
   override async onmessage(event: MessageEvent): Promise<void> {

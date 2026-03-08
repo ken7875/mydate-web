@@ -64,40 +64,20 @@ onServerPrefetch(async () => {
   });
 });
 
-const globalChannels: BroadcastChannel[] = [];
+// handler 必須是具名函式（非匿名箭頭函式），unsubscribe 需要相同的函式參照
+const globalMessageHandler = (data: any) => notificationStore.websocketGlobalMessage(data);
+const inviteFriendHandler = (data: any) => friendStore.getNewFriendInvite(data);
+const setFriendStatusHandler = () => friendStore.getAllFriendsHandler({ page: 1, pageSize: 15 });
+const addRoomHandler = (data: any) => streamStore.addRoom(data); // TODO 優化為有訂閱該主播再全域通知，之後將其移動到chatroom
+const deleteRoomHandler = (data: any) => streamStore.deleteRoom(data); // TODO 同上
 
-const createNotificationWsListener = () => {
-  const channelHandlers: { type: WsChannel; handlers: ((data: any) => void)[] }[] = [
-    { type: WsChannel.Global, handlers: [(data) => notificationStore.websocketGlobalMessage(data)] },
-    { type: WsChannel.InviteFriend, handlers: [(data) => friendStore.getNewFriendInvite(data)] },
-    { type: WsChannel.SetFriendStatus, handlers: [() => friendStore.getAllFriendsHandler({ page: 1, pageSize: 15 })] },
-    { type: WsChannel.AddRoom, handlers: [(data) => streamStore.addRoom(data)] }, // TODO 優化為有訂閱該主播再全域通知，之後將其移動到chatroom
-    { type: WsChannel.DeleteRoom, handlers: [(data) => streamStore.deleteRoom(data)] } // TODO 同上
-  ];
-
-  for (const { type, handlers } of channelHandlers) {
-    const ch = new BroadcastChannel(type);
-    ch.addEventListener('message', ({ data }) => {
-      handlers.forEach((handler) => {
-        try {
-          handler(data.data);
-        } catch (error) {
-          console.error(`Error in BroadcastChannel handler for type ${type}:`, error);
-        }
-      });
-    });
-    globalChannels.push(ch);
-  }
-};
-
-onMounted(() => {
-  createNotificationWsListener();
-});
-
-onBeforeUnmount(() => {
-  globalChannels.forEach((ch) => ch.close());
-  globalChannels.length = 0;
-});
+useWsChannel([
+  { type: WsChannel.Global, handler: globalMessageHandler },
+  { type: WsChannel.InviteFriend, handler: inviteFriendHandler },
+  { type: WsChannel.SetFriendStatus, handler: setFriendStatusHandler },
+  { type: WsChannel.AddRoom, handler: addRoomHandler },
+  { type: WsChannel.DeleteRoom, handler: deleteRoomHandler }
+]);
 
 watch(
   () => authStore.token,

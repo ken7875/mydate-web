@@ -81,7 +81,8 @@ export default class BaseWebsocket {
     }
 
     try {
-      this.websocket = new WebSocket(`${this.url}?token=${token}`);
+      // 使用 Sec-WebSocket-Protocol header 傳遞 token，避免 token 暴露在 URL log 中
+      this.websocket = new WebSocket(this.url, [`bearer-${token}`]);
       this.websocket.binaryType = 'blob';
       this.isHandleClose = false;
       this.isReconnecting = false;

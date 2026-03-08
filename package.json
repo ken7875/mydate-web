@@ -10,6 +10,7 @@
     "lint": "eslint . --ext .ts,.vue",
     "test": "vitest --config ./vitest.config.ts",
     "test:ci": "vitest --config ./vitest.config.ts --reporter=verbose --watch=false",
+    "test:coverage": "vitest run --coverage",
     "prepare": "husky"
   },
   "devDependencies": {

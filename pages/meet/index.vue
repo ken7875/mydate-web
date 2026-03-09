@@ -33,7 +33,7 @@
       </Card>
       <div class="absolute top-[85%] flex gap-[50px] justify-center w-full h-[50px]">
         <div
-          @click="likeDislikeAnimation('dislike')"
+          @click="handleDislike"
           class="bg-gray-400 w-[60px] h-[60px] rounded-[50%] flex justify-center items-center"
         >
           <ClientOnly>
@@ -41,10 +41,7 @@
           </ClientOnly>
         </div>
         <!-- <div class="translate-y-[-10px]">super Like</div> -->
-        <div
-          @click="likeDislikeAnimation('like')"
-          class="bg-red-500 w-[60px] h-[60px] rounded-[50%] flex justify-center items-center"
-        >
+        <div @click="handleLike" class="bg-red-500 w-[60px] h-[60px] rounded-[50%] flex justify-center items-center">
           <ClientOnly>
             <font-awesome-icon :icon="['fas', 'heart']" class="text-[30px] text-white" />
           </ClientOnly>
@@ -270,6 +267,9 @@ const dragCardHandler = () => {
 
   draggableInstance = instance;
 };
+
+const handleLike = useThrottleFn(() => likeDislikeAnimation('like'), 500);
+const handleDislike = useThrottleFn(() => likeDislikeAnimation('dislike'), 500);
 
 let tl: GSAPTimeline | null = null;
 const likeDislikeAnimation = (type: 'like' | 'dislike' | 'superlike') => {

@@ -132,7 +132,6 @@ const scrollToBottom = async () => {
 
 const toggleNewMessageTipsHandler = () => {
   // 若已經接近底部就直接滑到底
-  console.log(bottomDistanceCalc());
   if (bottomDistanceCalc() < 100) {
     scrollToBottom();
     return;
@@ -236,14 +235,12 @@ const showNewRecordData = () => {
   fetchPreviousPage();
 };
 
-const chatRoomHandler = (data: any) => {
-  [updateMessageRecord, toggleNewMessageTipsHandler].forEach((handler) => {
-    try {
-      handler(data);
-    } catch (error) {
-      console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
-    }
-  });
+const chatRoomHandler = () => {
+  try {
+    toggleNewMessageTipsHandler();
+  } catch (error) {
+    console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
+  }
 };
 
 useWsChannel([{ type: WsChannel.ChatRoom, handler: chatRoomHandler }]);

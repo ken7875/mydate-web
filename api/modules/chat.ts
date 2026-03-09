@@ -19,13 +19,15 @@ export const getPreviewMessageApi = () => {
 export const markAsReadApi = (body: { senderId: string; sendTime: number }) => {
   return useHttp.put<null>({
     url: '/message/read',
-    body
+    body,
+    needLoading: false
   });
 };
 
 export const getUnreadCount = (params: { friendIds: string[] }) => {
   return useHttp.get<Record<string, { count: number }>>({
     url: '/message/unReadCount',
+    needLoading: false,
     params
   });
 };

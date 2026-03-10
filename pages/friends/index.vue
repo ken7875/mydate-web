@@ -161,10 +161,10 @@ const updatePreviewMessage = (data: { user: User; message: Message[] }) => {
   };
 };
 
-const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', () => {
+const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', async () => {
   const friendsId = showingFriendList.value.map((friend) => friend.uuid);
   if (friendsId.length === 0) return {};
-  return chatStore.getUnReadCountHandler(friendsId);
+  return await chatStore.getUnReadCountHandler(friendsId);
 });
 
 watch(

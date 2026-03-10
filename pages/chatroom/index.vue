@@ -109,7 +109,7 @@ const { data: friendData } = await useMyAsyncData(
 const friendInfo = computed(() => friendData?.value?.data?.data);
 const { userInfoRes } = useUserInfoQuery();
 const chatroomDom = ref<InstanceType<typeof VirtualList> | null>(null);
-const isNewMessageTipsShow = ref(false);
+
 let messageTipsTimeout: ReturnType<typeof setTimeout> | null = null;
 const bottomDistanceCalc = () => {
   if (!chatroomDom.value) return 0;
@@ -130,6 +130,8 @@ const scrollToBottom = async () => {
   }
 };
 
+// 新訊息提示框
+const isNewMessageTipsShow = ref(false);
 const toggleNewMessageTipsHandler = () => {
   // 若已經接近底部就直接滑到底
   if (bottomDistanceCalc() < 100) {
@@ -235,7 +237,9 @@ const showNewRecordData = () => {
   fetchPreviousPage();
 };
 
-const chatRoomHandler = () => {
+const chatRoomHandler = (data) => {
+  if (routes.query?.uuid !== data.user.uuid) return;
+
   try {
     toggleNewMessageTipsHandler();
   } catch (error) {

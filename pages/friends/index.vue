@@ -139,7 +139,10 @@ const updateFriendsList = ({ user }: { user: Friends; message: Message }) => {
 
   if (isFirstUser) return;
 
-  showingFriendList.value.splice(friendIndex, 1);
+  if (friendIndex !== -1) {
+    showingFriendList.value.splice(friendIndex, 1);
+  }
+
   if (isFirstPageVisible.value) {
     addNewMessage({ user });
   }
@@ -149,22 +152,20 @@ const { data: previewMessagesObj } = await useMyAsyncData('getAllFriendsPreviewM
   chatStore.getAllFriendsPreviewMessage()
 );
 
+const updatePreviewMessage = (data: { user: User; message: Message[] }) => {
+  if (!previewMessagesObj.value || !data.message.length) return;
+  const latestMessage = data.message[0];
+  previewMessagesObj.value[data.user.uuid] = {
+    ...latestMessage,
+    friendId: data.user.uuid
+  };
+};
+
 const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', () => {
   const friendsId = showingFriendList.value.map((friend) => friend.uuid);
   if (friendsId.length === 0) return {};
   return chatStore.getUnReadCountHandler(friendsId);
 });
-
-watch(
-  () => chatStore.previewMessage,
-  (previewMessage) => {
-    if (previewMessagesObj.value) {
-      Object.entries(previewMessage).forEach(([key, val]) => {
-        previewMessagesObj.value![key] = val;
-      });
-    }
-  }
-);
 
 watch(
   () => chatStore.unReadCount,
@@ -200,7 +201,7 @@ const openUserOperateMenu = () => {
 };
 
 const chatRoomHandler = (data: any) => {
-  [updateFriendsList, handleUnReadCountUpdate, chatStore.getAllFriendsPreviewMessage].forEach((handler) => {
+  [updateFriendsList, handleUnReadCountUpdate, updatePreviewMessage].forEach((handler) => {
     try {
       handler(data);
     } catch (error) {

@@ -63,6 +63,18 @@
         "
         >testv179@mail.com</BaseButton
       >
+      <BaseButton
+        class="w-full mb-[15px]"
+        type="button"
+        data-test="login-button"
+        @click="
+          loginTest({
+            email: 'testv177@mail.com',
+            password: 'Qq111111'
+          })
+        "
+        >testv177@mail.com</BaseButton
+      >
       <a class="text-[rgba(55, 53, 47, 0.65)] text-center notion-link" rel="noopener noreferrer" href="javascript:;"
         >Forget password?</a
       >

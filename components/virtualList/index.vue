@@ -23,6 +23,7 @@ const props = withDefaults(
     loadTop?: boolean;
     loadDown?: boolean;
     listClass?: string;
+    isReverse?: boolean;
   }>(),
   {
     perLoadNum: 20,
@@ -31,7 +32,8 @@ const props = withDefaults(
     loadTop: true,
     loadDown: true,
     singleSide: false,
-    listClass: ''
+    listClass: '',
+    isReverse: false
   }
 );
 
@@ -46,12 +48,12 @@ const OFFSET = 1;
 const listBottom = useTemplateRef('listBottom');
 const listTop = useTemplateRef('listTop');
 const startPage = ref(1);
-const currentPage = ref(1);
+const endPage = ref(1);
 // const initialized = ref(false);
 
 // const initialize = () => {
 //   if (!initialized.value && props.visible) {
-//     emit('loadNewData', { page: currentPage.value, pageSize: props.perLoadNum });
+//     emit('loadNewData', { page: endPage.value, pageSize: props.perLoadNum });
 //     initialized.value = true;
 //   }
 // };
@@ -60,18 +62,27 @@ let stopNewPageVirtualListHandler: () => void = () => {};
 let stopPrevPageVirtualListHandler: () => void = () => {};
 
 // 數窗內最多限制DOM筆數
-const isExceedLimitData = computed(() => currentPage.value - startPage.value >= props.maxPageCount);
+const isExceedLimitData = computed(() => endPage.value - startPage.value >= props.maxPageCount);
 const totalPage = computed(() => Math.ceil(props.total / props.perLoadNum));
 
-const loadNewPage = () => {
-  // 若
+const loadNextPage = () => {
   const target = props.singleSide ? (props.loadTop ? listTop.value : listBottom.value) : listBottom.value;
   const { stop } = useIntersectionObserver(
     target,
     ([{ isIntersecting }]) => {
-      if (isIntersecting && currentPage.value < totalPage.value) {
-        currentPage.value++;
-        emit('loadNewData', { page: currentPage.value, pageSize: props.perLoadNum });
+      if (isIntersecting && endPage.value <= totalPage.value) {
+        if (props.isReverse) {
+          if (startPage.value <= 1) return;
+
+          startPage.value--;
+          emit('loadNewData', { page: startPage.value, pageSize: props.perLoadNum });
+        } else {
+          if (endPage.value >= totalPage.value) return;
+
+          endPage.value++;
+          emit('loadNewData', { page: endPage.value, pageSize: props.perLoadNum });
+        }
+
         if (props.singleSide && props.loadTop) {
           maintainScrollAfterPrepend();
         }
@@ -81,7 +92,8 @@ const loadNewPage = () => {
       }
     },
     {
-      rootMargin: '0px 0px 0px 0px' // 提前 30px 觸發
+      root: virtualWrap.value,
+      rootMargin: '0px 0px 30px 0px' // 提前 30px 觸發
     }
   );
 
@@ -99,17 +111,28 @@ const loadPrevPage = () => {
   const { stop } = useIntersectionObserver(
     listTop.value,
     ([{ isIntersecting }]) => {
-      if (isIntersecting && startPage.value > 1) {
-        startPage.value--;
-        emit('loadPrevData', { page: startPage.value, pageSize: props.perLoadNum });
+      if (isIntersecting && startPage.value >= 1) {
+        if (props.isReverse) {
+          if (endPage.value >= totalPage.value) return;
+
+          endPage.value++;
+          emit('loadPrevData', { page: endPage.value, pageSize: props.perLoadNum });
+        } else {
+          if (startPage.value <= 1) return;
+
+          startPage.value--;
+          emit('loadPrevData', { page: startPage.value, pageSize: props.perLoadNum });
+        }
+
+        maintainScrollAfterPrepend();
         if (isExceedLimitData.value) {
           sliceBottomPage();
-          maintainScrollAfterPrepend();
         }
       }
     },
     {
-      rootMargin: '0px 0px 0px 0px' // 提前 10px 觸發
+      root: virtualWrap.value,
+      rootMargin: '0px 0px 30px 0px' // 提前 10px 觸發
     }
   );
 
@@ -121,7 +144,7 @@ const initVirtualScrollHandler = async () => {
   await nextTick();
 
   // 加載新頁面
-  loadNewPage();
+  loadNextPage();
 
   // 加載之前刪除的頁面
   if (!props.singleSide) {
@@ -131,12 +154,12 @@ const initVirtualScrollHandler = async () => {
 
 const sliceTopPage = () => {
   list.value.splice(0, props.perLoadNum);
-  startPage.value += OFFSET;
+  endPage.value -= OFFSET;
 };
 
 const sliceBottomPage = () => {
   list.value.splice(list.value.length - OFFSET * props.perLoadNum, props.perLoadNum);
-  currentPage.value -= OFFSET;
+  startPage.value += OFFSET;
 };
 
 watch(

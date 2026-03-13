@@ -9,6 +9,8 @@ export interface Message {
   receiverId: string;
   message: string;
   sendTime: number;
+  status?: 'sending' | 'success' | 'failed';
+  localId?: string;
 }
 
 export type PreviewMessage = Record<string, Message & { friendId: string }>;

@@ -14,22 +14,23 @@
       <p>{{ friendInfo?.userName }}</p>
     </div>
     <div class="flex flex-col overflow-scroll scrollbar-none w-full h-[90%]">
-      <div class="relative flex-1 px-[30px] py-[8px] overflow-y-auto h-full">
+      <div class="relative flex-1 px-[30px] py-2 overflow-y-auto h-full">
         <template v-if="Number(messageRecordTotal) > 0">
           <VirtualList
-            v-model:list="messageRecordQueryData"
+            v-model:list="showingData"
             :perLoadNum="pageSize"
             :total="messageRecordTotal || 0"
-            :singleSide="true"
-            :loadDown="false"
             :listClass="'mb-5'"
             ref="chatroomDom"
+            :maxPageCount="VIRTUALLIST_MAX_PAGE_COUNT"
             @loadNewData="showNewRecordData"
+            @loadPrevData="showPrevRecordData"
+            :isReverse="true"
           >
             <template v-slot="{ item, index }">
               <div
                 class="bg-black opacity-5 text-white rounded-[10px] mx-auto w-fit p-[5px] mb-[3px]"
-                v-show="showDate(messageRecordQueryData[index - 1]?.sendTime, item.sendTime)"
+                v-show="showDate(showingData[index - 1]?.sendTime, item.sendTime)"
               >
                 <p class="text-[12px]">
                   {{ moment(item.sendTime).format('MM/DD') }}
@@ -75,6 +76,7 @@
           >
             發送
           </button>
+          <button @click="test">test</button>
         </div>
       </div>
     </div>
@@ -90,7 +92,7 @@ import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
 import { WsChannel } from '~/enums/websocket';
-
+import { cloneDeep } from 'lodash-es';
 const routes = useRoute();
 const focusFriend = computed(() => ({
   uuid: routes.query.uuid as string
@@ -159,12 +161,12 @@ const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
   });
 };
 const waitToSendMessage = ref('');
-const sendMessageHandler = () => {
-  if (!waitToSendMessage.value) return;
+const sendMessageHandler = (i) => {
+  // if (!waitToSendMessage.value) return;
   const newMessage = {
     receiverId: focusFriend.value.uuid as string,
     senderId: userInfoRes.value?.data?.uuid as string,
-    message: waitToSendMessage.value,
+    message: i,
     sendTime: Date.now()
   };
 
@@ -178,7 +180,13 @@ const sendMessageHandler = () => {
     scrollToBottom();
   }
 
-  waitToSendMessage.value = '';
+  // waitToSendMessage.value = '';
+};
+
+const test = () => {
+  for (let i = 1; i <= 100; i++) {
+    sendMessageHandler(i);
+  }
 };
 
 const handleClickMessageTip = () => {
@@ -208,37 +216,46 @@ onBeforeRouteLeave(() => {
 });
 
 // virtual list
+const VIRTUALLIST_MAX_PAGE_COUNT = 4;
 const { getMessageRecordQuery, updateQuery } = useMessageQuery();
 
-const { data: messageRecordRes, fetchPreviousPage } = getMessageRecordQuery({
+const { data: messageRecordRes, fetchNextPage } = getMessageRecordQuery({
   senderId: userInfoRes.value?.data?.uuid as string,
   receiverId: focusFriend.value.uuid as string,
   pageSize
 });
-const messageRecordTotal = computed(() => messageRecordRes.value?.pages.at(-1)?.total);
+const messageRecordTotal = computed(() => messageRecordRes.value?.total);
 
-const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => {
-  return (
-    messageRecordRes.value?.pages.flatMap((page, pageIdx) =>
-      (
-        page?.data?.data?.map?.((item, index) => {
-          const currentPage = messageRecordRes.value?.pageParams[pageIdx];
-          return {
-            ...item,
-            idx: `${currentPage}` + `-${index}`
-          };
-        }) || []
-      ).reverse()
-    ) || []
+const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => messageRecordRes.value?.messages || []);
+const showingData = ref<(Message & { idx: string })[]>([]);
+
+watch(
+  messageRecordQueryData,
+  (val) => {
+    showingData.value = cloneDeep(val);
+  },
+  {
+    once: true
+  }
+);
+
+const showNewRecordData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
+  const cloneData = messageRecordQueryData.value.slice(
+    messageRecordQueryData.value.length - pageSize * page,
+    messageRecordQueryData.value.length - pageSize * (page - 1)
   );
-});
 
-const showNewRecordData = () => {
-  fetchPreviousPage();
+  showingData.value.push(...cloneData);
+};
+
+const showPrevRecordData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
+  await fetchNextPage(); // 取得先前紀錄
+  const cloneData = cloneDeep(messageRecordQueryData.value.slice(0, pageSize));
+  showingData.value.unshift(...cloneData);
 };
 
 const chatRoomHandler = (data) => {
-  if (routes.query?.uuid !== data.user.uuid) return;
+  if (routes.query?.uuid !== data.user?.uuid) return;
 
   try {
     toggleNewMessageTipsHandler();
@@ -252,13 +269,11 @@ useWsChannel([{ type: WsChannel.ChatRoom, handler: chatRoomHandler }]);
 const unWatch = watch(
   messageRecordQueryData,
   (val) => {
-    nextTick(() => {
-      if (val.length > 0) {
-        scrollToBottom();
-        unWatch();
-      }
-    });
+    if (val.length > 0) {
+      scrollToBottom();
+      unWatch();
+    }
   },
-  { immediate: true }
+  { immediate: true, flush: 'post' }
 );
 </script>

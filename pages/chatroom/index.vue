@@ -76,7 +76,6 @@
           >
             發送
           </button>
-          <button @click="test">test</button>
         </div>
       </div>
     </div>
@@ -110,7 +109,7 @@ const { data: friendData } = await useMyAsyncData(
 
 const friendInfo = computed(() => friendData?.value?.data?.data);
 const { userInfoRes } = useUserInfoQuery();
-const chatroomDom = ref<InstanceType<typeof VirtualList> | null>(null);
+const chatroomDom = useTemplateRef('chatroomDom');
 
 let messageTipsTimeout: ReturnType<typeof setTimeout> | null = null;
 const bottomDistanceCalc = () => {
@@ -161,12 +160,12 @@ const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
   });
 };
 const waitToSendMessage = ref('');
-const sendMessageHandler = (i) => {
-  // if (!waitToSendMessage.value) return;
+const sendMessageHandler = () => {
+  if (!waitToSendMessage.value) return;
   const newMessage = {
     receiverId: focusFriend.value.uuid as string,
     senderId: userInfoRes.value?.data?.uuid as string,
-    message: i,
+    message: waitToSendMessage.value,
     sendTime: Date.now()
   };
 
@@ -180,13 +179,7 @@ const sendMessageHandler = (i) => {
     scrollToBottom();
   }
 
-  // waitToSendMessage.value = '';
-};
-
-const test = () => {
-  for (let i = 1; i <= 100; i++) {
-    sendMessageHandler(i);
-  }
+  waitToSendMessage.value = '';
 };
 
 const handleClickMessageTip = () => {
@@ -240,15 +233,12 @@ watch(
 );
 
 const showNewRecordData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
-  const cloneData = messageRecordQueryData.value.slice(
-    messageRecordQueryData.value.length - pageSize * page,
-    messageRecordQueryData.value.length - pageSize * (page - 1)
-  );
+  const cloneData = messageRecordQueryData.value.slice(pageSize * (page - 1), pageSize * (page + 1));
 
   showingData.value.push(...cloneData);
 };
 
-const showPrevRecordData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
+const showPrevRecordData = async ({ pageSize }: { page: number; pageSize: number }) => {
   await fetchNextPage(); // 取得先前紀錄
   const cloneData = cloneDeep(messageRecordQueryData.value.slice(0, pageSize));
   showingData.value.unshift(...cloneData);

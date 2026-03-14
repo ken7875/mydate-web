@@ -85,25 +85,34 @@ const loadNextPage = () => {
 };
 
 const virtualWrap = useTemplateRef('virtualWrap');
-async function maintainScrollAfterPrepend() {
-  if (!virtualWrap.value) return;
-  const prevScrollHeight = virtualWrap.value.scrollHeight;
-  await nextTick();
-  const delta = virtualWrap.value.scrollHeight - prevScrollHeight;
-  virtualWrap.value.scrollTop += delta;
-}
+
+let isPrevLoadPending = false;
+let prevScrollHeight = 0;
+
+// 監聽 list 第一筆 idx 變化確認 prepend 實際完成，再補正 scrollTop
+watch(
+  () => list.value[0]?.idx,
+  async (newIdx, oldIdx) => {
+    if (!isPrevLoadPending || newIdx === oldIdx) return;
+    await nextTick();
+    if (virtualWrap.value) {
+      virtualWrap.value.scrollTop += virtualWrap.value.scrollHeight - prevScrollHeight;
+    }
+    isPrevLoadPending = false;
+  }
+);
 
 const loadPrevPage = () => {
   const { stop } = useIntersectionObserver(
     listTop.value,
     ([{ isIntersecting }]) => {
-      if (isIntersecting && startPage.value >= 1) {
-        if (startPage.value <= 1) return;
+      if (isIntersecting && startPage.value > 1 && !isPrevLoadPending) {
+        isPrevLoadPending = true;
+        prevScrollHeight = virtualWrap.value?.scrollHeight ?? 0;
 
         startPage.value--;
         emit('loadPrevData', { page: startPage.value, pageSize: props.perLoadNum });
 
-        maintainScrollAfterPrepend();
         if (isExceedLimitData.value) {
           sliceBottomPage();
         }

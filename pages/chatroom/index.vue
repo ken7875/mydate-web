@@ -154,7 +154,7 @@ const isSelf = (record: Message) => record.senderId === userInfoRes.value?.data?
 
 const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
   updateQuery({
-    newMessage: body.message[0],
+    newMessage: body.message,
     senderId: body.message[0].senderId,
     receiverId: body.message[0].receiverId
   });
@@ -244,10 +244,14 @@ const showPrevRecordData = async ({ pageSize }: { page: number; pageSize: number
   showingData.value.unshift(...cloneData);
 };
 
-const chatRoomHandler = (data) => {
-  if (routes.query?.uuid !== data.user?.uuid) return;
+const chatRoomHandler = (body: { data: { user: Friends; message: Message[]; type: 'chatRoom' } }) => {
+  console.log(body, 'body');
+  if (routes.query?.uuid !== body.data.user?.uuid) return;
 
   try {
+    updateMessageRecord({
+      message: body.data.message
+    });
     toggleNewMessageTipsHandler();
   } catch (error) {
     console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);

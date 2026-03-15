@@ -8,3 +8,8 @@ export enum WsChannel {
   ChatRoom = 'chatRoom',
   StreamRoomStatus = 'streamRoomStatus'
 }
+
+export enum WSCode {
+  SUCCESS = 'SUCCESS',
+  FAIL = 'FAIL'
+}

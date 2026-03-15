@@ -73,8 +73,9 @@ const inviteFriendHandler = (payload: WsPayload) => friendStore.getNewFriendInvi
 const setFriendStatusHandler = () => friendStore.getAllFriendsHandler({ page: 1, pageSize: 15 });
 const addRoomHandler = (payload: WsPayload) => streamStore.addRoom(payload.data); // TODO 優化為有訂閱該主播再全域通知，之後將其移動到chatroom
 const deleteRoomHandler = (payload: WsPayload) => streamStore.deleteRoom(payload.data); // TODO 同上
+
 const chatRoomMessageHandler = (payload: WsPayload) => {
-  const msg = payload.data?.message?.[0];
+  const msg = payload.data?.message;
   if (!msg) return;
   updateQuery({ newMessage: msg, senderId: msg.senderId, receiverId: msg.receiverId });
 };

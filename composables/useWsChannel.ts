@@ -1,7 +1,7 @@
-import type { WsChannel } from '~/enums/websocket';
+import type { WsChannel, WSCode } from '~/enums/websocket';
 import { useNotification } from '~/store/notificationWebSocket';
 
-export type WsPayload = { data: any; code: any };
+export type WsPayload = { data: any; code: WSCode; type: WsChannel };
 export type Handler = (payload: WsPayload) => void;
 
 interface Options {
@@ -10,7 +10,7 @@ interface Options {
 }
 
 interface WsChannelConfig {
-  type: WsChannel | string;
+  type: WsChannel;
   handler: Handler;
 }
 

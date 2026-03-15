@@ -52,13 +52,12 @@ export default () => {
     senderId,
     receiverId
   }: {
-    newMessage: Message;
+    newMessage: Message[];
     senderId: string;
     receiverId: string;
   }) => {
     queryClient.setQueryData(['messageRecord', { id: [senderId, receiverId].sort().join('_') }], (oldData: any) => {
       if (!oldData) return oldData;
-
       return {
         ...oldData,
         pages: oldData.pages.map((page: any, index: number) => {
@@ -68,7 +67,7 @@ export default () => {
               total: page.total + 1,
               data: {
                 ...page.data,
-                data: [newMessage, ...page.data.data]
+                data: [...newMessage, ...page.data.data]
               }
             };
           }

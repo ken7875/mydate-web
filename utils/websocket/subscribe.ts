@@ -10,7 +10,7 @@ const createSubscribeHandler = () => {
     // 同頁籤：直接呼叫 handlers
     entry.handlers.forEach((h) => {
       try {
-        h(data);
+        h({ type, data, code });
       } catch (error) {
         console.error(`Error in BroadcastChannel handler for type ${type}:`, error);
       }

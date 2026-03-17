@@ -44,8 +44,6 @@ const notificationStore = useNotification();
 const friendStore = useFriends();
 const streamStore = useStream();
 
-const { userInfoRes } = useUserInfoQuery();
-
 const queryClient = useQueryClient();
 // 於server side渲染
 onServerPrefetch(async () => {

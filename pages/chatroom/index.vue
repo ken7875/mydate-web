@@ -173,9 +173,16 @@ const sendMessageHandler = () => {
 
   if (userInfoRes.value?.data) {
     // 樂觀更新
-    updateMessageRecord({
-      message: [newMessage]
-    });
+    const lastShowingIdx = showingData.value.at(-1)?.idx;
+    const lastRecordIdx = messageRecordQueryData.value.at(-1)?.idx;
+    const isViewingLatest = lastShowingIdx === lastRecordIdx;
+
+    const prevLen = messageRecordQueryData.value.length;
+    updateMessageRecord({ message: [newMessage] });
+
+    if (isViewingLatest) {
+      showingData.value.push(...messageRecordQueryData.value.slice(prevLen));
+    }
     scrollToBottom();
   }
 
@@ -244,14 +251,21 @@ const showPrevRecordData = async ({ pageSize }: { page: number; pageSize: number
   showingData.value.unshift(...cloneData);
 };
 
-const chatRoomHandler = (body: { data: { user: Friends; message: Message[]; type: 'chatRoom' } }) => {
-  console.log(body, 'body');
+const chatRoomHandler = (body: WsPayload) => {
   if (routes.query?.uuid !== body.data.user?.uuid) return;
 
   try {
-    updateMessageRecord({
-      message: body.data.message
-    });
+    const lastShowingIdx = showingData.value.at(-1)?.idx;
+    const lastRecordIdx = messageRecordQueryData.value.at(-1)?.idx;
+    const isViewingLatest = lastShowingIdx === lastRecordIdx;
+
+    const prevLen = messageRecordQueryData.value.length;
+    updateMessageRecord({ message: body.data.message });
+
+    if (isViewingLatest) {
+      showingData.value.push(...messageRecordQueryData.value.slice(prevLen));
+    }
+
     toggleNewMessageTipsHandler();
   } catch (error) {
     console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
@@ -260,14 +274,13 @@ const chatRoomHandler = (body: { data: { user: Friends; message: Message[]; type
 
 useWsChannel([{ type: WsChannel.ChatRoom, handler: chatRoomHandler }]);
 
-const unWatch = watch(
-  messageRecordQueryData,
-  (val) => {
-    if (val.length > 0) {
-      scrollToBottom();
-      unWatch();
-    }
-  },
-  { immediate: true, flush: 'post' }
-);
+// watch(
+//   messageRecordQueryData,
+//   (val) => {
+//     if (val.length > 0) {
+//       scrollToBottom();
+//     }
+//   },
+//   { immediate: true, flush: 'post', once: true }
+// );
 </script>

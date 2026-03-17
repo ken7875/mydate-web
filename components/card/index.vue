@@ -1,5 +1,5 @@
 <template>
-  <div class="rounded-[8px] border overflow-hidden bg-white">
+  <div class="rounded-[8px] overflow-hidden bg-white">
     <div :class="['flex h-full w-full relative', { 'flex-col': !isHorizontal }]">
       <template v-if="$slots.header">
         <slot name="header"></slot>

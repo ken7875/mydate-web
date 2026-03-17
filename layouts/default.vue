@@ -1,26 +1,16 @@
 <template>
-  <div class="w-full relative">
-    <header class="h-[80px] flex justify-end px-[20px] z-[10] py-[10px] bg-primary sticky top-0 w-full">
+  <div class="w-full relative bg-bg">
+    <header class="h-[80px] flex px-[20px] z-[10] py-[10px] bg-banner-bg sticky top-0 w-full">
       <nav>
-        <NuxtLink to="/userInfo" class="flex items-center">
-          <div class="w-[60px] h-[60px] rounded-[50%] overflow-hidden">
-            <NuxtImg
-              preload
-              crossorigin="anonymous"
-              format="webp"
-              :src="getDefaultAvatar(userInfoRes?.data?.avatars?.at(0) || '')"
-              alt="avatar"
-              class="w-full h-full object-cover"
-            />
-            <img class="w-full h-full" src="/images/default.jpg" alt="" />
-          </div>
-        </NuxtLink>
+        <h1 class="w-[70%] h-full">
+          <img src="@/assets/images/topbar-logo/bloom-topbar-1x.webp" alt="logo" class="object-fit" />
+        </h1>
       </nav>
     </header>
     <main class="h-[calc(100dvh-80px*2)]">
       <slot></slot>
     </main>
-    <footer class="flex justify-around w-full h-[80px] z-[10] sticky bottom-0 bg-primary">
+    <footer class="flex justify-around w-full h-[80px] z-[10] sticky bottom-0 bg-banner-bg">
       <div>
         <NuxtLink to="/meet">meet</NuxtLink>
       </div>

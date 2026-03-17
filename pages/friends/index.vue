@@ -161,6 +161,7 @@ const updatePreviewMessage = (data: { user: User; message: Message[] }) => {
   };
 };
 
+// 缺少idx所以無法觸發載入新資料後回彈
 const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', async () => {
   const friendsId = showingFriendList.value.map((friend) => friend.uuid);
   if (friendsId.length === 0) return {};

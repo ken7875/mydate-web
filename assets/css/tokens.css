@@ -1,15 +1,19 @@
 @theme {
   /* === Colors: Primitive === */
-  --color-primary: #8F00FF;
-  --color-secondary: #007bff;
+  --color-primary: #E8604C;
+  --color-bg: #FAF5F0;
+  --color-secondary: #2D2A26;
   --color-secondary-light: #80d6ff;
-  --color-darkLight: #dee2e6;
+  --color-darkLight: #D14E3B;
   --color-gray: #808080;
   --color-success: #2da94f;
   --color-warning: #f59e0b;
   --color-danger-100: rgb(253, 245, 242);
   --color-danger-200: rgb(235, 87, 87, 0.3);
   --color-danger-300: rgb(235, 87, 87);
+
+  /* === Colors: layout states === */
+  --color-banner-bg: linear-gradient(135deg, var(--primary), var(--accent));
 
   /* === Colors: Input states === */
   --color-input-bg: #f1f5f9;                              /* 預設背景（對應 slate-100）*/

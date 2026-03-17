@@ -25,7 +25,9 @@ import {
   faVideo,
   faXmark,
   faHeart,
-  faHeartCrack
+  faHeartCrack,
+  faChevronUp,
+  faChevronDown
 } from '@fortawesome/free-solid-svg-icons';
 
 config.autoAddCss = false;
@@ -55,7 +57,9 @@ library.add(
   faVideo,
   faXmark,
   faHeart,
-  faHeartCrack
+  faHeartCrack,
+  faChevronUp,
+  faChevronDown
 );
 
 export default defineNuxtPlugin((nuxtApp) => {

@@ -183,12 +183,14 @@ export default class BaseWebsocket {
       const res = JSON.parse(raw);
       const { type, data, code } = res;
       console.log(res, 'onmessage');
-      this.notify({ type, data, code });
-      if (res.code === 'UNAUTHORIZATION') {
+      // 先檢查未授權，阻止訊息廣播
+      if (code === 'UNAUTHORIZATION') {
         this.handleClose();
         useForceKickOut();
         return;
       }
+
+      this.notify({ type, data, code });
     } catch (error) {
       console.error('WebSocket 訊息解析失敗:', error, event.data);
     }

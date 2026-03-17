@@ -162,6 +162,13 @@ export default class BaseWebsocket {
 
   onclose(event: CloseEvent) {
     console.log(`name: ${this.url} - websocket close`, event.code);
+
+    // Identity check：若觸發 onclose 的不是當前活躍實例，忽略（防禦舊實例誤觸發）
+    if (event.target !== this.websocket) {
+      console.log('Ignoring onclose from stale WebSocket instance');
+      return;
+    }
+
     this.websocket = null;
     this.resetHeartBeat();
 

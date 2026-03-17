@@ -1245,7 +1245,7 @@ return { init, handleClose, handleSend, subscribe, unsubscribe };
 - [ ] **Phase 1**: 關鍵修復
   - [x] TASK-001: UNAUTHORIZATION 訊息順序修正
   - [x] TASK-002: StreamWebsocket JSON.parse 錯誤處理
-  - [ ] TASK-003: 重連 race condition 修復
+  - [x] TASK-003: 重連 race condition 修復
 - [ ] **Phase 2**: 架構解耦
   - [ ] TASK-004: BaseWebsocket 依賴注入重構
   - [ ] TASK-005: 訂閱生命週期分離

@@ -69,6 +69,7 @@ const authStore = useAuth();
 const notificationStore = useNotification();
 const friendStore = useFriends();
 const streamStore = useStream();
+const route = useRoute();
 
 const queryClient = useQueryClient();
 // 於server side渲染
@@ -89,6 +90,9 @@ const addRoomHandler = (payload: WsPayload) => streamStore.addRoom(payload.data)
 const deleteRoomHandler = (payload: WsPayload) => streamStore.deleteRoom(payload.data); // TODO 同上
 
 const chatRoomMessageHandler = (payload: WsPayload) => {
+  // 若當前在 chatroom 頁面，由 chatroom page 自己的 handler 處理
+  if (route.path === '/chatroom') return;
+
   const msg = payload.data?.message;
   if (!msg) return;
   updateQuery({ newMessage: msg, senderId: msg.senderId, receiverId: msg.receiverId });

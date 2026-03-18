@@ -1,7 +1,6 @@
-import { useAuth } from '@/store/auth';
 import type { DataType } from './types';
-import { useForceKickOut } from '@/utils/forceLogout';
 import createSubscribeHandler from './subscribe';
+import { tokenCookie } from '@/utils/cookies/index';
 
 // 允許自動重連的 close code 白名單
 const RECONNECTABLE_CLOSE_CODES: ReadonlySet<number> = new Set([
@@ -14,11 +13,18 @@ const RECONNECTABLE_CLOSE_CODES: ReadonlySet<number> = new Set([
   4000 // 自訂：心跳超時主動斷開
 ]);
 
+export interface BaseWebsocketOptions {
+  heartBeatTime?: number;
+  reconnectInterval?: number;
+  maxReconnectAttempts?: number;
+  onUnauthorized?: () => void;
+}
+
 export default class BaseWebsocket {
   url: string;
   websocket: WebSocket | null = null;
-  // private
-  #authStore = useAuth();
+
+  #onUnauthorized: (() => void) | null = null;
 
   #heartBeatTimer: number | null = null;
   #waitServerHeartBeatTimer: number | null = null;
@@ -39,21 +45,14 @@ export default class BaseWebsocket {
   };
   protected subscribeHandler: ReturnType<typeof createSubscribeHandler> | null = null;
 
-  constructor(
-    url: string,
-    options?: Partial<{
-      heartBeatTime: number;
-      reconnectInterval: number;
-      maxReconnectAttempts: number;
-    }>
-  ) {
+  constructor(url: string, options?: BaseWebsocketOptions) {
     this.url = url;
     this.isReconnecting = false;
+    this.#onUnauthorized = options?.onUnauthorized ?? null;
     this.#options = {
-      heartBeatTime: 25000,
-      reconnectInterval: 5000,
-      maxReconnectAttempts: 3,
-      ...options
+      heartBeatTime: options?.heartBeatTime ?? 25000,
+      reconnectInterval: options?.reconnectInterval ?? 5000,
+      maxReconnectAttempts: options?.maxReconnectAttempts ?? 3
     };
     this.reconnectCount = 0;
     this.isHandleClose = true;
@@ -133,7 +132,12 @@ export default class BaseWebsocket {
     console.log(`websocket reconnecting (attempt ${this.reconnectCount}, delay ${Math.round(delay)}ms)`);
 
     window.setTimeout(() => {
-      this.init(this.#authStore.token);
+      const token = tokenCookie().getItem();
+      if (!token) {
+        console.warn('No token available in cookie for reconnection');
+        return;
+      }
+      this.init(token);
     }, delay);
   }
 
@@ -189,11 +193,10 @@ export default class BaseWebsocket {
     try {
       const res = JSON.parse(raw);
       const { type, data, code } = res;
-      console.log(res, 'onmessage');
       // 先檢查未授權，阻止訊息廣播
       if (code === 'UNAUTHORIZATION') {
         this.handleClose();
-        useForceKickOut();
+        this.#onUnauthorized?.();
         return;
       }
 

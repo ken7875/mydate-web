@@ -26,6 +26,6 @@ class CookieFactory<T> {
   }
 }
 
-export const tokenCookie = () => new CookieFactory<string>('memorandum-token');
+export const tokenCookie = () => new CookieFactory<string>('access_token');
 
 export const userIdCookie = () => new CookieFactory<string>('memorandum-userId');

@@ -78,7 +78,7 @@ export const useStream = defineStore('stream', () => {
     streamRoomMap.delete(uuid);
   };
 
-  const resetRoomStatus = (data: { uuid: string; status: boolean }) => {
+  const resetRoomStatus = ({ data }: WsPayload) => {
     const uuid = data.uuid;
     const room = streamRoomMap.get(data.uuid)!;
     streamRoomMap.set(uuid, {

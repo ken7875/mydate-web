@@ -11,7 +11,7 @@ interface Options {
 
 interface WsChannelConfig {
   type: WsChannel;
-  handler: Handler;
+  handler: Handler | Handler[];
 }
 
 /**
@@ -22,10 +22,14 @@ interface WsChannelConfig {
  * @param options - 自訂 subscribe/unsubscribe 方法（預設使用 notificationStore）
  *
  * @example
- * // 使用預設 notification store
+ * // 單一 handler
  * useWsChannel([
  *   { type: WsChannel.Global, handler: handleGlobal },
- *   { type: WsChannel.ChatRoom, handler: handleChat }
+ * ]);
+ *
+ * // 同一 type 多個 handler
+ * useWsChannel([
+ *   { type: WsChannel.ChatRoom, handler: [handleBadge, handleList] }
  * ]);
  *
  * // 使用 stream store
@@ -44,14 +48,16 @@ export const useWsChannel = (channels: WsChannelConfig[], options?: Options) => 
     subscribeFn = options?.subscribe ?? notificationStore.subscribe;
     unsubscribeFn = options?.unsubscribe ?? notificationStore.unsubscribe;
     channels.forEach(({ type, handler }) => {
-      subscribeFn(type, handler);
+      const handlers = Array.isArray(handler) ? handler : [handler];
+      handlers.forEach((h) => subscribeFn(type, h));
     });
   });
 
   onBeforeUnmount(() => {
     if (!unsubscribeFn) return;
     channels.forEach(({ type, handler }) => {
-      unsubscribeFn(type, handler);
+      const handlers = Array.isArray(handler) ? handler : [handler];
+      handlers.forEach((h) => unsubscribeFn(type, h));
     });
   });
 };

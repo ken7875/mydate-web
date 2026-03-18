@@ -1,8 +1,8 @@
 import type { WsChannel, WSCode } from '~/enums/websocket';
 import { useNotification } from '~/store/notificationWebSocket';
 
-export type WsPayload = { data: any; code: WSCode; type: WsChannel };
-export type Handler = (payload: WsPayload) => void;
+export type WsPayload<T = unknown> = { data: T; code: WSCode; type: WsChannel };
+export type Handler = (payload: WsPayload<any>) => void;
 
 interface Options {
   subscribe?: (type: string, handler: Handler) => void;

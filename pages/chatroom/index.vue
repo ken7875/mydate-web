@@ -84,7 +84,7 @@
 
 <script setup lang="ts">
 import { useChat } from '@/store/chat';
-import type { Message } from '@/api/types/chat';
+import type { Message, WsMessage } from '@/api/types/chat';
 import moment from 'moment';
 import { markAsReadApi } from '@/api/modules/chat';
 import VirtualList from '@/components/virtualList/index.vue';
@@ -251,7 +251,7 @@ const showPrevRecordData = async ({ pageSize }: { page: number; pageSize: number
   showingData.value.unshift(...cloneData);
 };
 
-const chatRoomHandler = (body: WsPayload) => {
+const chatRoomHandler = (body: WsPayload<WsMessage>) => {
   if (routes.query?.uuid !== body.data.user?.uuid) return;
 
   try {

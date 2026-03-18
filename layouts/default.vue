@@ -64,6 +64,9 @@ import { useStream } from '~/store/stream';
 import { getUserInfo } from '@/api/modules/auth';
 import { WsChannel } from '~/enums/websocket';
 import type { WsPayload } from '~/composables/useWsChannel';
+import type { Friends } from '@/api/types/friend';
+import type { GetRoomsResponse } from '@/api/types/stream';
+import type { WsMessage } from '~/api/types/chat';
 
 const authStore = useAuth();
 const notificationStore = useNotification();
@@ -83,19 +86,19 @@ onServerPrefetch(async () => {
 const { updateQuery } = useMessageQuery();
 
 // handler 必須是具名函式（非匿名箭頭函式），unsubscribe 需要相同的函式參照
-const globalMessageHandler = (payload: WsPayload) => notificationStore.websocketGlobalMessage(payload.data);
-const inviteFriendHandler = (payload: WsPayload) => friendStore.getNewFriendInvite(payload.data);
+const globalMessageHandler = (payload: WsPayload<any>) => notificationStore.websocketGlobalMessage(payload.data);
+const inviteFriendHandler = (payload: WsPayload<Friends>) => friendStore.getNewFriendInvite(payload.data);
 const setFriendStatusHandler = () => friendStore.getAllFriendsHandler({ page: 1, pageSize: 15 });
-const addRoomHandler = (payload: WsPayload) => streamStore.addRoom(payload.data); // TODO 優化為有訂閱該主播再全域通知，之後將其移動到chatroom
-const deleteRoomHandler = (payload: WsPayload) => streamStore.deleteRoom(payload.data); // TODO 同上
+const addRoomHandler = (payload: WsPayload<GetRoomsResponse>) => streamStore.addRoom(payload.data); // TODO 優化為有訂閱該主播再全域通知，之後將其移動到chatroom
+const deleteRoomHandler = (payload: WsPayload<{ uuid: string }>) => streamStore.deleteRoom(payload.data); // TODO 同上
 
-const chatRoomMessageHandler = (payload: WsPayload) => {
+const chatRoomMessageHandler = (payload: WsPayload<WsMessage>) => {
   // 若當前在 chatroom 頁面，由 chatroom page 自己的 handler 處理
   if (route.path === '/chatroom') return;
 
-  const msg = payload.data?.message;
+  const msg = payload.data?.message[0];
   if (!msg) return;
-  updateQuery({ newMessage: msg, senderId: msg.senderId, receiverId: msg.receiverId });
+  updateQuery({ newMessage: [msg], senderId: msg.senderId, receiverId: msg.receiverId });
 };
 
 useWsChannel([

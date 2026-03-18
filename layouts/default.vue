@@ -10,22 +10,48 @@
     <main class="h-[calc(100dvh-80px*2)]">
       <slot></slot>
     </main>
-    <footer class="flex justify-around w-full h-[80px] z-[10] sticky bottom-0 bg-banner-bg">
-      <div>
-        <NuxtLink to="/meet">meet</NuxtLink>
-      </div>
-      <div>
-        <NuxtLink to="/friends">friends</NuxtLink>
-      </div>
-      <div>
-        <NuxtLink to="/live">live</NuxtLink>
-      </div>
-      <div>
-        <NuxtLink to="/streamer">streamer</NuxtLink>
-      </div>
-      <!-- <div>
-        <NuxtLink to="/user">userinfo</NuxtLink>
-      </div> -->
+    <footer class="flex justify-around items-center w-full list-none h-20 z-10 sticky bottom-0 bg-banner-bg">
+      <li class="cursor-pointer">
+        <NuxtLink to="/meet" class="flex flex-col">
+          <ClientOnly>
+            <font-awesome-icon :icon="['far', 'compass']" class="text-[2rem] mb-2" />
+          </ClientOnly>
+          <span>配對</span>
+        </NuxtLink>
+      </li>
+      <li>
+        <NuxtLink to="/friends" class="flex flex-col">
+          <ClientOnly>
+            <font-awesome-icon :icon="['far', 'comments']" class="text-[2rem] mb-2" />
+          </ClientOnly>
+          <span>聊天</span>
+        </NuxtLink>
+      </li>
+      <li class="w-[20%] flex justify-center items-center">
+        <NuxtLink to="/streamer">
+          <ClientOnly>
+            <div class="rounded-[50%] bg-primary w-[60px] h-[60px] flex justify-center items-center">
+              <font-awesome-icon :icon="['fas', 'video']" class="text-[2rem] text-white" />
+            </div>
+          </ClientOnly>
+        </NuxtLink>
+      </li>
+      <li>
+        <NuxtLink to="/live" class="flex flex-col">
+          <ClientOnly>
+            <font-awesome-icon :icon="['fas', 'tv']" class="text-[2rem] mb-2" />
+          </ClientOnly>
+          <span>直播室</span>
+        </NuxtLink>
+      </li>
+      <li>
+        <NuxtLink to="/user" class="flex flex-col">
+          <ClientOnly>
+            <font-awesome-icon :icon="['far', 'user']" class="text-[2rem] mb-2" />
+          </ClientOnly>
+          <span>我的</span>
+        </NuxtLink>
+      </li>
     </footer>
   </div>
 </template>

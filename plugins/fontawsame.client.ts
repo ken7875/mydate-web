@@ -1,5 +1,7 @@
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
-import { library, config } from '@fortawesome/fontawesome-svg-core';
+import { library, config, type IconDefinition } from '@fortawesome/fontawesome-svg-core';
+import { faComments, faCompass, faUser } from '@fortawesome/free-regular-svg-icons';
+
 import {
   faAngleDown,
   faBars,
@@ -27,7 +29,8 @@ import {
   faHeart,
   faHeartCrack,
   faChevronUp,
-  faChevronDown
+  faChevronDown,
+  faTv
 } from '@fortawesome/free-solid-svg-icons';
 
 config.autoAddCss = false;
@@ -59,7 +62,11 @@ library.add(
   faHeart,
   faHeartCrack,
   faChevronUp,
-  faChevronDown
+  faChevronDown,
+  faTv,
+  faUser as IconDefinition,
+  faCompass as IconDefinition,
+  faComments as IconDefinition
 );
 
 export default defineNuxtPlugin((nuxtApp) => {

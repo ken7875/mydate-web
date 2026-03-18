@@ -175,6 +175,7 @@ export default class BaseWebsocket {
 
     this.websocket = null;
     this.resetHeartBeat();
+    this.subscribeHandler?.closeChannels();
 
     if (!this.isHandleClose && RECONNECTABLE_CLOSE_CODES.has(event.code)) {
       this.reconnect();

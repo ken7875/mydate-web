@@ -45,7 +45,7 @@
         </NuxtLink>
       </li>
       <li>
-        <NuxtLink to="/user" class="flex flex-col">
+        <NuxtLink to="/userInfo" class="flex flex-col">
           <ClientOnly>
             <font-awesome-icon :icon="['far', 'user']" class="text-[2rem] mb-2" />
           </ClientOnly>

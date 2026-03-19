@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
 import type { User } from '~/api/types/user';
 import { Gender } from '@/enums/user';
+import { useNotification } from './notificationWebSocket';
+import { useStream } from './stream';
 // import { getAvatarsApi } from '@/api/modules/auth';
 
 const initUserInfo = {
@@ -16,7 +18,11 @@ const initUserInfo = {
   isPasswordSign: false,
   age: 0,
   gender: Gender.Male,
-  description: ''
+  description: '',
+  interests: [],
+  personality: [],
+  bloodType: '',
+  city: ''
 };
 
 export const useAuth = defineStore(
@@ -49,6 +55,8 @@ export const useAuth = defineStore(
     // };
     const queryClient = useQueryClient();
     const logout = () => {
+      useNotification().handleClose();
+      useStream().handleClose();
       setToken('');
       queryClient.clear();
     };

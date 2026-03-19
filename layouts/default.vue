@@ -116,6 +116,10 @@ watch(
     if (process.client && val) {
       notificationStore.init(val);
     }
+
+    if (!val) {
+      authStore.logout();
+    }
   },
   {
     immediate: true

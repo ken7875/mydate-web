@@ -265,10 +265,18 @@ const dragCardHandler = () => {
   const TRIGGER_RANGE = 150;
 
   let [instance] = Draggable.create('.card', {
-    type: 'x,y',
+    type: 'x',
+    allowNativeTouchScrolling: true,
     edgeResistance: 0.65,
     inertia: true,
     onDrag() {
+      // 在 onDrag 開頭判斷：若該卡片已展開且 this.y < 0（往上拖），呼叫 gsap.set(this.target, { y: 0 }) 鎖住 y 位置並直接 return，跳過後續的旋轉與 icon 邏輯
+      const topCardUuid = showingMeetUserList.value[0]?.uuid;
+      if (expandedUuids.value.has(topCardUuid) && this.y !== 0) {
+        gsap.set(this.target, { y: 0 });
+        return;
+      }
+
       const maxRotation = 20;
       const rotation = (this.x / 300) * maxRotation;
       gsap.to(this.target, {

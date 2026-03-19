@@ -33,19 +33,19 @@
               </div>
             </div>
             <div class="px-5 mt-5">
-              <div class="flex mb-3">
-                <p class="w-[30%] text-gray-400">個性</p>
-                <div class="grid grid-cols-6 gap-2">
-                  <Badge class="col-span-1 whitespace-nowrap" :fill="true" v-for="(value, i) in 10" :key="i">{{
-                    '咖啡'
+              <div class="flex mb-5 w-full">
+                <p class="w-[60px] text-gray-400">個性</p>
+                <div class="flex flex-wrap gap-2">
+                  <Badge class="whitespace-nowrap" :fill="true" v-for="(personality, i) in item.personality" :key="i">{{
+                    personality
                   }}</Badge>
                 </div>
               </div>
-              <div class="flex mb-3">
-                <p class="w-[30%] text-gray-400">興趣</p>
-                <div class="grid grid-cols-6 gap-2">
-                  <Badge class="col-span-1 whitespace-nowrap" :fill="true" v-for="(value, i) in 10" :key="i">{{
-                    '咖啡'
+              <div class="flex mb-5 w-full">
+                <p class="w-[60px] text-gray-400">興趣</p>
+                <div class="flex flex-wrap gap-2">
+                  <Badge class="whitespace-nowrap" :fill="true" v-for="(interest, i) in item.interests" :key="i">{{
+                    interest
                   }}</Badge>
                 </div>
               </div>

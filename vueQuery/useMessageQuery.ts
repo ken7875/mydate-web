@@ -14,6 +14,7 @@ export default () => {
           page: pageParam,
           pageSize
         }),
+      staleTime: 1000 * 60 * 5,
       refetchOnMount: false,
       refetchOnWindowFocus: false,
       initialPageParam: 1,

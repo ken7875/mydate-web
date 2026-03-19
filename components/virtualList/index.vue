@@ -57,19 +57,22 @@ const stopHandlers: (() => void)[] = [];
 const isExceedLimitData = computed(() => endPage.value - startPage.value + 1 > props.maxPageCount);
 
 const loadNextPage = () => {
+  let initialized = false;
   const target = props.singleSide ? (props.loadTop ? listTop.value : listBottom.value) : listBottom.value;
   const { stop } = useIntersectionObserver(
     target,
-    ([{ isIntersecting }]) => {
+    async ([{ isIntersecting }]) => {
+      if (!initialized) {
+        initialized = true;
+        return;
+      }
+
       if (isIntersecting && endPage.value <= totalPage.value) {
         if (endPage.value >= totalPage.value) return;
 
         endPage.value++;
         emit('loadNewData', { page: endPage.value, pageSize: props.perLoadNum });
 
-        if (props.singleSide && props.loadTop) {
-          maintainScrollAfterPrepend();
-        }
         if (isExceedLimitData.value && !props.singleSide) {
           sliceTopPage();
         }
@@ -94,18 +97,26 @@ watch(
   () => list.value[0]?.idx,
   async (newIdx, oldIdx) => {
     if (!isPrevLoadPending || newIdx === oldIdx) return;
-    await nextTick();
     if (virtualWrap.value) {
       virtualWrap.value.scrollTop += virtualWrap.value.scrollHeight - prevScrollHeight;
     }
     isPrevLoadPending = false;
+  },
+  {
+    flush: 'post'
   }
 );
 
 const loadPrevPage = () => {
+  let initialized = false;
   const { stop } = useIntersectionObserver(
     listTop.value,
     ([{ isIntersecting }]) => {
+      if (!initialized) {
+        initialized = true;
+        return;
+      }
+
       if (isIntersecting && startPage.value > 1 && !isPrevLoadPending) {
         isPrevLoadPending = true;
         prevScrollHeight = virtualWrap.value?.scrollHeight ?? 0;
@@ -162,8 +173,16 @@ watch(
   }
 );
 
+// 若是從最下方開始顯示新資料，剛進頁面直接幫用戶跳到最下層
+const scrollToBottom = () => {
+  if (props.isReverse && virtualWrap.value) {
+    virtualWrap.value.scrollTop = virtualWrap.value?.scrollHeight;
+  }
+};
+
 onMounted(() => {
   initVirtualScrollHandler();
+  scrollToBottom();
 });
 
 onUnmounted(() => {

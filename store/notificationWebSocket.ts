@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
-import { StatusCode } from '~/enums/common';
 import BaseWebsocket from '@/utils/websocket/index';
 import { useForceKickOut } from '@/utils/forceLogout';
+import type { WsChannel } from '~/enums/websocket';
 
 export const useNotification = defineStore('notification', () => {
   const runtimeConfig = useRuntimeConfig();
@@ -12,8 +12,12 @@ export const useNotification = defineStore('notification', () => {
 
   const getWs = (): BaseWebsocket => {
     if (!websocketTool) {
+      const queryClient = useQueryClient();
       websocketTool = new BaseWebsocket(url, {
-        onUnauthorized: () => useForceKickOut()
+        onUnauthorized: () => useForceKickOut(),
+        onReconnect: () => {
+          queryClient.invalidateQueries({ queryKey: ['messageRecord'] });
+        }
       });
     }
     return websocketTool;
@@ -23,7 +27,7 @@ export const useNotification = defineStore('notification', () => {
     getWs().init(token);
   };
 
-  const notify = ({ type, data, code }: { type: string; data: any; code: StatusCode }) => {
+  const notify = ({ type, data, code }: WsPayload) => {
     getWs().notify({ type, data, code });
   };
 
@@ -39,11 +43,11 @@ export const useNotification = defineStore('notification', () => {
     getWs().websocketGlobalMessage(data);
   };
 
-  const subscribe = (type: string, handler: (data: any) => void) => {
+  const subscribe = (type: WsChannel, handler: (data: any) => void) => {
     getWs().subscribe(type, handler);
   };
 
-  const unsubscribe = (type: string, handler: (data: any) => void) => {
+  const unsubscribe = (type: WsChannel, handler: (data: any) => void) => {
     getWs().unsubscribe(type, handler);
   };
 

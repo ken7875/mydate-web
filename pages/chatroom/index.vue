@@ -92,6 +92,7 @@ import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
 import { WsChannel } from '~/enums/websocket';
 import { cloneDeep } from 'lodash-es';
+
 const routes = useRoute();
 const focusFriend = computed(() => ({
   uuid: routes.query.uuid as string
@@ -101,6 +102,8 @@ const pageSize = 20;
 const chatStore = useChat();
 
 const { sendMessage } = chatStore;
+
+const { getMessageRecordQuery, updateQuery } = useMessageQuery();
 
 const { data: friendData } = await useMyAsyncData(
   'friend',
@@ -217,7 +220,6 @@ onBeforeRouteLeave(() => {
 
 // virtual list
 const VIRTUALLIST_MAX_PAGE_COUNT = 4;
-const { getMessageRecordQuery, updateQuery } = useMessageQuery();
 
 const { data: messageRecordRes, fetchNextPage } = getMessageRecordQuery({
   senderId: userInfoRes.value?.data?.uuid as string,
@@ -226,18 +228,9 @@ const { data: messageRecordRes, fetchNextPage } = getMessageRecordQuery({
 });
 const messageRecordTotal = computed(() => messageRecordRes.value?.total);
 
-const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => messageRecordRes.value?.messages || []);
 const showingData = ref<(Message & { idx: string })[]>([]);
 
-watch(
-  messageRecordQueryData,
-  (val) => {
-    showingData.value = cloneDeep(val);
-  },
-  {
-    once: true
-  }
-);
+const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => messageRecordRes.value?.messages || []);
 
 const showNewRecordData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
   const cloneData = messageRecordQueryData.value.slice(pageSize * (page - 1), pageSize * (page + 1));
@@ -245,8 +238,23 @@ const showNewRecordData = async ({ page, pageSize }: { page: number; pageSize: n
   showingData.value.push(...cloneData);
 };
 
+const unWatch = watch(
+  messageRecordQueryData,
+  (val) => {
+    if (showingData.value.length === 0) {
+      showingData.value = cloneDeep(val);
+    } else {
+      unWatch();
+    }
+  },
+  {
+    immediate: true
+  }
+);
+
+const debounceFetchNextPage = useDebounceFn(fetchNextPage, 10);
 const showPrevRecordData = async ({ pageSize }: { page: number; pageSize: number }) => {
-  await fetchNextPage(); // 取得先前紀錄
+  await debounceFetchNextPage(); // 取得先前紀錄
   const cloneData = cloneDeep(messageRecordQueryData.value.slice(0, pageSize));
   showingData.value.unshift(...cloneData);
 };

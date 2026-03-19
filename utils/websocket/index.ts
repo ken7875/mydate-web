@@ -1,4 +1,4 @@
-import type { DataType } from './types';
+import type { WsChannel } from '~/enums/websocket';
 import createSubscribeHandler from './subscribe';
 import { tokenCookie } from '@/utils/cookies/index';
 
@@ -18,6 +18,7 @@ export interface BaseWebsocketOptions {
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
   onUnauthorized?: () => void;
+  onReconnect?: () => void;
 }
 
 export default class BaseWebsocket {
@@ -25,6 +26,7 @@ export default class BaseWebsocket {
   websocket: WebSocket | null = null;
 
   #onUnauthorized: (() => void) | null = null;
+  #onReconnect: (() => void) | null = null;
 
   #heartBeatTimer: number | null = null;
   #waitServerHeartBeatTimer: number | null = null;
@@ -49,6 +51,7 @@ export default class BaseWebsocket {
     this.url = url;
     this.isReconnecting = false;
     this.#onUnauthorized = options?.onUnauthorized ?? null;
+    this.#onReconnect = options?.onReconnect ?? null;
     this.#options = {
       heartBeatTime: options?.heartBeatTime ?? 25000,
       reconnectInterval: options?.reconnectInterval ?? 5000,
@@ -141,21 +144,24 @@ export default class BaseWebsocket {
     }, delay);
   }
 
-  notify({ type, data, code }: DataType<unknown>) {
+  notify({ type, data, code }: WsPayload<unknown>) {
     console.log(`get type: ${type} | data: ${JSON.stringify(data)} | code: ${code}`);
     this.subscribeHandler?.broadcast(type, data, code);
   }
 
-  subscribe(type: string, handler: (data: any) => void) {
+  subscribe(type: WsChannel, handler: (data: any) => void) {
     this.subscribeHandler?.subscribe(type, handler);
   }
 
-  unsubscribe(type: string, handler: (data: any) => void) {
+  unsubscribe(type: WsChannel, handler: (data: any) => void) {
     this.subscribeHandler?.unsubscribe(type, handler);
   }
 
   onopen() {
     console.log(`name: ${this.url} - socket on open`);
+    if (this.reconnectCount > 0) {
+      this.#onReconnect?.();
+    }
     this.reconnectCount = 0;
     this.startHeartBeat();
   }

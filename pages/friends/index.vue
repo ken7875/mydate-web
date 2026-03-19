@@ -76,8 +76,7 @@ import { useFriends } from '@/store/friends';
 import { useChat } from '@/store/chat';
 import { storeToRefs } from 'pinia';
 import type { Friends } from '@/api/types/friend';
-import type { Message } from '~/api/types/chat';
-import type { User } from '~/api/types/user';
+import type { WsMessage } from '~/api/types/chat';
 import type { ShowingFriendList } from './types';
 import { WsChannel } from '~/enums/websocket';
 
@@ -92,8 +91,8 @@ const { totalFriends } = storeToRefs(friendsStore);
 const chatStore = useChat();
 const { getAllFriendsHandler } = friendsStore;
 
-const handleUnReadCountUpdate = (params: { user: User; message: Message[] }) => {
-  chatStore.getUnReadCountHandler(params.message.map((item) => item.senderId));
+const handleUnReadCountUpdate = ({ data }: WsPayload<WsMessage>) => {
+  chatStore.getUnReadCountHandler(data.message.map((item) => item.senderId));
 };
 
 const { data: initialFriends } = await useMyAsyncData('friends', () =>
@@ -133,7 +132,8 @@ const addNewMessage = ({ user }: { user: Friends }) => {
   });
 };
 
-const updateFriendsList = ({ user }: { user: Friends; message: Message }) => {
+const updateFriendsList = ({ data }: WsPayload<WsMessage>) => {
+  const { user } = data;
   const friendIndex = showingFriendList.value.findIndex((friend) => friend.uuid === user.uuid);
   const isFirstUser = isFirstPageVisible.value && friendIndex === 0;
 
@@ -152,7 +152,7 @@ const { data: previewMessagesObj } = await useMyAsyncData('getAllFriendsPreviewM
   chatStore.getAllFriendsPreviewMessage()
 );
 
-const updatePreviewMessage = (data: { user: User; message: Message[] }) => {
+const updatePreviewMessage = ({ data }: WsPayload<WsMessage>) => {
   if (!previewMessagesObj.value || !data.message.length) return;
   const latestMessage = data.message[0];
   previewMessagesObj.value[data.user.uuid] = {
@@ -201,17 +201,19 @@ const openUserOperateMenu = () => {
   console.log('開啟操作好友選單');
 };
 
-const chatRoomHandler = (data: any) => {
-  [updateFriendsList, handleUnReadCountUpdate, updatePreviewMessage].forEach((handler) => {
-    try {
-      handler(data);
-    } catch (error) {
-      console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
-    }
-  });
-};
+// const chatRoomHandler = (data: any) => {
+//   [updateFriendsList, handleUnReadCountUpdate, updatePreviewMessage].forEach((handler) => {
+//     try {
+//       handler(data);
+//     } catch (error) {
+//       console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
+//     }
+//   });
+// };
 
-useWsChannel([{ type: WsChannel.ChatRoom, handler: chatRoomHandler }]);
+useWsChannel([
+  { type: WsChannel.ChatRoom, handler: [updateFriendsList, handleUnReadCountUpdate, updatePreviewMessage] }
+]);
 
 const searchingString = ref('');
 const searchFriendHandler = useDebounceFn(async () => {

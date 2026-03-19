@@ -1,5 +1,5 @@
 import type { Pagination } from './common';
-import type { User } from './user';
+import type { Friends } from './friend';
 export interface GetMessageRecord extends Pagination {
   senderId: string;
   receiverId: string | string[];
@@ -15,7 +15,7 @@ export interface Message {
 }
 
 export interface WsMessage {
-  user: User;
+  user: Friends;
   message: Message[];
 }
 

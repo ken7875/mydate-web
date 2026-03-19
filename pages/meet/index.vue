@@ -4,34 +4,36 @@
       <Card
         v-for="(item, idx) in showingMeetUserList"
         :key="item.uuid"
-        class="absolute w-full h-[88%] overflow-scroll card"
+        class="absolute w-full h-[67dvh] overflow-scroll card"
         :style="{ zIndex: showingMeetUserList.length - idx }"
       >
         <template #body>
-          <div class="absolute top-0 h-[70%] w-full">
-            <NuxtImg
-              preload
-              crossorigin="anonymous"
-              format="webp"
-              :src="getDefaultAvatar(item.avatars[0], '/images/testUser1.jpg')"
-              alt="avatar"
-              class="w-full h-full object-cover border-0"
-              v-slot="{ isLoaded }"
-            >
-              <div class="shimmer-placeholder" v-show="!isLoaded"></div>
-            </NuxtImg>
-            <div class="absolute px-5 bottom-0 text-white">
-              <div v-if="item.status === FriendStatus.Pending" class="px-5 py-[3px] mb-[16px] bg-amber-600">
-                <p>有人想認識你!</p>
+          <div class="h-full w-full">
+            <div class="h-[63%] relative">
+              <NuxtImg
+                preload
+                crossorigin="anonymous"
+                format="webp"
+                :src="getDefaultAvatar(item.avatars[0], '/images/testUser1.jpg')"
+                alt="avatar"
+                class="w-full h-full object-cover border-0"
+                v-slot="{ isLoaded }"
+              >
+                <div class="shimmer-placeholder" v-show="!isLoaded"></div>
+              </NuxtImg>
+              <div class="absolute px-5 bottom-0 text-white">
+                <div v-if="item.status === FriendStatus.Pending" class="px-5 py-[3px] mb-[16px] bg-amber-600">
+                  <p>有人想認識你!</p>
+                </div>
+                <p class="text-[30px] font-bold">{{ item.userName }}</p>
+                <p class="mb-[15px]">
+                  <span class="mr-1.5">{{ item.age }}</span>
+                  <span>{{ Gender[item.gender] }}</span>
+                </p>
               </div>
-              <p class="text-[30px] font-bold">{{ item.userName }}</p>
-              <p class="mb-[15px]">
-                <span class="mr-[6px]">{{ item.age }}</span>
-                <span>{{ Gender[item.gender] }}</span>
-              </p>
             </div>
             <div class="px-5 mt-5">
-              <div class="flex mb-5">
+              <div class="flex mb-3">
                 <p class="w-[30%] text-gray-400">個性</p>
                 <div class="grid grid-cols-6 gap-2">
                   <Badge class="col-span-1 whitespace-nowrap" :fill="true" v-for="(value, i) in 10" :key="i">{{
@@ -39,7 +41,7 @@
                   }}</Badge>
                 </div>
               </div>
-              <div class="flex mb-5">
+              <div class="flex mb-3">
                 <p class="w-[30%] text-gray-400">興趣</p>
                 <div class="grid grid-cols-6 gap-2">
                   <Badge class="col-span-1 whitespace-nowrap" :fill="true" v-for="(value, i) in 10" :key="i">{{
@@ -81,7 +83,7 @@
           </div>
         </template>
       </Card>
-      <div class="absolute top-[90%] flex gap-[50px] justify-center w-full h-[50px]">
+      <div class="absolute top-[91%] flex gap-[50px] justify-center w-full h-[50px]">
         <div
           @click="handleDislike"
           class="bg-gray-400 w-[60px] h-[60px] rounded-[50%] flex justify-center items-center"
@@ -103,7 +105,7 @@
           <font-awesome-icon
             v-show="showingHeartIcon === 'heart'"
             :icon="['fas', 'heart']"
-            class="absolute top-[40%] left-1/2 -translate-x-1/2 z-1003 text-[60px] text-red-500"
+            class="absolute top-[40%] left-1/2 -translate-x-1/2 z-2000 text-[60px] text-red-500"
           />
         </Transition>
       </ClientOnly>
@@ -112,7 +114,7 @@
           <font-awesome-icon
             :icon="['fas', 'heart-crack']"
             v-show="showingHeartIcon === 'heart-crack'"
-            class="absolute top-[40%] left-1/2 -translate-x-1/2 z-1003 text-[60px] text-green-400"
+            class="absolute top-[40%] left-1/2 -translate-x-1/2 z-2000 text-[60px] text-green-400"
           />
         </Transition>
       </ClientOnly>
@@ -260,6 +262,7 @@ const toggleDetail = (uuid: string) => {
 const showingHeartIcon = ref('');
 const dragCardHandler = () => {
   killDragAnimation();
+  const TRIGGER_RANGE = 150;
 
   let [instance] = Draggable.create('.card', {
     type: 'x,y',
@@ -271,16 +274,16 @@ const dragCardHandler = () => {
       gsap.to(this.target, {
         rotation
       });
-      if (this.x > 150) {
+      if (this.x > TRIGGER_RANGE) {
         showingHeartIcon.value = 'heart';
-      } else if (this.x < -150) {
+      } else if (this.x < -TRIGGER_RANGE) {
         showingHeartIcon.value = 'heart-crack';
       } else {
         showingHeartIcon.value = '';
       }
     },
     onRelease() {
-      if (this.x > 150) {
+      if (this.x > TRIGGER_RANGE) {
         likeRequestHandler();
         // 滑出左邊
         gsap.to(this.target, {
@@ -294,7 +297,7 @@ const dragCardHandler = () => {
             }, 500);
           }
         });
-      } else if (this.x < -150) {
+      } else if (this.x < -TRIGGER_RANGE) {
         // 滑出右邊
         gsap
           .to(this.target, {

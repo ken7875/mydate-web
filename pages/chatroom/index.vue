@@ -39,7 +39,7 @@
               <div
                 :class="[
                   'max-w-[70%] rounded-lg p-3 shadow relative chatBoxHorn',
-                  isSelf(item) ? 'bg-primary text-white ml-auto chatBoxHorn__right' : 'bg-white chatBoxHorn__left'
+                  isSelf(item) ? 'bg-primary text-white ml-auto chatBoxHorn__right' : 'bg-secondary chatBoxHorn__left'
                 ]"
               >
                 <p class="text-sm">{{ item.message }}</p>
@@ -61,7 +61,7 @@
       >
         {{ messageRecordQueryData.at(-1)?.message }}
       </div>
-      <div class="p-4 bg-gray-200">
+      <div class="p-4 bg-secondary">
         <div class="flex">
           <input
             type="text"

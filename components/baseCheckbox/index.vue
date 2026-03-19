@@ -3,7 +3,7 @@
     <input
       type="checkbox"
       v-model="modelValue"
-      :class="['w-[25px] h-[25px]', $attrs.class]"
+      :class="['w-[25px] h-[25px] accent-primary', $attrs.class]"
       :true-value="trueValue"
       :false-value="falseValue"
     />

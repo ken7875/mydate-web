@@ -1,6 +1,6 @@
 <template>
   <div class="w-full relative bg-bg">
-    <header class="h-[80px] flex px-[20px] z-[10] py-[10px] bg-banner-bg sticky top-0 w-full">
+    <header class="h-20 flex px-5 z-10 py-2.5 bg-banner-bg sticky top-0 w-full">
       <nav>
         <h1 class="w-[70%] h-full">
           <img src="@/assets/images/topbar-logo/bloom-topbar-1x.webp" alt="logo" class="object-fit" />
@@ -12,44 +12,44 @@
     </main>
     <footer class="flex justify-around items-center w-full list-none h-20 z-10 sticky bottom-0 bg-banner-bg">
       <li class="cursor-pointer">
-        <NuxtLink to="/meet" class="flex flex-col">
+        <NuxtLink to="/meet" class="flex flex-col text-gray items-center">
           <ClientOnly>
-            <font-awesome-icon :icon="['far', 'compass']" class="text-[2rem] mb-2" />
+            <font-awesome-icon :icon="['far', 'compass']" class="text-[1.6rem] mb-1" />
           </ClientOnly>
-          <span>配對</span>
+          <span class="text-xs">配對</span>
         </NuxtLink>
       </li>
       <li>
-        <NuxtLink to="/friends" class="flex flex-col">
+        <NuxtLink to="/friends" class="flex flex-col text-gray items-center">
           <ClientOnly>
-            <font-awesome-icon :icon="['far', 'comments']" class="text-[2rem] mb-2" />
+            <font-awesome-icon :icon="['far', 'comments']" class="text-[1.6rem] mb-1" />
           </ClientOnly>
-          <span>聊天</span>
+          <span class="text-xs">聊天</span>
         </NuxtLink>
       </li>
       <li class="w-[20%] flex justify-center items-center">
         <NuxtLink to="/streamer">
           <ClientOnly>
             <div class="rounded-[50%] bg-primary w-[60px] h-[60px] flex justify-center items-center">
-              <font-awesome-icon :icon="['fas', 'video']" class="text-[2rem] text-white" />
+              <font-awesome-icon :icon="['fas', 'video']" class="text-[1.6rem] text-white" />
             </div>
           </ClientOnly>
         </NuxtLink>
       </li>
       <li>
-        <NuxtLink to="/live" class="flex flex-col">
+        <NuxtLink to="/live" class="flex flex-col text-gray items-center">
           <ClientOnly>
-            <font-awesome-icon :icon="['fas', 'tv']" class="text-[2rem] mb-2" />
+            <font-awesome-icon :icon="['fas', 'tv']" class="text-[1.6rem] mb-1" />
           </ClientOnly>
-          <span>直播室</span>
+          <span class="text-xs">直播室</span>
         </NuxtLink>
       </li>
       <li>
-        <NuxtLink to="/userInfo" class="flex flex-col">
+        <NuxtLink to="/userInfo" class="flex flex-col text-gray items-center">
           <ClientOnly>
-            <font-awesome-icon :icon="['far', 'user']" class="text-[2rem] mb-2" />
+            <font-awesome-icon :icon="['far', 'user']" class="text-[1.6rem] mb-1" />
           </ClientOnly>
-          <span>我的</span>
+          <span class="text-xs">我的</span>
         </NuxtLink>
       </li>
     </footer>

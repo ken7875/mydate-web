@@ -40,8 +40,8 @@ interface WsChannelConfig {
  * );
  */
 export const useWsChannel = (channels: WsChannelConfig[], options?: Options) => {
-  let subscribeFn: (type: string, handler: Handler) => void;
-  let unsubscribeFn: (type: string, handler: Handler) => void;
+  let subscribeFn: (type: WsChannel, handler: Handler) => void;
+  let unsubscribeFn: (type: WsChannel, handler: Handler) => void;
 
   onMounted(() => {
     const notificationStore = useNotification();

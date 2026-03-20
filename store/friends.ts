@@ -31,7 +31,6 @@ export const useFriends = defineStore('friends', () => {
 
   // websocket用, 當有新用戶加好友會即時通知
   const getNewFriendInvite = (data: Friends) => {
-    console.log('getNewFriendInvite', data);
     requestUsers.value.unshift({
       ...data
     });

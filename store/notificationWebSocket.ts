@@ -43,11 +43,11 @@ export const useNotification = defineStore('notification', () => {
     getWs().websocketGlobalMessage(data);
   };
 
-  const subscribe = (type: WsChannel, handler: (data: any) => void) => {
+  const subscribe = (type: WsChannel, handler: Handler) => {
     getWs().subscribe(type, handler);
   };
 
-  const unsubscribe = (type: WsChannel, handler: (data: any) => void) => {
+  const unsubscribe = (type: WsChannel, handler: Handler) => {
     getWs().unsubscribe(type, handler);
   };
 

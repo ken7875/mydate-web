@@ -104,7 +104,7 @@ const chatRoomMessageHandler = (payload: WsPayload<WsMessage>) => {
 useWsChannel([
   { type: WsChannel.Global, handler: globalMessageHandler },
   { type: WsChannel.InviteFriend, handler: inviteFriendHandler },
-  { type: WsChannel.SetFriendStatus, handler: setFriendStatusHandler },
+  { type: WsChannel.SetFriendStatus, handler: setFriendStatusHandler }, // TODO 每次接收到好友接受邀請訊息就要發一次api，需優化成就地修改
   { type: WsChannel.AddRoom, handler: addRoomHandler },
   { type: WsChannel.DeleteRoom, handler: deleteRoomHandler },
   { type: WsChannel.ChatRoom, handler: chatRoomMessageHandler }

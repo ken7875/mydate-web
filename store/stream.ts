@@ -3,40 +3,53 @@ import { StatusCode } from '~/enums/common';
 import StreamWebsocket from '~/utils/websocket/stream';
 import { createStreamRoom } from '@/api/modules/stream';
 import type { CreateStreamRoomBody, GetRoomsResponse } from '@/api/types/stream';
+import { useForceKickOut } from '@/utils/forceLogout';
 
 export const useStream = defineStore('stream', () => {
   const runtimeConfig = useRuntimeConfig();
   const url = `${runtimeConfig.public.wsBase}/streamWs` as string;
-  const websocketTool = new StreamWebsocket(url);
+
+  // 延遲建立，避免 SSR 期間實例化
+  let websocketTool: StreamWebsocket | null = null;
+
+  const getWs = (): StreamWebsocket => {
+    if (!websocketTool) {
+      websocketTool = new StreamWebsocket(url, {
+        onUnauthorized: () => useForceKickOut()
+      });
+    }
+    return websocketTool;
+  };
+
   const streamRoomMap = reactive<Map<string, GetRoomsResponse>>(new Map());
 
   const init = (token: string) => {
     console.log('stream init');
-    websocketTool.init(token);
+    getWs().init(token);
   };
 
-  const subscribe = ({ type, fnAry }: { type: string; fnAry: ((...args: any[]) => void)[] }) => {
-    websocketTool.subscribe({ type, fnAry });
+  const subscribe = (type: string, handler: (...args: any[]) => void) => {
+    getWs().subscribe(type, handler);
   };
 
-  const unSubscribe = ({ type, fnAry }: { type: string; fnAry: ((...args: any[]) => void)[] }) => {
-    websocketTool.unSubscribe({ type, fnAry });
+  const unSubscribe = (type: string, handler: (...args: any[]) => void) => {
+    getWs().unsubscribe(type, handler);
   };
 
   const notify = ({ type, data, code }: { type: string; data: any; code: StatusCode }) => {
-    websocketTool.notify({ type, data, code });
+    getWs().notify({ type, data, code });
   };
 
   const handleClose = () => {
-    websocketTool.handleClose();
+    getWs().handleClose();
   };
 
   const handleSend = (data: Blob) => {
-    websocketTool.handleSend<Blob, 'video'>(data);
+    getWs().handleSend<Blob, 'video'>(data);
   };
 
   const websocketGlobalMessage = (data: any) => {
-    websocketTool.websocketGlobalMessage(data);
+    getWs().websocketGlobalMessage(data);
   };
 
   // const getRecord = (data: Buffer) => {
@@ -65,7 +78,7 @@ export const useStream = defineStore('stream', () => {
     streamRoomMap.delete(uuid);
   };
 
-  const resetRoomStatus = (data: { uuid: string; status: boolean }) => {
+  const resetRoomStatus = ({ data }: WsPayload<{ uuid: string; status: boolean }>) => {
     const uuid = data.uuid;
     const room = streamRoomMap.get(data.uuid)!;
     streamRoomMap.set(uuid, {

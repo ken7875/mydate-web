@@ -14,22 +14,23 @@
       <p>{{ friendInfo?.userName }}</p>
     </div>
     <div class="flex flex-col overflow-scroll scrollbar-none w-full h-[90%]">
-      <div class="relative flex-1 px-[30px] py-[8px] overflow-y-auto" v-show="isSuccess">
+      <div class="relative flex-1 px-[30px] py-2 overflow-y-auto h-full">
         <template v-if="Number(messageRecordTotal) > 0">
           <VirtualList
-            v-model:list="messageRecordQueryData"
+            v-model:list="showingData"
             :perLoadNum="pageSize"
             :total="messageRecordTotal || 0"
-            :singleSide="true"
-            :loadDown="false"
             :listClass="'mb-5'"
             ref="chatroomDom"
+            :maxPageCount="VIRTUALLIST_MAX_PAGE_COUNT"
             @loadNewData="showNewRecordData"
+            @loadPrevData="showPrevRecordData"
+            :isReverse="true"
           >
             <template v-slot="{ item, index }">
               <div
                 class="bg-black opacity-5 text-white rounded-[10px] mx-auto w-fit p-[5px] mb-[3px]"
-                v-show="showDate(messageRecordQueryData[index - 1]?.sendTime, item.sendTime)"
+                v-show="showDate(showingData[index - 1]?.sendTime, item.sendTime)"
               >
                 <p class="text-[12px]">
                   {{ moment(item.sendTime).format('MM/DD') }}
@@ -38,7 +39,7 @@
               <div
                 :class="[
                   'max-w-[70%] rounded-lg p-3 shadow relative chatBoxHorn',
-                  isSelf(item) ? 'bg-primary text-white ml-auto chatBoxHorn__right' : 'bg-white chatBoxHorn__left'
+                  isSelf(item) ? 'bg-primary text-white ml-auto chatBoxHorn__right' : 'bg-secondary chatBoxHorn__left'
                 ]"
               >
                 <p class="text-sm">{{ item.message }}</p>
@@ -60,7 +61,7 @@
       >
         {{ messageRecordQueryData.at(-1)?.message }}
       </div>
-      <div class="p-4 bg-gray-200">
+      <div class="p-4 bg-secondary">
         <div class="flex">
           <input
             type="text"
@@ -83,13 +84,14 @@
 
 <script setup lang="ts">
 import { useChat } from '@/store/chat';
-import type { Message } from '@/api/types/chat';
+import type { Message, WsMessage } from '@/api/types/chat';
 import moment from 'moment';
 import { markAsReadApi } from '@/api/modules/chat';
 import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
 import { WsChannel } from '~/enums/websocket';
+import { cloneDeep } from 'lodash-es';
 
 const routes = useRoute();
 const focusFriend = computed(() => ({
@@ -101,6 +103,8 @@ const chatStore = useChat();
 
 const { sendMessage } = chatStore;
 
+const { getMessageRecordQuery, updateQuery } = useMessageQuery();
+
 const { data: friendData } = await useMyAsyncData(
   'friend',
   async () => await getFriend({ uuid: focusFriend.value.uuid })
@@ -108,8 +112,8 @@ const { data: friendData } = await useMyAsyncData(
 
 const friendInfo = computed(() => friendData?.value?.data?.data);
 const { userInfoRes } = useUserInfoQuery();
-const chatroomDom = ref<InstanceType<typeof VirtualList> | null>(null);
-const isNewMessageTipsShow = ref(false);
+const chatroomDom = useTemplateRef('chatroomDom');
+
 let messageTipsTimeout: ReturnType<typeof setTimeout> | null = null;
 const bottomDistanceCalc = () => {
   if (!chatroomDom.value) return 0;
@@ -130,9 +134,10 @@ const scrollToBottom = async () => {
   }
 };
 
+// 新訊息提示框
+const isNewMessageTipsShow = ref(false);
 const toggleNewMessageTipsHandler = () => {
   // 若已經接近底部就直接滑到底
-  console.log(bottomDistanceCalc());
   if (bottomDistanceCalc() < 100) {
     scrollToBottom();
     return;
@@ -152,7 +157,7 @@ const isSelf = (record: Message) => record.senderId === userInfoRes.value?.data?
 
 const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
   updateQuery({
-    newMessage: body.message[0],
+    newMessage: body.message,
     senderId: body.message[0].senderId,
     receiverId: body.message[0].receiverId
   });
@@ -171,9 +176,16 @@ const sendMessageHandler = () => {
 
   if (userInfoRes.value?.data) {
     // 樂觀更新
-    updateMessageRecord({
-      message: [newMessage]
-    });
+    const lastShowingIdx = showingData.value.at(-1)?.idx;
+    const lastRecordIdx = messageRecordQueryData.value.at(-1)?.idx;
+    const isViewingLatest = lastShowingIdx === lastRecordIdx;
+
+    const prevLen = messageRecordQueryData.value.length;
+    updateMessageRecord({ message: [newMessage] });
+
+    if (isViewingLatest) {
+      showingData.value.push(...messageRecordQueryData.value.slice(prevLen));
+    }
     scrollToBottom();
   }
 
@@ -207,69 +219,76 @@ onBeforeRouteLeave(() => {
 });
 
 // virtual list
-const { getMessageRecordQuery, updateQuery } = useMessageQuery();
+const VIRTUALLIST_MAX_PAGE_COUNT = 4;
 
-const {
-  data: messageRecordRes,
-  isSuccess,
-  fetchPreviousPage
-} = getMessageRecordQuery({
+const { data: messageRecordRes, fetchNextPage } = getMessageRecordQuery({
   senderId: userInfoRes.value?.data?.uuid as string,
   receiverId: focusFriend.value.uuid as string,
   pageSize
 });
-const messageRecordTotal = computed(() => messageRecordRes.value?.pages.at(-1)?.total);
+const messageRecordTotal = computed(() => messageRecordRes.value?.total);
 
-const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => {
-  return (
-    messageRecordRes.value?.pages.flatMap((page, pageIdx) =>
-      (
-        page?.data?.data?.map?.((item, index) => {
-          const currentPage = messageRecordRes.value?.pageParams[pageIdx];
-          return {
-            ...item,
-            idx: `${currentPage}` + `-${index}`
-          };
-        }) || []
-      ).reverse()
-    ) || []
-  );
-});
+const showingData = ref<(Message & { idx: string })[]>([]);
 
-const showNewRecordData = () => {
-  fetchPreviousPage();
+const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => messageRecordRes.value?.messages || []);
+
+const showNewRecordData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
+  const cloneData = messageRecordQueryData.value.slice(pageSize * (page - 1), pageSize * (page + 1));
+
+  showingData.value.push(...cloneData);
 };
-
-let chatRoomChannel: BroadcastChannel | null = null;
-
-onMounted(() => {
-  chatRoomChannel = new BroadcastChannel(WsChannel.ChatRoom);
-  chatRoomChannel.addEventListener('message', ({ data }) => {
-    [updateMessageRecord, toggleNewMessageTipsHandler].forEach((handler) => {
-      try {
-        handler(data.data);
-      } catch (error) {
-        console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
-      }
-    });
-  });
-});
-
-onBeforeUnmount(() => {
-  chatRoomChannel?.close();
-  chatRoomChannel = null;
-});
 
 const unWatch = watch(
   messageRecordQueryData,
   (val) => {
-    nextTick(() => {
-      if (val.length > 0) {
-        scrollToBottom();
-        unWatch();
-      }
-    });
+    if (showingData.value.length === 0) {
+      showingData.value = cloneDeep(val);
+    } else {
+      unWatch();
+    }
   },
-  { immediate: true }
+  {
+    immediate: true
+  }
 );
+
+const debounceFetchNextPage = useDebounceFn(fetchNextPage, 10);
+const showPrevRecordData = async ({ pageSize }: { page: number; pageSize: number }) => {
+  await debounceFetchNextPage(); // 取得先前紀錄
+  const cloneData = cloneDeep(messageRecordQueryData.value.slice(0, pageSize));
+  showingData.value.unshift(...cloneData);
+};
+
+const chatRoomHandler = (body: WsPayload<WsMessage>) => {
+  if (routes.query?.uuid !== body.data.user?.uuid) return;
+
+  try {
+    const lastShowingIdx = showingData.value.at(-1)?.idx;
+    const lastRecordIdx = messageRecordQueryData.value.at(-1)?.idx;
+    const isViewingLatest = lastShowingIdx === lastRecordIdx;
+
+    const prevLen = messageRecordQueryData.value.length;
+    updateMessageRecord({ message: body.data.message });
+
+    if (isViewingLatest) {
+      showingData.value.push(...messageRecordQueryData.value.slice(prevLen));
+    }
+
+    toggleNewMessageTipsHandler();
+  } catch (error) {
+    console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
+  }
+};
+
+useWsChannel([{ type: WsChannel.ChatRoom, handler: chatRoomHandler }]);
+
+// watch(
+//   messageRecordQueryData,
+//   (val) => {
+//     if (val.length > 0) {
+//       scrollToBottom();
+//     }
+//   },
+//   { immediate: true, flush: 'post', once: true }
+// );
 </script>

@@ -8,7 +8,7 @@
   </ul>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends { idx: string }">
 import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { useIntersectionObserver } from '@vueuse/core';
 // import type { PagingRequest } from '@/api/types/';
@@ -17,25 +17,25 @@ const props = withDefaults(
   defineProps<{
     perLoadNum?: number;
     total: number;
-    visible?: boolean;
     maxPageCount?: number;
     singleSide?: boolean;
     loadTop?: boolean;
     loadDown?: boolean;
     listClass?: string;
+    isReverse?: boolean;
   }>(),
   {
     perLoadNum: 20,
-    visible: true,
     maxPageCount: 4,
     loadTop: true,
     loadDown: true,
     singleSide: false,
-    listClass: ''
+    listClass: '',
+    isReverse: false
   }
 );
 
-const list = defineModel<any[]>('list', { required: true });
+const list = defineModel<T[]>('list', { required: true });
 
 const emit = defineEmits<{
   (e: 'loadNewData', payload: { page: number; pageSize: number }): void;
@@ -43,85 +43,112 @@ const emit = defineEmits<{
 }>();
 
 const OFFSET = 1;
+const OBSERVER_ROOT_MARGIN = '30px 0px 30px 0px';
 const listBottom = useTemplateRef('listBottom');
 const listTop = useTemplateRef('listTop');
-const startPage = ref(1);
-const currentPage = ref(1);
-// const initialized = ref(false);
 
-// const initialize = () => {
-//   if (!initialized.value && props.visible) {
-//     emit('loadNewData', { page: currentPage.value, pageSize: props.perLoadNum });
-//     initialized.value = true;
-//   }
-// };
+const totalPage = computed(() => Math.ceil(props.total / props.perLoadNum));
+const startPage = ref(props.isReverse ? totalPage.value : 1);
+const endPage = ref(props.isReverse ? totalPage.value : 1);
 
-let stopNewPageVirtualListHandler: () => void = () => {};
-let stopPrevPageVirtualListHandler: () => void = () => {};
+const stopHandlers: (() => void)[] = [];
 
 // 數窗內最多限制DOM筆數
-const isExceedLimitData = computed(() => currentPage.value - startPage.value >= props.maxPageCount);
-const totalPage = computed(() => Math.ceil(props.total / props.perLoadNum));
+const isExceedLimitData = computed(() => endPage.value - startPage.value + 1 > props.maxPageCount);
 
-const loadNewPage = () => {
-  // 若
+const loadNextPage = () => {
+  let initialized = false;
   const target = props.singleSide ? (props.loadTop ? listTop.value : listBottom.value) : listBottom.value;
   const { stop } = useIntersectionObserver(
     target,
-    ([{ isIntersecting }]) => {
-      if (isIntersecting && currentPage.value < totalPage.value) {
-        currentPage.value++;
-        emit('loadNewData', { page: currentPage.value, pageSize: props.perLoadNum });
-        if (props.singleSide && props.loadTop) {
-          maintainScrollAfterPrepend();
-        }
+    async ([{ isIntersecting }]) => {
+      if (!initialized) {
+        initialized = true;
+        return;
+      }
+
+      if (isIntersecting && endPage.value <= totalPage.value) {
+        if (endPage.value >= totalPage.value) return;
+
+        endPage.value++;
+        emit('loadNewData', { page: endPage.value, pageSize: props.perLoadNum });
+
         if (isExceedLimitData.value && !props.singleSide) {
           sliceTopPage();
         }
       }
     },
     {
-      rootMargin: '0px 0px 0px 0px' // 提前 30px 觸發
+      root: virtualWrap.value,
+      rootMargin: OBSERVER_ROOT_MARGIN
     }
   );
 
-  stopNewPageVirtualListHandler = stop;
+  stopHandlers.push(stop);
 };
 
 const virtualWrap = useTemplateRef('virtualWrap');
-async function maintainScrollAfterPrepend() {
-  await nextTick();
-  if (!virtualWrap.value) return;
-  virtualWrap.value!.scrollTop += 100; // 補償捲動距離
-}
+
+let isPrevLoadPending = false;
+let prevScrollHeight = 0;
+
+// 監聽 list 第一筆 idx 變化確認 prepend 實際完成，再補正 scrollTop
+watch(
+  () => list.value[0]?.idx,
+  async (newIdx, oldIdx) => {
+    if (!isPrevLoadPending || newIdx === oldIdx) return;
+    if (virtualWrap.value) {
+      virtualWrap.value.scrollTop += virtualWrap.value.scrollHeight - prevScrollHeight;
+    }
+    isPrevLoadPending = false;
+  },
+  {
+    flush: 'post'
+  }
+);
 
 const loadPrevPage = () => {
+  let initialized = false;
   const { stop } = useIntersectionObserver(
     listTop.value,
     ([{ isIntersecting }]) => {
-      if (isIntersecting && startPage.value > 1) {
+      if (!initialized) {
+        initialized = true;
+        return;
+      }
+
+      if (isIntersecting && startPage.value > 1 && !isPrevLoadPending) {
+        isPrevLoadPending = true;
+        prevScrollHeight = virtualWrap.value?.scrollHeight ?? 0;
+
         startPage.value--;
         emit('loadPrevData', { page: startPage.value, pageSize: props.perLoadNum });
+
         if (isExceedLimitData.value) {
           sliceBottomPage();
-          maintainScrollAfterPrepend();
         }
       }
     },
     {
-      rootMargin: '0px 0px 0px 0px' // 提前 10px 觸發
+      root: virtualWrap.value,
+      rootMargin: OBSERVER_ROOT_MARGIN
     }
   );
 
-  stopPrevPageVirtualListHandler = stop;
+  stopHandlers.push(stop);
 };
 
 const initVirtualScrollHandler = async () => {
   if (props.total <= 0) return;
+
+  // 先清理舊的 observer，避免 watch(total) 重複建立導致疊加
+  stopHandlers.forEach((stop) => stop());
+  stopHandlers.length = 0;
+
   await nextTick();
 
   // 加載新頁面
-  loadNewPage();
+  loadNextPage();
 
   // 加載之前刪除的頁面
   if (!props.singleSide) {
@@ -130,13 +157,13 @@ const initVirtualScrollHandler = async () => {
 };
 
 const sliceTopPage = () => {
-  list.value.splice(0, props.perLoadNum);
+  list.value.splice(0, OFFSET * props.perLoadNum);
   startPage.value += OFFSET;
 };
 
 const sliceBottomPage = () => {
-  list.value.splice(list.value.length - OFFSET * props.perLoadNum, props.perLoadNum);
-  currentPage.value -= OFFSET;
+  list.value.splice(-(OFFSET * props.perLoadNum), props.perLoadNum);
+  endPage.value -= OFFSET;
 };
 
 watch(
@@ -146,13 +173,20 @@ watch(
   }
 );
 
+// 若是從最下方開始顯示新資料，剛進頁面直接幫用戶跳到最下層
+const scrollToBottom = () => {
+  if (props.isReverse && virtualWrap.value) {
+    virtualWrap.value.scrollTop = virtualWrap.value?.scrollHeight;
+  }
+};
+
 onMounted(() => {
   initVirtualScrollHandler();
+  scrollToBottom();
 });
 
 onUnmounted(() => {
-  stopNewPageVirtualListHandler();
-  stopPrevPageVirtualListHandler();
+  stopHandlers.forEach((stop) => stop());
 });
 
 defineExpose({

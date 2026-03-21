@@ -1,30 +1,54 @@
 import { defineStore } from 'pinia';
-import { StatusCode } from '~/enums/common';
 import BaseWebsocket from '@/utils/websocket/index';
+import { useForceKickOut } from '@/utils/forceLogout';
+import type { WsChannel } from '~/enums/websocket';
 
 export const useNotification = defineStore('notification', () => {
   const runtimeConfig = useRuntimeConfig();
   const url = `${runtimeConfig.public.wsBase}/notificationWs` as string;
-  const websocketTool = new BaseWebsocket(url);
 
-  const init = (token: string) => {
-    websocketTool.init(token);
+  // 延遲建立，避免 SSR 期間實例化
+  let websocketTool: BaseWebsocket | null = null;
+
+  const getWs = (): BaseWebsocket => {
+    if (!websocketTool) {
+      const queryClient = useQueryClient();
+      websocketTool = new BaseWebsocket(url, {
+        onUnauthorized: () => useForceKickOut(),
+        onReconnect: () => {
+          queryClient.invalidateQueries({ queryKey: ['messageRecord'] });
+        }
+      });
+    }
+    return websocketTool;
   };
 
-  const notify = ({ type, data, code }: { type: string; data: any; code: StatusCode }) => {
-    websocketTool.notify({ type, data, code });
+  const init = (token: string) => {
+    getWs().init(token);
+  };
+
+  const notify = ({ type, data, code }: WsPayload) => {
+    getWs().notify({ type, data, code });
   };
 
   const handleClose = () => {
-    websocketTool.handleClose();
+    getWs().handleClose();
   };
 
   const handleSend = <T>(data: { type: 'chatRoom' | 'global'; data: T }) => {
-    websocketTool.handleSend(data);
+    getWs().handleSend(data);
   };
 
   const websocketGlobalMessage = (data: any) => {
-    websocketTool.websocketGlobalMessage(data);
+    getWs().websocketGlobalMessage(data);
+  };
+
+  const subscribe = (type: WsChannel, handler: Handler) => {
+    getWs().subscribe(type, handler);
+  };
+
+  const unsubscribe = (type: WsChannel, handler: Handler) => {
+    getWs().unsubscribe(type, handler);
   };
 
   return {
@@ -32,6 +56,8 @@ export const useNotification = defineStore('notification', () => {
     handleClose,
     notify,
     handleSend,
-    websocketGlobalMessage
+    websocketGlobalMessage,
+    subscribe,
+    unsubscribe
   };
 });

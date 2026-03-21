@@ -1,8 +1,6 @@
-import { useAuth } from '@/store/auth';
-import type { DataType } from './types';
-import { useWebsocketSubscribe } from '@/store/websocketSubscribe';
-import { useForceKickOut } from '@/utils/forceLogout';
+import type { WsChannel } from '~/enums/websocket';
 import createSubscribeHandler from './subscribe';
+import { tokenCookie } from '@/utils/cookies/index';
 
 // 允許自動重連的 close code 白名單
 const RECONNECTABLE_CLOSE_CODES: ReadonlySet<number> = new Set([
@@ -15,13 +13,20 @@ const RECONNECTABLE_CLOSE_CODES: ReadonlySet<number> = new Set([
   4000 // 自訂：心跳超時主動斷開
 ]);
 
+export interface BaseWebsocketOptions {
+  heartBeatTime?: number;
+  reconnectInterval?: number;
+  maxReconnectAttempts?: number;
+  onUnauthorized?: () => void;
+  onReconnect?: () => void;
+}
+
 export default class BaseWebsocket {
   url: string;
   websocket: WebSocket | null = null;
-  subscribtion = useWebsocketSubscribe();
 
-  // private
-  #authStore = useAuth();
+  #onUnauthorized: (() => void) | null = null;
+  #onReconnect: (() => void) | null = null;
 
   #heartBeatTimer: number | null = null;
   #waitServerHeartBeatTimer: number | null = null;
@@ -42,21 +47,15 @@ export default class BaseWebsocket {
   };
   protected subscribeHandler: ReturnType<typeof createSubscribeHandler> | null = null;
 
-  constructor(
-    url: string,
-    options?: Partial<{
-      heartBeatTime: number;
-      reconnectInterval: number;
-      maxReconnectAttempts: number;
-    }>
-  ) {
+  constructor(url: string, options?: BaseWebsocketOptions) {
     this.url = url;
     this.isReconnecting = false;
+    this.#onUnauthorized = options?.onUnauthorized ?? null;
+    this.#onReconnect = options?.onReconnect ?? null;
     this.#options = {
-      heartBeatTime: 25000,
-      reconnectInterval: 5000,
-      maxReconnectAttempts: 3,
-      ...options
+      heartBeatTime: options?.heartBeatTime ?? 25000,
+      reconnectInterval: options?.reconnectInterval ?? 5000,
+      maxReconnectAttempts: options?.maxReconnectAttempts ?? 3
     };
     this.reconnectCount = 0;
     this.isHandleClose = true;
@@ -81,7 +80,8 @@ export default class BaseWebsocket {
     }
 
     try {
-      this.websocket = new WebSocket(`${this.url}?token=${token}`);
+      // 使用 Sec-WebSocket-Protocol header 傳遞 token，避免 token 暴露在 URL log 中
+      this.websocket = new WebSocket(this.url, [`bearer-${token}`]);
       this.websocket.binaryType = 'blob';
       this.isHandleClose = false;
       this.isReconnecting = false;
@@ -135,25 +135,33 @@ export default class BaseWebsocket {
     console.log(`websocket reconnecting (attempt ${this.reconnectCount}, delay ${Math.round(delay)}ms)`);
 
     window.setTimeout(() => {
-      this.init(this.#authStore.token);
+      const token = tokenCookie().getItem();
+      if (!token) {
+        console.warn('No token available in cookie for reconnection');
+        return;
+      }
+      this.init(token);
     }, delay);
   }
 
-  subscribe({ type, fnAry }: { type: string; fnAry: ((...args: any[]) => void)[] }) {
-    this.subscribtion.subscribe({ type, fnAry });
-  }
-
-  unSubscribe({ type, fnAry }: { type: string; fnAry: ((...args: any[]) => void)[] }) {
-    this.subscribtion.unSubscribe({ type, fnAry });
-  }
-
-  notify({ type, data, code }: DataType<unknown>) {
+  notify({ type, data, code }: WsPayload<unknown>) {
     console.log(`get type: ${type} | data: ${JSON.stringify(data)} | code: ${code}`);
     this.subscribeHandler?.broadcast(type, data, code);
   }
 
+  subscribe(type: WsChannel, handler: (data: any) => void) {
+    this.subscribeHandler?.subscribe(type, handler);
+  }
+
+  unsubscribe(type: WsChannel, handler: (data: any) => void) {
+    this.subscribeHandler?.unsubscribe(type, handler);
+  }
+
   onopen() {
     console.log(`name: ${this.url} - socket on open`);
+    if (this.reconnectCount > 0) {
+      this.#onReconnect?.();
+    }
     this.reconnectCount = 0;
     this.startHeartBeat();
   }
@@ -164,8 +172,16 @@ export default class BaseWebsocket {
 
   onclose(event: CloseEvent) {
     console.log(`name: ${this.url} - websocket close`, event.code);
+
+    // Identity check：若觸發 onclose 的不是當前活躍實例，忽略（防禦舊實例誤觸發）
+    if (event.target !== this.websocket) {
+      console.log('Ignoring onclose from stale WebSocket instance');
+      return;
+    }
+
     this.websocket = null;
     this.resetHeartBeat();
+    this.subscribeHandler?.closeChannels();
 
     if (!this.isHandleClose && RECONNECTABLE_CLOSE_CODES.has(event.code)) {
       this.reconnect();
@@ -184,13 +200,14 @@ export default class BaseWebsocket {
     try {
       const res = JSON.parse(raw);
       const { type, data, code } = res;
-      console.log(res, 'onmessage');
-      this.notify({ type, data, code });
-      if (res.code === 'UNAUTHORIZATION') {
+      // 先檢查未授權，阻止訊息廣播
+      if (code === 'UNAUTHORIZATION') {
         this.handleClose();
-        useForceKickOut();
+        this.#onUnauthorized?.();
         return;
       }
+
+      this.notify({ type, data, code });
     } catch (error) {
       console.error('WebSocket 訊息解析失敗:', error, event.data);
     }

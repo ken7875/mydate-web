@@ -76,8 +76,7 @@ import { useFriends } from '@/store/friends';
 import { useChat } from '@/store/chat';
 import { storeToRefs } from 'pinia';
 import type { Friends } from '@/api/types/friend';
-import type { Message } from '~/api/types/chat';
-import type { User } from '~/api/types/user';
+import type { WsMessage } from '~/api/types/chat';
 import type { ShowingFriendList } from './types';
 import { WsChannel } from '~/enums/websocket';
 
@@ -92,8 +91,8 @@ const { totalFriends } = storeToRefs(friendsStore);
 const chatStore = useChat();
 const { getAllFriendsHandler } = friendsStore;
 
-const handleUnReadCountUpdate = (params: { user: User; message: Message[] }) => {
-  chatStore.getUnReadCountHandler(params.message.map((item) => item.senderId));
+const handleUnReadCountUpdate = ({ data }: WsPayload<WsMessage>) => {
+  chatStore.getUnReadCountHandler(data.message.map((item) => item.senderId));
 };
 
 const { data: initialFriends } = await useMyAsyncData('friends', () =>
@@ -133,13 +132,17 @@ const addNewMessage = ({ user }: { user: Friends }) => {
   });
 };
 
-const updateFriendsList = ({ user }: { user: Friends; message: Message }) => {
+const updateFriendsList = ({ data }: WsPayload<WsMessage>) => {
+  const { user } = data;
   const friendIndex = showingFriendList.value.findIndex((friend) => friend.uuid === user.uuid);
   const isFirstUser = isFirstPageVisible.value && friendIndex === 0;
 
   if (isFirstUser) return;
 
-  showingFriendList.value.splice(friendIndex, 1);
+  if (friendIndex !== -1) {
+    showingFriendList.value.splice(friendIndex, 1);
+  }
+
   if (isFirstPageVisible.value) {
     addNewMessage({ user });
   }
@@ -149,22 +152,21 @@ const { data: previewMessagesObj } = await useMyAsyncData('getAllFriendsPreviewM
   chatStore.getAllFriendsPreviewMessage()
 );
 
-const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', () => {
+const updatePreviewMessage = ({ data }: WsPayload<WsMessage>) => {
+  if (!previewMessagesObj.value || !data.message.length) return;
+  const latestMessage = data.message[0];
+  previewMessagesObj.value[data.user.uuid] = {
+    ...latestMessage,
+    friendId: data.user.uuid
+  };
+};
+
+// 缺少idx所以無法觸發載入新資料後回彈
+const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', async () => {
   const friendsId = showingFriendList.value.map((friend) => friend.uuid);
   if (friendsId.length === 0) return {};
-  return chatStore.getUnReadCountHandler(friendsId);
+  return await chatStore.getUnReadCountHandler(friendsId);
 });
-
-watch(
-  () => chatStore.previewMessage,
-  (previewMessage) => {
-    if (previewMessagesObj.value) {
-      Object.entries(previewMessage).forEach(([key, val]) => {
-        previewMessagesObj.value![key] = val;
-      });
-    }
-  }
-);
 
 watch(
   () => chatStore.unReadCount,
@@ -199,20 +201,19 @@ const openUserOperateMenu = () => {
   console.log('開啟操作好友選單');
 };
 
-let chatRoomChannel: BroadcastChannel | null = null;
+// const chatRoomHandler = (data: any) => {
+//   [updateFriendsList, handleUnReadCountUpdate, updatePreviewMessage].forEach((handler) => {
+//     try {
+//       handler(data);
+//     } catch (error) {
+//       console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
+//     }
+//   });
+// };
 
-onMounted(() => {
-  chatRoomChannel = new BroadcastChannel(WsChannel.ChatRoom);
-  chatRoomChannel.addEventListener('message', ({ data }) => {
-    [updateFriendsList, handleUnReadCountUpdate, chatStore.getAllFriendsPreviewMessage].forEach((handler) => {
-      try {
-        handler(data.data);
-      } catch (error) {
-        console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
-      }
-    });
-  });
-});
+useWsChannel([
+  { type: WsChannel.ChatRoom, handler: [updateFriendsList, handleUnReadCountUpdate, updatePreviewMessage] }
+]);
 
 const searchingString = ref('');
 const searchFriendHandler = useDebounceFn(async () => {
@@ -226,9 +227,4 @@ const searchFriendHandler = useDebounceFn(async () => {
     currentPage.value = 1;
   }
 }, 300);
-
-onBeforeUnmount(() => {
-  chatRoomChannel?.close();
-  chatRoomChannel = null;
-});
 </script>

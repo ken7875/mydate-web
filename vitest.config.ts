@@ -12,7 +12,14 @@ export default defineConfig({
     deps: {
       inline: ['@nuxt/test-utils-edge']
     },
-    setupFiles: ['./vitest.setup.ts']
+    setupFiles: ['./vitest.setup.ts'],
+    coverage: {
+      provider: 'v8',
+      lines: 80,
+      functions: 80,
+      branches: 80,
+      statements: 80
+    }
   },
   resolve: {
     alias: {

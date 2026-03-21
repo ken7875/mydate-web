@@ -1,41 +1,57 @@
 <template>
-  <div class="w-full relative">
-    <header class="h-[80px] flex justify-end px-[20px] z-[10] py-[10px] bg-primary sticky top-0 w-full">
+  <div class="w-full relative bg-bg">
+    <header class="h-20 flex px-5 z-10 py-2.5 bg-banner-bg sticky top-0 w-full">
       <nav>
-        <NuxtLink to="/userInfo" class="flex items-center">
-          <div class="w-[60px] h-[60px] rounded-[50%] overflow-hidden">
-            <NuxtImg
-              preload
-              crossorigin="anonymous"
-              format="webp"
-              :src="getDefaultAvatar(userInfoRes?.data?.avatars?.at(0) || '')"
-              alt="avatar"
-              class="w-full h-full object-cover"
-            />
-            <img class="w-full h-full" src="/images/default.jpg" alt="" />
-          </div>
-        </NuxtLink>
+        <h1 class="w-[70%] h-full">
+          <img src="@/assets/images/topbar-logo/bloom-topbar-1x.webp" alt="logo" class="object-fit" />
+        </h1>
       </nav>
     </header>
     <main class="h-[calc(100dvh-80px*2)]">
       <slot></slot>
     </main>
-    <footer class="flex justify-around w-full h-[80px] z-[10] sticky bottom-0 bg-primary">
-      <div>
-        <NuxtLink to="/meet">meet</NuxtLink>
-      </div>
-      <div>
-        <NuxtLink to="/friends">friends</NuxtLink>
-      </div>
-      <div>
-        <NuxtLink to="/live">live</NuxtLink>
-      </div>
-      <div>
-        <NuxtLink to="/streamer">streamer</NuxtLink>
-      </div>
-      <!-- <div>
-        <NuxtLink to="/user">userinfo</NuxtLink>
-      </div> -->
+    <footer class="flex justify-around items-center w-full list-none h-20 z-10 sticky bottom-0 bg-banner-bg">
+      <li class="cursor-pointer">
+        <NuxtLink to="/meet" class="flex flex-col text-gray items-center">
+          <ClientOnly>
+            <font-awesome-icon :icon="['far', 'compass']" class="text-[1.6rem] mb-1" />
+          </ClientOnly>
+          <span class="text-xs">配對</span>
+        </NuxtLink>
+      </li>
+      <li>
+        <NuxtLink to="/friends" class="flex flex-col text-gray items-center">
+          <ClientOnly>
+            <font-awesome-icon :icon="['far', 'comments']" class="text-[1.6rem] mb-1" />
+          </ClientOnly>
+          <span class="text-xs">聊天</span>
+        </NuxtLink>
+      </li>
+      <li class="w-[20%] flex justify-center items-center">
+        <NuxtLink to="/streamer">
+          <ClientOnly>
+            <div class="rounded-[50%] bg-primary w-[60px] h-[60px] flex justify-center items-center">
+              <font-awesome-icon :icon="['fas', 'video']" class="text-[1.6rem] text-white" />
+            </div>
+          </ClientOnly>
+        </NuxtLink>
+      </li>
+      <li>
+        <NuxtLink to="/live" class="flex flex-col text-gray items-center">
+          <ClientOnly>
+            <font-awesome-icon :icon="['fas', 'tv']" class="text-[1.6rem] mb-1" />
+          </ClientOnly>
+          <span class="text-xs">直播室</span>
+        </NuxtLink>
+      </li>
+      <li>
+        <NuxtLink to="/userInfo" class="flex flex-col text-gray items-center">
+          <ClientOnly>
+            <font-awesome-icon :icon="['far', 'user']" class="text-[1.6rem] mb-1" />
+          </ClientOnly>
+          <span class="text-xs">我的</span>
+        </NuxtLink>
+      </li>
     </footer>
   </div>
 </template>
@@ -47,13 +63,16 @@ import { useFriends } from '@/store/friends';
 import { useStream } from '~/store/stream';
 import { getUserInfo } from '@/api/modules/auth';
 import { WsChannel } from '~/enums/websocket';
+import type { WsPayload } from '~/composables/useWsChannel';
+import type { Friends } from '@/api/types/friend';
+import type { GetRoomsResponse } from '@/api/types/stream';
+import type { WsMessage } from '~/api/types/chat';
 
 const authStore = useAuth();
 const notificationStore = useNotification();
 const friendStore = useFriends();
 const streamStore = useStream();
-
-const { userInfoRes } = useUserInfoQuery();
+const route = useRoute();
 
 const queryClient = useQueryClient();
 // 於server side渲染
@@ -64,46 +83,42 @@ onServerPrefetch(async () => {
   });
 });
 
-const globalChannels: BroadcastChannel[] = [];
+const { updateQuery } = useMessageQuery();
 
-const createNotificationWsListener = () => {
-  const channelHandlers: { type: WsChannel; handlers: ((data: any) => void)[] }[] = [
-    { type: WsChannel.Global, handlers: [(data) => notificationStore.websocketGlobalMessage(data)] },
-    { type: WsChannel.InviteFriend, handlers: [(data) => friendStore.getNewFriendInvite(data)] },
-    { type: WsChannel.SetFriendStatus, handlers: [() => friendStore.getAllFriendsHandler({ page: 1, pageSize: 15 })] },
-    { type: WsChannel.AddRoom, handlers: [(data) => streamStore.addRoom(data)] }, // TODO 優化為有訂閱該主播再全域通知，之後將其移動到chatroom
-    { type: WsChannel.DeleteRoom, handlers: [(data) => streamStore.deleteRoom(data)] } // TODO 同上
-  ];
+// handler 必須是具名函式（非匿名箭頭函式），unsubscribe 需要相同的函式參照
+const globalMessageHandler = (payload: WsPayload<any>) => notificationStore.websocketGlobalMessage(payload.data);
+const inviteFriendHandler = (payload: WsPayload<Friends>) => friendStore.getNewFriendInvite(payload.data);
+const setFriendStatusHandler = () => friendStore.getAllFriendsHandler({ page: 1, pageSize: 15 });
+const addRoomHandler = (payload: WsPayload<GetRoomsResponse>) => streamStore.addRoom(payload.data); // TODO 優化為有訂閱該主播再全域通知，之後將其移動到chatroom
+const deleteRoomHandler = (payload: WsPayload<{ uuid: string }>) => streamStore.deleteRoom(payload.data); // TODO 同上
 
-  for (const { type, handlers } of channelHandlers) {
-    const ch = new BroadcastChannel(type);
-    ch.addEventListener('message', ({ data }) => {
-      handlers.forEach((handler) => {
-        try {
-          handler(data.data);
-        } catch (error) {
-          console.error(`Error in BroadcastChannel handler for type ${type}:`, error);
-        }
-      });
-    });
-    globalChannels.push(ch);
-  }
+const chatRoomMessageHandler = (payload: WsPayload<WsMessage>) => {
+  // 若當前在 chatroom 頁面，由 chatroom page 自己的 handler 處理
+  if (route.path === '/chatroom') return;
+
+  const msg = payload.data?.message[0];
+  if (!msg) return;
+  updateQuery({ newMessage: [msg], senderId: msg.senderId, receiverId: msg.receiverId });
 };
 
-onMounted(() => {
-  createNotificationWsListener();
-});
-
-onBeforeUnmount(() => {
-  globalChannels.forEach((ch) => ch.close());
-  globalChannels.length = 0;
-});
+useWsChannel([
+  { type: WsChannel.Global, handler: globalMessageHandler },
+  { type: WsChannel.InviteFriend, handler: inviteFriendHandler },
+  { type: WsChannel.SetFriendStatus, handler: setFriendStatusHandler }, // TODO 每次接收到好友接受邀請訊息就要發一次api，需優化成就地修改
+  { type: WsChannel.AddRoom, handler: addRoomHandler },
+  { type: WsChannel.DeleteRoom, handler: deleteRoomHandler },
+  { type: WsChannel.ChatRoom, handler: chatRoomMessageHandler }
+]);
 
 watch(
   () => authStore.token,
   (val) => {
     if (process.client && val) {
       notificationStore.init(val);
+    }
+
+    if (!val) {
+      authStore.logout();
     }
   },
   {

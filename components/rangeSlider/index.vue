@@ -2,15 +2,15 @@
   <div class="w-full">
     <div class="w-full relative mb-[5px]">
       <!-- progress bar -->
-      <div class="relative h-[6px] bg-[#ddd] w-full">
+      <div class="relative h-1.5 bg-primary w-full">
         <div
-          class="absolute top-0 h-full z-[2] rounded-[8px] pointer-events-none bg-secondary"
+          class="absolute top-0 h-full z-2 rounded-lg pointer-events-none bg-primary"
           :style="{ left: leftLength, right: rightLength }"
         ></div>
       </div>
       <input
         type="range"
-        class="absolute top-[50%] translate-y-[-50%] h-full w-full z-[1] bg-transparent pointer-event-none appearance-none start range-slider-thumb pointer-events-none"
+        class="absolute top-[50%] translate-y-[-50%] h-full w-full z-1 bg-transparent pointer-event-none appearance-none start range-slider-thumb pointer-events-none"
         v-model.number="start"
         :min="$props.min"
         :max="$props.max"
@@ -18,7 +18,7 @@
       />
       <input
         type="range"
-        class="absolute top-[50%] translate-y-[-50%] h-full w-full z-[1] bg-transparent pointer-event-none appearance-none end range-slider-thumb pointer-events-none"
+        class="absolute top-[50%] translate-y-[-50%] h-full w-full z-1 bg-transparent pointer-event-none appearance-none end range-slider-thumb pointer-events-none"
         v-model.number="end"
         :min="$props.min"
         :max="$props.max"
@@ -83,7 +83,7 @@ const change = (e: Event, option: 'end' | 'start') => {
   height: 15px;
   width: 15px;
   border-radius: 50%;
-  background: #007bff;
+  background: var(--color-primary);
   pointer-events: auto;
 }
 </style>

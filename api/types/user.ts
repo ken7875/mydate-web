@@ -14,6 +14,10 @@ export interface User {
   age: number;
   gender: Gender;
   description: string;
+  interests: string[];
+  personality: string[];
+  bloodType: string;
+  city: string;
   // hasAccount: boolean;
 }
 
@@ -22,6 +26,18 @@ export interface MeetingUserQuery {
   age: [number, number];
 }
 
-export type MeetUser = Pick<User, 'avatars' | 'uuid' | 'userName' | 'age' | 'gender' | 'description'> & {
+export type MeetUser = Pick<
+  User,
+  | 'avatars'
+  | 'uuid'
+  | 'userName'
+  | 'age'
+  | 'gender'
+  | 'description'
+  | 'bloodType'
+  | 'city'
+  | 'interests'
+  | 'personality'
+> & {
   status?: FriendStatus;
 };

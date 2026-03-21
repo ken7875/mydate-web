@@ -1,39 +1,91 @@
 <template>
   <div class="relative full-screen-container">
-    <div class="absolute top-1/2 left-1/2 -translate-1/2 w-[80%] h-[85%] z-10">
+    <div class="absolute left-1/2 -translate-x-1/2 w-[90%] h-full z-10">
       <Card
         v-for="(item, idx) in showingMeetUserList"
         :key="item.uuid"
-        class="absolute w-full h-[80%] card"
+        class="absolute w-full h-[67dvh] overflow-scroll card"
         :style="{ zIndex: showingMeetUserList.length - idx }"
       >
         <template #body>
-          <div class="h-full w-full absolute top-0 left-0">
-            <NuxtImg
-              preload
-              crossorigin="anonymous"
-              format="webp"
-              :src="getDefaultAvatar(item.avatars[0], '/images/testUser1.jpg')"
-              alt="avatar"
-              class="w-full h-full object-cover"
-            />
-          </div>
-          <div class="p-[8px] absolute bottom-0 text-white">
-            <div v-if="item.status === FriendStatus.Pending" class="px-[8px] py-[3px] mb-[16px] bg-amber-600">
-              <p>有人想認識你!</p>
+          <div class="h-full w-full">
+            <div class="h-[63%] relative">
+              <NuxtImg
+                preload
+                crossorigin="anonymous"
+                format="webp"
+                :src="getDefaultAvatar(item.avatars[0], '/images/testUser1.jpg')"
+                alt="avatar"
+                class="w-full h-full object-cover border-0"
+                v-slot="{ isLoaded }"
+              >
+                <div class="shimmer-placeholder" v-show="!isLoaded"></div>
+              </NuxtImg>
+              <div class="absolute px-5 bottom-0 text-white">
+                <div v-if="item.status === FriendStatus.Pending" class="px-5 py-[3px] mb-[16px] bg-amber-600">
+                  <p>有人想認識你!</p>
+                </div>
+                <p class="text-[30px] font-bold">{{ item.userName }}</p>
+                <p class="mb-[15px]">
+                  <span class="mr-1.5">{{ item.age }}</span>
+                  <span>{{ Gender[item.gender] }}</span>
+                </p>
+              </div>
             </div>
-            <p class="text-[25px] font-bold">{{ item.userName }}</p>
-            <p class="mb-[15px]">
-              <span class="mr-[6px]">{{ item.age }}</span>
-              <span>{{ Gender[item.gender] }}</span>
-            </p>
-            <p>{{ item.description }}</p>
+            <div class="px-5 mt-5">
+              <div class="flex mb-5 w-full">
+                <p class="w-[60px] text-gray-400">個性</p>
+                <div class="flex flex-wrap gap-2">
+                  <Badge class="whitespace-nowrap" :fill="true" v-for="(personality, i) in item.personality" :key="i">{{
+                    personality
+                  }}</Badge>
+                </div>
+              </div>
+              <div class="flex mb-5 w-full">
+                <p class="w-[60px] text-gray-400">興趣</p>
+                <div class="flex flex-wrap gap-2">
+                  <Badge class="whitespace-nowrap" :fill="true" v-for="(interest, i) in item.interests" :key="i">{{
+                    interest
+                  }}</Badge>
+                </div>
+              </div>
+              <template v-if="expandedUuids.has(item.uuid)">
+                <div class="flex mb-3">
+                  <p class="w-[30%] text-gray-400">自我介紹</p>
+                  <p>{{ item.description }}</p>
+                </div>
+                <div class="flex mb-3">
+                  <p class="w-[30%] text-gray-400">身高</p>
+                  <p>123</p>
+                </div>
+                <div class="flex mb-3">
+                  <p class="w-[30%] text-gray-400">體重</p>
+                  <p>123</p>
+                </div>
+                <div class="flex mb-3">
+                  <p class="w-[30%] text-gray-400">血型</p>
+                  <p>123</p>
+                </div>
+              </template>
+              <div
+                @click="toggleDetail(item.uuid)"
+                class="flex items-center justify-center gap-1 cursor-pointer text-gray-400"
+              >
+                <span class="text-sm">{{ expandedUuids.has(item.uuid) ? '收起' : '查看更多' }}</span>
+                <ClientOnly>
+                  <font-awesome-icon
+                    :icon="['fas', expandedUuids.has(item.uuid) ? 'chevron-up' : 'chevron-down']"
+                    class="text-xs"
+                  />
+                </ClientOnly>
+              </div>
+            </div>
           </div>
         </template>
       </Card>
-      <div class="absolute top-[85%] flex gap-[50px] justify-center w-full h-[50px]">
+      <div class="absolute top-[91%] flex gap-[50px] justify-center w-full h-[50px]">
         <div
-          @click="likeDislikeAnimation('dislike')"
+          @click="handleDislike"
           class="bg-gray-400 w-[60px] h-[60px] rounded-[50%] flex justify-center items-center"
         >
           <ClientOnly>
@@ -41,21 +93,19 @@
           </ClientOnly>
         </div>
         <!-- <div class="translate-y-[-10px]">super Like</div> -->
-        <div
-          @click="likeDislikeAnimation('like')"
-          class="bg-red-500 w-[60px] h-[60px] rounded-[50%] flex justify-center items-center"
-        >
+        <div @click="handleLike" class="bg-red-500 w-[60px] h-[60px] rounded-[50%] flex justify-center items-center">
           <ClientOnly>
             <font-awesome-icon :icon="['fas', 'heart']" class="text-[30px] text-white" />
           </ClientOnly>
         </div>
       </div>
+      <!-- 喜歡顯示的icon -->
       <ClientOnly>
         <Transition name="heart">
           <font-awesome-icon
             v-show="showingHeartIcon === 'heart'"
             :icon="['fas', 'heart']"
-            class="absolute top-[40%] left-1/2 -translate-x-1/2 z-1003 text-[60px] text-red-500"
+            class="absolute top-[40%] left-1/2 -translate-x-1/2 z-2000 text-[60px] text-red-500"
           />
         </Transition>
       </ClientOnly>
@@ -64,7 +114,7 @@
           <font-awesome-icon
             :icon="['fas', 'heart-crack']"
             v-show="showingHeartIcon === 'heart-crack'"
-            class="absolute top-[40%] left-1/2 -translate-x-1/2 z-1003 text-[60px] text-green-400"
+            class="absolute top-[40%] left-1/2 -translate-x-1/2 z-2000 text-[60px] text-green-400"
           />
         </Transition>
       </ClientOnly>
@@ -103,7 +153,6 @@ const { requestUsers } = storeToRefs(friendsStore);
 const { meetForm } = storeToRefs(settingsStore);
 const meetUserList = ref<MeetUser[]>([]);
 const { data: userRes } = await useMyAsyncData('userList', () => getMeetUserList(meetForm.value));
-
 meetUserList.value = get(userRes.value, 'data.list', []);
 
 await useMyAsyncData('requestUserList', () => friendsStore.getRequestUsersHandler());
@@ -200,30 +249,49 @@ const killDragAnimation = () => {
   }
 };
 
+const expandedUuids = ref(new Set<string>());
+const toggleDetail = (uuid: string) => {
+  if (expandedUuids.value.has(uuid)) {
+    expandedUuids.value.delete(uuid);
+  } else {
+    expandedUuids.value.add(uuid);
+  }
+  expandedUuids.value = new Set(expandedUuids.value);
+};
+
 const showingHeartIcon = ref('');
 const dragCardHandler = () => {
   killDragAnimation();
+  const TRIGGER_RANGE = 150;
 
   let [instance] = Draggable.create('.card', {
-    type: 'x,y',
+    type: 'x',
+    allowNativeTouchScrolling: true,
     edgeResistance: 0.65,
     inertia: true,
     onDrag() {
+      // 在 onDrag 開頭判斷：若該卡片已展開且 this.y < 0（往上拖），呼叫 gsap.set(this.target, { y: 0 }) 鎖住 y 位置並直接 return，跳過後續的旋轉與 icon 邏輯
+      const topCardUuid = showingMeetUserList.value[0]?.uuid;
+      if (expandedUuids.value.has(topCardUuid) && this.y !== 0) {
+        gsap.set(this.target, { y: 0 });
+        return;
+      }
+
       const maxRotation = 20;
       const rotation = (this.x / 300) * maxRotation;
       gsap.to(this.target, {
         rotation
       });
-      if (this.x > 150) {
+      if (this.x > TRIGGER_RANGE) {
         showingHeartIcon.value = 'heart';
-      } else if (this.x < -150) {
+      } else if (this.x < -TRIGGER_RANGE) {
         showingHeartIcon.value = 'heart-crack';
       } else {
         showingHeartIcon.value = '';
       }
     },
     onRelease() {
-      if (this.x > 150) {
+      if (this.x > TRIGGER_RANGE) {
         likeRequestHandler();
         // 滑出左邊
         gsap.to(this.target, {
@@ -237,7 +305,7 @@ const dragCardHandler = () => {
             }, 500);
           }
         });
-      } else if (this.x < -150) {
+      } else if (this.x < -TRIGGER_RANGE) {
         // 滑出右邊
         gsap
           .to(this.target, {
@@ -270,6 +338,9 @@ const dragCardHandler = () => {
 
   draggableInstance = instance;
 };
+
+const handleLike = useThrottleFn(() => likeDislikeAnimation('like'), 500);
+const handleDislike = useThrottleFn(() => likeDislikeAnimation('dislike'), 500);
 
 let tl: GSAPTimeline | null = null;
 const likeDislikeAnimation = (type: 'like' | 'dislike' | 'superlike') => {
@@ -325,5 +396,22 @@ onUnmounted(() => {
 .heart-enter-from,
 .heart-leave-to {
   transform: scale(0);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer-placeholder {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #ede8e2 25%, #fff5e9 50%, #ede8e2 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }
 </style>

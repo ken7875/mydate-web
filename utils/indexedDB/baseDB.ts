@@ -34,8 +34,8 @@ export abstract class BaseIndexedDB {
 
       request.addEventListener('upgradeneeded', (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(this.config.dbName)) {
-          const store = db.createObjectStore(this.config.dbName, {
+        if (!db.objectStoreNames.contains(this.config.storeName)) {
+          const store = db.createObjectStore(this.config.storeName, {
             keyPath: this.config.keyPath,
             autoIncrement: this.config.autoIncrement
           });
@@ -70,7 +70,7 @@ export abstract class BaseIndexedDB {
     return new Promise(async (resolve, reject) => {
       try {
         const db = await this.getDB();
-        const tx = db.transaction(this.config.dbName, mode);
+        const tx = db.transaction(this.config.storeName, mode);
         const store = tx.objectStore(this.config.storeName);
         const req = fn(store); // store.add, store.get ...
 
@@ -78,7 +78,7 @@ export abstract class BaseIndexedDB {
           resolve(req.result);
         });
       } catch (error) {
-        reject('get db fail!!!');
+        reject(`runTransaction fail!!!: ${error}`);
       }
     });
   }

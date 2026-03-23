@@ -30,7 +30,9 @@ import {
   faHeartCrack,
   faChevronUp,
   faChevronDown,
-  faTv
+  faTv,
+  faCheck,
+  faRotateRight
 } from '@fortawesome/free-solid-svg-icons';
 
 config.autoAddCss = false;
@@ -64,6 +66,8 @@ library.add(
   faChevronUp,
   faChevronDown,
   faTv,
+  faCheck,
+  faRotateRight,
   faUser as IconDefinition,
   faCompass as IconDefinition,
   faComments as IconDefinition

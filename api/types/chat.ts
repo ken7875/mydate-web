@@ -5,12 +5,13 @@ export interface GetMessageRecord extends Pagination {
   receiverId: string | string[];
 }
 
+export type MessageStatus = 'sending' | 'success' | 'failed';
 export interface Message {
   senderId: string;
   receiverId: string;
   message: string;
   sendTime: number;
-  status?: 'sending' | 'success' | 'failed';
+  status?: MessageStatus;
   localId?: string;
 }
 

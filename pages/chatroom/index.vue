@@ -14,7 +14,7 @@
       <p>{{ friendInfo?.userName }}</p>
     </div>
     <div class="flex flex-col overflow-scroll scrollbar-none w-full h-[90%]">
-      <div class="relative flex-1 px-[30px] py-2 overflow-y-auto h-full">
+      <div class="relative flex-1 px-5 py-2 overflow-y-auto h-full">
         <template v-if="Number(messageRecordTotal) > 0">
           <VirtualList
             v-model:list="showingData"
@@ -38,14 +38,28 @@
               </div>
               <div
                 :class="[
-                  'max-w-[70%] rounded-lg p-3 shadow relative chatBoxHorn',
-                  isSelf(item) ? 'bg-primary text-white ml-auto chatBoxHorn__right' : 'bg-secondary chatBoxHorn__left'
+                  'w-full flex items-center',
+                  userInfoRes?.data?.uuid === item.senderId ? 'justify-end' : 'justify-start'
                 ]"
               >
-                <p class="text-sm">{{ item.message }}</p>
-                <p :class="[isSelf(item) ? 'text-gray-300' : 'text-gray-500', 'text-xs mt-1 text-right']">
-                  {{ moment(item.sendTime).format('HH:mm') }}
-                </p>
+                <template v-if="item.status === 'failed'">
+                  <ClientOnly>
+                    <button @click="($event) => sendMessageHandler($event, item)">
+                      <font-awesome-icon :icon="['fa', 'rotate-right']"></font-awesome-icon>
+                    </button>
+                  </ClientOnly>
+                </template>
+                <div
+                  :class="[
+                    'w-[70%] rounded-lg p-3 shadow relative chatBoxHorn',
+                    isSelf(item) ? 'bg-primary text-white chatBoxHorn__right' : 'bg-secondary chatBoxHorn__left'
+                  ]"
+                >
+                  <p class="text-sm">{{ item.message }}</p>
+                  <p :class="[isSelf(item) ? 'text-gray-300' : 'text-gray-500', 'text-xs mt-1 text-right']">
+                    {{ moment(item.sendTime).format('HH:mm') }}
+                  </p>
+                </div>
               </div>
             </template>
           </VirtualList>
@@ -72,7 +86,7 @@
           />
           <button
             class="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 focus:outline-none"
-            @click="sendMessageHandler"
+            @click="($event) => sendMessageHandler($event)"
           >
             發送
           </button>
@@ -84,14 +98,15 @@
 
 <script setup lang="ts">
 import { useChat } from '@/store/chat';
-import type { Message, WsMessage } from '@/api/types/chat';
+import type { Message, MessageStatus, WsMessage } from '@/api/types/chat';
 import moment from 'moment';
 import { markAsReadApi } from '@/api/modules/chat';
 import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
-import { WsChannel } from '~/enums/websocket';
+import { WsChannel, WSCode } from '~/enums/websocket';
 import { cloneDeep } from 'lodash-es';
+import { SendMessageDB } from '@/utils/indexedDB/sendMessage';
 
 const routes = useRoute();
 const focusFriend = computed(() => ({
@@ -99,11 +114,15 @@ const focusFriend = computed(() => ({
 }));
 const pageSize = 20;
 
+const messageDB = new SendMessageDB();
+
 const chatStore = useChat();
 
 const { sendMessage } = chatStore;
 
-const { getMessageRecordQuery, updateQuery } = useMessageQuery();
+const { getMessageRecordQuery, updateMessageQuery } = useMessageQuery();
+
+const failMessageHandler = useFailedMessages(messageDB);
 
 const { data: friendData } = await useMyAsyncData(
   'friend',
@@ -156,38 +175,46 @@ const toggleNewMessageTipsHandler = () => {
 const isSelf = (record: Message) => record.senderId === userInfoRes.value?.data?.uuid;
 
 const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
-  updateQuery({
+  updateMessageQuery({
     newMessage: body.message,
     senderId: body.message[0].senderId,
     receiverId: body.message[0].receiverId
   });
 };
 const waitToSendMessage = ref('');
-const sendMessageHandler = () => {
+
+const sendMessageHandler = (event: PointerEvent, message?: Message) => {
+  if (message) {
+    sendMessage([message]);
+    return;
+  }
+
   if (!waitToSendMessage.value) return;
+
   const newMessage = {
     receiverId: focusFriend.value.uuid as string,
     senderId: userInfoRes.value?.data?.uuid as string,
     message: waitToSendMessage.value,
-    sendTime: Date.now()
+    sendTime: Date.now(),
+    status: 'sending' as MessageStatus,
+    localId: crypto.randomUUID() as string
   };
 
   sendMessage([newMessage]);
+  messageDB.add(newMessage);
 
-  if (userInfoRes.value?.data) {
-    // 樂觀更新
-    const lastShowingIdx = showingData.value.at(-1)?.idx;
-    const lastRecordIdx = messageRecordQueryData.value.at(-1)?.idx;
-    const isViewingLatest = lastShowingIdx === lastRecordIdx;
+  // 樂觀更新
+  const lastShowingIdx = showingData.value.at(-1)?.idx;
+  const isViewingLatest = lastShowingIdx?.startsWith('0') || lastShowingIdx?.startsWith('-1');
 
-    const prevLen = messageRecordQueryData.value.length;
-    updateMessageRecord({ message: [newMessage] });
+  const prevLen = messageRecordQueryData.value.length;
+  updateMessageRecord({ message: [newMessage] });
 
-    if (isViewingLatest) {
-      showingData.value.push(...messageRecordQueryData.value.slice(prevLen));
-    }
-    scrollToBottom();
+  if (isViewingLatest) {
+    showingData.value.push(...messageRecordQueryData.value.slice(prevLen));
   }
+  scrollToBottom();
+  failMessageHandler.timeoutMeesage(newMessage);
 
   waitToSendMessage.value = '';
 };
@@ -221,12 +248,33 @@ onBeforeRouteLeave(() => {
 // virtual list
 const VIRTUALLIST_MAX_PAGE_COUNT = 4;
 
-const { data: messageRecordRes, fetchNextPage } = getMessageRecordQuery({
+const {
+  data: messageRecordRes,
+  fetchNextPage,
+  isSuccess
+} = getMessageRecordQuery({
   senderId: userInfoRes.value?.data?.uuid as string,
   receiverId: focusFriend.value.uuid as string,
   pageSize
 });
-const messageRecordTotal = computed(() => messageRecordRes.value?.total);
+
+const failMessages = ref<Message[]>([]);
+const refreshFailMessages = async () => {
+  failMessages.value = await failMessageHandler.getAll();
+  const failMessagesShowingData = failMessages.value.map((message, idx) => ({
+    ...message,
+    idx: `${-1}-${idx}`
+  }));
+  showingData.value.push(...failMessagesShowingData);
+};
+
+watch(isSuccess, (val) => {
+  if (val) {
+    refreshFailMessages();
+  }
+});
+
+const messageRecordTotal = computed(() => (messageRecordRes.value?.total || 0) + failMessages.value.length);
 
 const showingData = ref<(Message & { idx: string })[]>([]);
 
@@ -242,7 +290,7 @@ const unWatch = watch(
   messageRecordQueryData,
   (val) => {
     if (showingData.value.length === 0) {
-      showingData.value = cloneDeep(val);
+      showingData.value.push(...val);
     } else {
       unWatch();
     }
@@ -260,6 +308,8 @@ const showPrevRecordData = async ({ pageSize }: { page: number; pageSize: number
 };
 
 const chatRoomHandler = (body: WsPayload<WsMessage>) => {
+  // SUCCESS/FAIL 為確認訊息，由下方 handler 處理
+  if (body.code === WSCode.SUCCESS || body.code === WSCode.FAIL) return;
   if (routes.query?.uuid !== body.data.user?.uuid) return;
 
   try {
@@ -280,7 +330,36 @@ const chatRoomHandler = (body: WsPayload<WsMessage>) => {
   }
 };
 
-useWsChannel([{ type: WsChannel.ChatRoom, handler: chatRoomHandler }]);
+// 實作 fail message 排到訊息最後
+useWsChannel([
+  {
+    type: WsChannel.ChatRoom,
+    handler: [
+      chatRoomHandler,
+      (data: WsPayload<WsMessage>) => {
+        const msg = data.data?.message[0];
+        if (!msg?.localId) return;
+
+        if (data.code === WSCode.SUCCESS) {
+          failMessageHandler.handleSuccess({
+            localId: msg.localId,
+            senderId: msg.senderId,
+            receiverId: msg.receiverId
+          });
+        }
+
+        if (data.code === WSCode.FAIL) {
+          failMessageHandler.setStatus({
+            localId: msg.localId,
+            status: 'failed',
+            senderId: msg.senderId,
+            receiverId: msg.receiverId
+          });
+        }
+      }
+    ]
+  }
+]);
 
 // watch(
 //   messageRecordQueryData,

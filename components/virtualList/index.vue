@@ -116,8 +116,10 @@ const loadPrevPage = () => {
         initialized = true;
         return;
       }
+      console.log(startPage.value);
 
       if (isIntersecting && startPage.value > 1 && !isPrevLoadPending) {
+        (console.log(startPage.value), 2);
         isPrevLoadPending = true;
         prevScrollHeight = virtualWrap.value?.scrollHeight ?? 0;
 

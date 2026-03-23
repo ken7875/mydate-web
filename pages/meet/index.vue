@@ -32,7 +32,7 @@
                 </p>
               </div>
             </div>
-            <div class="px-5 mt-5">
+            <div class="p-5 relative min-h-[37%]">
               <div class="flex mb-5 w-full">
                 <p class="w-[60px] text-gray-400">個性</p>
                 <div class="flex flex-wrap gap-2">
@@ -69,7 +69,7 @@
               </template>
               <div
                 @click="toggleDetail(item.uuid)"
-                class="flex items-center justify-center gap-1 cursor-pointer text-gray-400"
+                class="flex items-center justify-center gap-1 cursor-pointer text-gray-400 absolute bottom-[5px] left-[50%] -translate-x-1/2"
               >
                 <span class="text-sm">{{ expandedUuids.has(item.uuid) ? '收起' : '查看更多' }}</span>
                 <ClientOnly>

@@ -58,9 +58,7 @@ const stopHandlers: (() => void)[] = [];
 // 數窗內最多限制DOM筆數（用實際渲染筆數，避免最後一頁不足 perLoadNum 時計算錯誤）
 const isExceedLimitData = computed(() => virtualListData.value.length > props.perLoadNum * props.maxPageCount);
 
-const virtualListData = computed(() => {
-  return props.totalData.slice(startIdx.value, endIdx.value);
-});
+const virtualListData = computed(() => props.totalData.slice(startIdx.value, endIdx.value));
 
 // 視窗往下滑
 const viewSlideDown = () => {
@@ -73,14 +71,17 @@ const viewSlideDown = () => {
         initialized = true;
         return;
       }
-      if (isIntersecting && endIdx.value < props.total) {
+      if (isIntersecting) {
         if (props.totalData.length < props.total) {
           await props?.fetchNewHandler?.();
+          endIdx.value = props.totalData.length;
+        } else {
+          if (endIdx.value + props.perLoadNum > props.total) {
+            endIdx.value = props.total;
+          } else {
+            endIdx.value += props.perLoadNum;
+          }
         }
-
-        endIdx.value + props.perLoadNum >= props.total
-          ? (endIdx.value = props.total - 1)
-          : (endIdx.value += props.perLoadNum);
 
         emit('loadNewData', { page: endIdx.value, pageSize: props.perLoadNum });
 
@@ -121,10 +122,10 @@ let prevScrollHeight = 0;
 // 監聽 list 第一筆 idx 變化確認 prepend 實際完成，再補正 scrollTop
 watch(
   () => virtualListData.value[0]?.idx,
-  (newIdx, oldIdx) => {
+  async (newIdx, oldIdx) => {
     if (!isPrevLoadPending || newIdx === oldIdx) return;
     if (virtualWrap.value) {
-      virtualWrap.value.scrollTop += virtualWrap.value.scrollHeight - prevScrollHeight;
+      virtualWrap.value.scrollTop += 1000;
     }
     isPrevLoadPending = false;
   },
@@ -144,19 +145,13 @@ const viewSlideUp = () => {
         return;
       }
 
-      const oldestData = props.isReverse ? endIdx.value >= props.total - 1 : startIdx.value <= 0;
-      if (isIntersecting && !isPrevLoadPending && !oldestData) {
+      // const oldestData = props.isReverse ? endIdx.value >= props.total : startIdx.value <= 0;
+      if (isIntersecting) {
         isPrevLoadPending = true;
+
         if (props.totalData.length < props.total) {
           await props?.fetchPrevHandler?.();
-        }
-
-        prevScrollHeight = virtualWrap.value?.scrollHeight ?? 0;
-
-        if (props.isReverse) {
-          endIdx.value + props.perLoadNum >= props.total
-            ? (endIdx.value = props.total - 1)
-            : (endIdx.value += props.perLoadNum);
+          startIdx.value = 0;
         } else {
           startIdx.value - props.perLoadNum < 0 ? (startIdx.value = 0) : (startIdx.value -= props.perLoadNum);
         }
@@ -165,6 +160,8 @@ const viewSlideUp = () => {
         if (isExceedLimitData.value) {
           sliceBottomPage();
         }
+
+        prevScrollHeight = virtualWrap.value?.scrollHeight ?? 0;
       }
     },
     {
@@ -185,8 +182,6 @@ const initVirtualScrollHandler = async () => {
   stopHandlers.forEach((stop) => stop());
   stopHandlers.length = 0;
 
-  await nextTick();
-
   // 加載新頁面
   viewSlideDown();
 
@@ -204,13 +199,21 @@ const sliceBottomPage = () => {
   endIdx.value -= props.perLoadNum * OFFSET;
 };
 
+const updateIndexWithTotal = async (total: number, preTotal: number) => {
+  const diff = total - preTotal;
+  if (endIdx.value === virtualListData.value.length || endIdx.value === props.totalData.length) {
+    endIdx.value += diff;
+  }
+};
+
 watch(
   () => props.total,
-  () => {
-    initVirtualScrollHandler();
-  },
-  {
-    once: true
+  (newVal, oldVal) => {
+    console.log(props.total, '234yr8we9ufhwei');
+    if (!isVirtualScrollInited) {
+      initVirtualScrollHandler();
+    }
+    updateIndexWithTotal(newVal, oldVal);
   }
 );
 

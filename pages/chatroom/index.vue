@@ -268,7 +268,6 @@ const failMessages = ref<Message[]>([]);
 const messageRecordTotal = computed(() => (messageRecordRes.value?.total || 0) + failMessages.value.length);
 
 const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => messageRecordRes.value?.messages || []);
-
 const debounceFetchNextPage = useDebounceFn(fetchNextPage, 100);
 const showPrevRecordData = async () => {
   return await debounceFetchNextPage(); // 取得先前紀錄

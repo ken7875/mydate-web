@@ -73,7 +73,7 @@ export default () => {
                 total: (page.total ?? 0) + 1,
                 data: {
                   ...page.data,
-                  data: [...newMessage, ...(page.data?.data ?? [])]
+                  data: [...newMessage, ...(page.data?.data ?? []).slice(0, -(newMessage.length))]
                 }
               };
             }

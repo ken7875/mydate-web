@@ -55,10 +55,10 @@ const startIdx = ref(0);
 const endIdx = ref(props.perLoadNum);
 const stopHandlers: (() => void)[] = [];
 
+const virtualListData = computed(() => props.totalData.slice(startIdx.value, endIdx.value));
+
 // 數窗內最多限制DOM筆數（用實際渲染筆數，避免最後一頁不足 perLoadNum 時計算錯誤）
 const isExceedLimitData = computed(() => virtualListData.value.length > props.perLoadNum * props.maxPageCount);
-
-const virtualListData = computed(() => props.totalData.slice(startIdx.value, endIdx.value));
 
 // 視窗往下滑
 const viewSlideDown = () => {
@@ -145,8 +145,7 @@ const viewSlideUp = () => {
         return;
       }
 
-      // const oldestData = props.isReverse ? endIdx.value >= props.total : startIdx.value <= 0;
-      if (isIntersecting) {
+      if (isIntersecting && !isPrevLoadPending) {
         isPrevLoadPending = true;
 
         if (props.totalData.length < props.total) {
@@ -154,6 +153,7 @@ const viewSlideUp = () => {
           startIdx.value = 0;
         } else {
           startIdx.value - props.perLoadNum < 0 ? (startIdx.value = 0) : (startIdx.value -= props.perLoadNum);
+          console.log(startIdx.value, 's');
         }
 
         emit('loadPrevData', { page: endIdx.value, pageSize: props.perLoadNum });
@@ -209,7 +209,6 @@ const updateIndexWithTotal = async (total: number, preTotal: number) => {
 watch(
   () => props.total,
   (newVal, oldVal) => {
-    console.log(props.total, '234yr8we9ufhwei');
     if (!isVirtualScrollInited) {
       initVirtualScrollHandler();
     }

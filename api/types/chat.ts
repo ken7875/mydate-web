@@ -13,6 +13,7 @@ export interface Message {
   sendTime: number;
   status?: MessageStatus;
   localId?: string;
+  seq?: number;
 }
 
 export interface WsMessage {

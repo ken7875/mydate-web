@@ -17,20 +17,19 @@
       <div class="relative flex-1 px-5 py-2 overflow-y-auto h-full">
         <template v-if="Number(messageRecordTotal) > 0">
           <VirtualList
-            v-model:list="showingData"
+            :totalData="messageRecordQueryData"
             :perLoadNum="pageSize"
             :total="messageRecordTotal || 0"
             :listClass="'mb-5'"
             ref="chatroomDom"
             :maxPageCount="VIRTUALLIST_MAX_PAGE_COUNT"
-            @loadNewData="showNewRecordData"
-            @loadPrevData="showPrevRecordData"
+            :fetchPrevHandler="showPrevRecordData"
             :isReverse="true"
           >
             <template v-slot="{ item, index }">
               <div
                 class="bg-black opacity-5 text-white rounded-[10px] mx-auto w-fit p-[5px] mb-[3px]"
-                v-show="showDate(showingData[index - 1]?.sendTime, item.sendTime)"
+                v-show="showDate(messageRecordQueryData[index - 1]?.sendTime, item.sendTime)"
               >
                 <p class="text-[12px]">
                   {{ moment(item.sendTime).format('MM/DD') }}
@@ -105,7 +104,6 @@ import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
 import { WsChannel, WSCode } from '~/enums/websocket';
-import { cloneDeep } from 'lodash-es';
 import { SendMessageDB } from '@/utils/indexedDB/sendMessage';
 
 const routes = useRoute();
@@ -204,15 +202,8 @@ const sendMessageHandler = (event: PointerEvent, message?: Message) => {
   messageDB.add(newMessage);
 
   // 樂觀更新
-  const lastShowingIdx = showingData.value.at(-1)?.idx;
-  const isViewingLatest = lastShowingIdx?.startsWith('0') || lastShowingIdx?.startsWith('-1');
-
-  const prevLen = messageRecordQueryData.value.length;
   updateMessageRecord({ message: [newMessage] });
 
-  if (isViewingLatest) {
-    showingData.value.push(...messageRecordQueryData.value.slice(prevLen));
-  }
   scrollToBottom();
   failMessageHandler.timeoutMeesage(newMessage);
 
@@ -259,52 +250,28 @@ const {
 });
 
 const failMessages = ref<Message[]>([]);
-const refreshFailMessages = async () => {
-  failMessages.value = await failMessageHandler.getAll();
-  const failMessagesShowingData = failMessages.value.map((message, idx) => ({
-    ...message,
-    idx: `${-1}-${idx}`
-  }));
-  showingData.value.push(...failMessagesShowingData);
-};
+// const refreshFailMessages = async () => {
+//   failMessages.value = await failMessageHandler.getAll();
+//   const failMessagesShowingData = failMessages.value.map((message, idx) => ({
+//     ...message,
+//     idx: `${-1}-${idx}`
+//   }));
+//   showingData.value.push(...failMessagesShowingData);
+// };
 
-watch(isSuccess, (val) => {
-  if (val) {
-    refreshFailMessages();
-  }
-});
+// watch(isSuccess, (val) => {
+//   if (val) {
+//     refreshFailMessages();
+//   }
+// });
 
 const messageRecordTotal = computed(() => (messageRecordRes.value?.total || 0) + failMessages.value.length);
 
-const showingData = ref<(Message & { idx: string })[]>([]);
-
 const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => messageRecordRes.value?.messages || []);
 
-const showNewRecordData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
-  const cloneData = messageRecordQueryData.value.slice(pageSize * (page - 1), pageSize * (page + 1));
-
-  showingData.value.push(...cloneData);
-};
-
-const unWatch = watch(
-  messageRecordQueryData,
-  (val) => {
-    if (showingData.value.length === 0) {
-      showingData.value.push(...val);
-    } else {
-      unWatch();
-    }
-  },
-  {
-    immediate: true
-  }
-);
-
-const debounceFetchNextPage = useDebounceFn(fetchNextPage, 10);
-const showPrevRecordData = async ({ pageSize }: { page: number; pageSize: number }) => {
-  await debounceFetchNextPage(); // 取得先前紀錄
-  const cloneData = cloneDeep(messageRecordQueryData.value.slice(0, pageSize));
-  showingData.value.unshift(...cloneData);
+const debounceFetchNextPage = useDebounceFn(fetchNextPage, 100);
+const showPrevRecordData = async () => {
+  return await debounceFetchNextPage(); // 取得先前紀錄
 };
 
 const chatRoomHandler = (body: WsPayload<WsMessage>) => {
@@ -313,16 +280,7 @@ const chatRoomHandler = (body: WsPayload<WsMessage>) => {
   if (routes.query?.uuid !== body.data.user?.uuid) return;
 
   try {
-    const lastShowingIdx = showingData.value.at(-1)?.idx;
-    const lastRecordIdx = messageRecordQueryData.value.at(-1)?.idx;
-    const isViewingLatest = lastShowingIdx === lastRecordIdx;
-
-    const prevLen = messageRecordQueryData.value.length;
     updateMessageRecord({ message: body.data.message });
-
-    if (isViewingLatest) {
-      showingData.value.push(...messageRecordQueryData.value.slice(prevLen));
-    }
 
     toggleNewMessageTipsHandler();
   } catch (error) {

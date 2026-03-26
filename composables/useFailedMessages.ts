@@ -3,21 +3,32 @@ import type { MessageStatus } from '~/api/types/chat';
 
 export function useFailedMessages(messageDB: SendMessageDB) {
   const timeoutQueue: ReturnType<typeof setTimeout>[] = [];
-  const { updateMessageQueryStatus } = useMessageQuery();
+  const { updateMessageQuery, updateMessageQueryStatus, removeMessageFromQuery } = useMessageQuery();
 
   const getAll = async () => {
-    const res = await messageDB.getAll();
+    try {
+      const res = await messageDB.getAll();
 
-    return res;
+      return res;
+    } catch (error) {
+      console.log(error, 'get messageDB failed!!');
+      return [];
+    }
   };
 
-  const remove = ({ localId }: { localId: string }) => {
-    messageDB.removeByLocalId(localId);
+  const clearTracking = async ({ localId }: { localId: string }) => {
+    await messageDB.removeByLocalId(localId);
     const timer = timeoutQueue.shift();
     clearTimeout(timer);
   };
 
-  const handleSuccess = ({
+  const updateDBStatus = async ({ localId, status }: { localId: string; status: MessageStatus }) => {
+    const { id } = await messageDB.get({ index: 'localId', partial: { localId } });
+
+    await messageDB.update({ id, partial: { status } });
+  };
+
+  const markMessageSuccess = async ({
     localId,
     senderId,
     receiverId
@@ -26,68 +37,59 @@ export function useFailedMessages(messageDB: SendMessageDB) {
     senderId: string;
     receiverId: string;
   }) => {
-    remove({ localId });
-    updateMessageQueryStatus({ localId, status: 'success', senderId, receiverId });
+    const dbMessage = await messageDB.get({ index: 'localId', partial: { localId } });
+
+    await clearTracking({ localId });
+
+    if (dbMessage?.status === 'failed') {
+      updateMessageQuery({ newMessage: [{ ...dbMessage, status: 'success' }], senderId, receiverId });
+    } else {
+      updateMessageQueryStatus({ localId, status: 'success', senderId, receiverId });
+    }
   };
 
-  const setStatus = async ({
+  const markMessageFailed = async ({
     localId,
-    status,
     senderId,
     receiverId
   }: {
     localId: string;
-    status: MessageStatus;
     senderId: string;
     receiverId: string;
   }) => {
     try {
-      updateMessageQueryStatus({
-        localId,
-        status,
-        senderId,
-        receiverId
-      });
-
-      const { id } = await messageDB.get({ index: 'localId', partial: { localId } });
-      messageDB.update({
-        id,
-        partial: { status }
-      });
+      removeMessageFromQuery({ localId, senderId, receiverId });
+      await updateDBStatus({ localId, status: 'failed' });
     } catch (error) {
-      console.log(`setStatus fail: ${error}`);
+      console.log(`markMessageFailed fail: ${error}`);
     }
   };
 
-  const timeoutMeesage = async ({
+  const startMessageTimeout = ({
     localId,
     senderId,
     receiverId
   }: {
     localId: string;
-    status: MessageStatus;
     senderId: string;
     receiverId: string;
   }) => {
-    const timer = setTimeout(() => {
-      setStatus({
-        localId,
-        status: 'failed',
-        senderId,
-        receiverId
-      });
-    }, 8000);
+    return new Promise((resolve) => {
+      const timer = setTimeout(async () => {
+        await markMessageFailed({ localId, senderId, receiverId });
 
-    timeoutQueue.push(timer);
-    console.log(timeoutQueue, 'timeoutQueue');
-    console.log(timer, 'set time message');
+        resolve('');
+      }, 8000);
+
+      timeoutQueue.push(timer);
+    });
   };
 
   return {
     getAll,
-    remove,
-    handleSuccess,
-    setStatus,
-    timeoutMeesage
+    clearTracking,
+    markMessageSuccess,
+    markMessageFailed,
+    startMessageTimeout
   };
 }

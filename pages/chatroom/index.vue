@@ -17,7 +17,7 @@
       <div class="relative flex-1 px-5 py-2 overflow-y-auto h-full">
         <template v-if="Number(messageRecordTotal) > 0">
           <VirtualList
-            :totalData="messageRecordQueryData"
+            :totalData="allMessageData"
             :perLoadNum="pageSize"
             :total="messageRecordTotal || 0"
             :listClass="'mb-5'"
@@ -205,7 +205,10 @@ const sendMessageHandler = (event: PointerEvent, message?: Message) => {
   updateMessageRecord({ message: [newMessage] });
 
   scrollToBottom();
-  failMessageHandler.timeoutMeesage(newMessage);
+
+  failMessageHandler.startMessageTimeout(newMessage).then(() => {
+    refreshFailMessages();
+  });
 
   waitToSendMessage.value = '';
 };
@@ -239,35 +242,29 @@ onBeforeRouteLeave(() => {
 // virtual list
 const VIRTUALLIST_MAX_PAGE_COUNT = 4;
 
-const {
-  data: messageRecordRes,
-  fetchNextPage,
-  isSuccess
-} = getMessageRecordQuery({
+const { data: messageRecordRes, fetchNextPage } = getMessageRecordQuery({
   senderId: userInfoRes.value?.data?.uuid as string,
   receiverId: focusFriend.value.uuid as string,
   pageSize
 });
 
-const failMessages = ref<Message[]>([]);
-// const refreshFailMessages = async () => {
-//   failMessages.value = await failMessageHandler.getAll();
-//   const failMessagesShowingData = failMessages.value.map((message, idx) => ({
-//     ...message,
-//     idx: `${-1}-${idx}`
-//   }));
-//   showingData.value.push(...failMessagesShowingData);
-// };
-
-// watch(isSuccess, (val) => {
-//   if (val) {
-//     refreshFailMessages();
-//   }
-// });
+const failMessages = ref<(Message & { idx: string })[]>([]);
+const refreshFailMessages = async () => {
+  const res = await failMessageHandler.getAll();
+  failMessages.value = res.map((message, idx) => ({
+    ...message,
+    idx: `${-1}-${idx}`
+  }));
+};
+refreshFailMessages();
 
 const messageRecordTotal = computed(() => (messageRecordRes.value?.total || 0) + failMessages.value.length);
 
 const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => messageRecordRes.value?.messages || []);
+const allMessageData = computed<(Message & { idx: string })[]>(() => [
+  ...(messageRecordRes.value?.messages || []),
+  ...(failMessages.value || [])
+]);
 const debounceFetchNextPage = useDebounceFn(fetchNextPage, 100);
 const showPrevRecordData = async () => {
   return await debounceFetchNextPage(); // 取得先前紀錄
@@ -293,12 +290,12 @@ useWsChannel([
     type: WsChannel.ChatRoom,
     handler: [
       chatRoomHandler,
-      (data: WsPayload<WsMessage>) => {
+      async (data: WsPayload<WsMessage>) => {
         const msg = data.data?.message[0];
         if (!msg?.localId) return;
 
         if (data.code === WSCode.SUCCESS) {
-          failMessageHandler.handleSuccess({
+          await failMessageHandler.markMessageSuccess({
             localId: msg.localId,
             senderId: msg.senderId,
             receiverId: msg.receiverId
@@ -306,13 +303,14 @@ useWsChannel([
         }
 
         if (data.code === WSCode.FAIL) {
-          failMessageHandler.setStatus({
+          await failMessageHandler.markMessageFailed({
             localId: msg.localId,
-            status: 'failed',
             senderId: msg.senderId,
             receiverId: msg.receiverId
           });
         }
+
+        refreshFailMessages();
       }
     ]
   }

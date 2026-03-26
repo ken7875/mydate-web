@@ -101,38 +101,23 @@ const viewSlideDown = () => {
 
 const virtualWrap = useTemplateRef('virtualWrap');
 
-let isPrevLoadPending = false;
-let prevScrollHeight = 0;
-
-// totalData 更新後：
-// 1. 修正 endIdx 上限（最後一頁不足 perLoadNum 時 endIdx 可能超出範圍）
-// 2. 延遲檢查視窗是否超過 maxPageCount，確保 isExceedLimitData 拿到的是更新後的資料
-// watch(
-//   () => props.totalData.length,
-//   (newLen) => {
-//     if (endIdx.value > newLen) {
-//       endIdx.value = newLen;
-//     }
-//     if (isExceedLimitData.value) {
-//       sliceBottomPage();
-//     }
-//   }
-// );
+// let isPrevLoadPending = false;
+// let prevScrollHeight = 0;
 
 // 監聽 list 第一筆 idx 變化確認 prepend 實際完成，再補正 scrollTop
-watch(
-  () => virtualListData.value[0]?.idx,
-  async (newIdx, oldIdx) => {
-    if (!isPrevLoadPending || newIdx === oldIdx) return;
-    if (virtualWrap.value) {
-      virtualWrap.value.scrollTop += 1000;
-    }
-    isPrevLoadPending = false;
-  },
-  {
-    flush: 'post'
-  }
-);
+// watch(
+//   () => virtualListData.value[0]?.idx,
+//   async (newIdx, oldIdx) => {
+//     if (!isPrevLoadPending || newIdx === oldIdx) return;
+//     if (virtualWrap.value) {
+//       virtualWrap.value.scrollTop += 1000;
+//     }
+//     isPrevLoadPending = false;
+//   },
+//   {
+//     flush: 'post'
+//   }
+// );
 
 // 視窗往上滑
 const viewSlideUp = () => {
@@ -145,15 +130,19 @@ const viewSlideUp = () => {
         return;
       }
 
-      if (isIntersecting && !isPrevLoadPending) {
-        isPrevLoadPending = true;
+      if (isIntersecting) {
+        // isPrevLoadPending = true;
 
+        // 若還沒快取完全部資料則持續向後端請求，若資料都拿到了則操作快取資料
         if (props.totalData.length < props.total) {
           await props?.fetchPrevHandler?.();
           startIdx.value = 0;
+          compensateScrollAfterPrepend();
         } else {
           startIdx.value - props.perLoadNum < 0 ? (startIdx.value = 0) : (startIdx.value -= props.perLoadNum);
-          console.log(startIdx.value, 's');
+          if (startIdx.value > 0) {
+            compensateScrollAfterPrepend();
+          }
         }
 
         emit('loadPrevData', { page: endIdx.value, pageSize: props.perLoadNum });
@@ -161,7 +150,7 @@ const viewSlideUp = () => {
           sliceBottomPage();
         }
 
-        prevScrollHeight = virtualWrap.value?.scrollHeight ?? 0;
+        // prevScrollHeight = virtualWrap.value?.scrollHeight ?? 0;
       }
     },
     {
@@ -199,22 +188,19 @@ const sliceBottomPage = () => {
   endIdx.value -= props.perLoadNum * OFFSET;
 };
 
+// 向上滑動載入新資料後回彈到當前位置
+const compensateScrollAfterPrepend = async () => {
+  if (virtualWrap.value) {
+    virtualWrap.value.scrollTop += 1000;
+  }
+};
+
 const updateIndexWithTotal = async (total: number, preTotal: number) => {
   const diff = total - preTotal;
   if (endIdx.value === virtualListData.value.length || endIdx.value === props.totalData.length) {
     endIdx.value += diff;
   }
 };
-
-watch(
-  () => props.total,
-  (newVal, oldVal) => {
-    if (!isVirtualScrollInited) {
-      initVirtualScrollHandler();
-    }
-    updateIndexWithTotal(newVal, oldVal);
-  }
-);
 
 // 若是從最下方開始顯示新資料，剛進頁面直接幫用戶跳到最下層
 const scrollToBottom = () => {
@@ -223,8 +209,32 @@ const scrollToBottom = () => {
   }
 };
 
+watch(
+  () => [props.totalData, props.total],
+  async (newVal, oldVal) => {
+    if (!isVirtualScrollInited) {
+      initVirtualScrollHandler();
+    }
+
+    updateIndexWithTotal(newVal[1] as number, oldVal[1] as number);
+  }
+);
+
+watch(
+  () => props.totalData,
+  (val) => {
+    if (val.length > 0) {
+      nextTick(() => {
+        scrollToBottom();
+      });
+    }
+  },
+  {
+    once: true
+  }
+);
+
 onMounted(() => {
-  scrollToBottom();
   initVirtualScrollHandler();
 });
 

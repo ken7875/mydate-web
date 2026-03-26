@@ -73,7 +73,7 @@ export default () => {
                 total: (page.total ?? 0) + 1,
                 data: {
                   ...page.data,
-                  data: [...newMessage, ...(page.data?.data ?? []).slice(0, -(newMessage.length))]
+                  data: [...newMessage, ...(page.data?.data ?? []).slice(0, -newMessage.length)]
                 }
               };
             }
@@ -120,9 +120,39 @@ export default () => {
     );
   };
 
+  const removeMessageFromQuery = ({
+    senderId,
+    receiverId,
+    localId
+  }: {
+    senderId: string;
+    receiverId: string;
+    localId: string;
+  }) => {
+    queryClient.setQueryData(
+      ['messageRecord', { id: [senderId, receiverId].sort().join('_') }],
+      (oldData: InfiniteData<MessagePage, number> | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page, index) => {
+            const filtered = (page.data?.data ?? []).filter((message) => message.localId !== localId);
+            const wasRemoved = filtered.length < (page.data?.data ?? []).length;
+            return {
+              ...page,
+              total: wasRemoved && index === 0 ? Math.max((page.total ?? 0) - 1, 0) : page.total,
+              data: { ...page.data, data: filtered }
+            };
+          })
+        };
+      }
+    );
+  };
+
   return {
     getMessageRecordQuery,
     updateMessageQuery,
-    updateMessageQueryStatus
+    updateMessageQueryStatus,
+    removeMessageFromQuery
   };
 };

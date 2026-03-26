@@ -125,7 +125,7 @@ useWsChannel([
         if (!msg?.localId) return;
 
         if (data.code === WSCode.SUCCESS) {
-          failMessageHandler.handleSuccess({
+          failMessageHandler.markMessageSuccess({
             localId: msg.localId,
             senderId: msg.senderId,
             receiverId: msg.receiverId
@@ -133,9 +133,8 @@ useWsChannel([
         }
 
         if (data.code === WSCode.FAIL) {
-          failMessageHandler.setStatus({
+          failMessageHandler.markMessageFailed({
             localId: msg.localId,
-            status: 'failed',
             senderId: msg.senderId,
             receiverId: msg.receiverId
           });

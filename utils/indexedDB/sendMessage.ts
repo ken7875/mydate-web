@@ -44,15 +44,19 @@ export class SendMessageDB extends BaseIndexedDB {
 
   async removeByLocalId(localId: string | undefined) {
     if (!localId) return;
-    const key = await this.runTransaction<IDBValidKey | undefined>({
-      mode: 'readonly',
-      fn: (store) => store.index('localId').getKey(localId)
-    });
+    try {
+      const key = await this.runTransaction<IDBValidKey | undefined>({
+        mode: 'readonly',
+        fn: (store) => store.index('localId').getKey(localId)
+      });
 
-    await this.runTransaction({
-      mode: 'readwrite',
-      fn: (store) => store.delete(key as IDBValidKey)
-    });
+      await this.runTransaction({
+        mode: 'readwrite',
+        fn: (store) => store.delete(key as IDBValidKey)
+      });
+    } catch (error) {
+      console.log(`removeByLocalId ${localId}: ${error}`);
+    }
   }
 
   async update({ id, partial }: { id: string; partial: Partial<Message> }) {

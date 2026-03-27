@@ -17,8 +17,8 @@ export class SendMessageDB extends BaseIndexedDB {
     });
   }
 
-  async getAll() {
-    const result = await this.runTransaction({
+  async getAll<T = unknown>(): Promise<T[]> {
+    const result = await this.runTransaction<T[]>({
       mode: 'readonly',
       fn: (store) => store.getAll()
     });

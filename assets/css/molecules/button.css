@@ -25,7 +25,7 @@
   }
 
   .button__gray {
-    @apply bg-gray border border-gray text-white;
+    @apply bg-gray-300 border border-gray-300 text-white;
   }
 
   /* === Outline variants === */

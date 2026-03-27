@@ -10,31 +10,34 @@
         <h3 class="font-bold text-[1.5rem] mb-[15px] border-b border-darkLight">{{ title }}</h3>
       </template>
       <template #body>
+        <div v-if="$slots.body">
+          <slot name="body"></slot>
+        </div>
         <div>
-          <div>
-            <div @click="handleAction('cancel')" class="absolute top-[3%] right-[3%]">
-              <client-only>
-                <font-awesome-icon :icon="['fas', 'xmark']" class="text-[1.5rem] cursor-pointer" />
-              </client-only>
-            </div>
-            <p class="text-[1.2rem]" ref="normalContent">
-              {{ content }}
-            </p>
+          <div @click="handleAction('cancel')" class="absolute top-[3%] right-[3%]">
+            <client-only>
+              <font-awesome-icon :icon="['fas', 'xmark']" class="text-[1.5rem] cursor-pointer" />
+            </client-only>
           </div>
+          <p class="text-[1.2rem]" ref="normalContent">
+            <component v-if="isVNode(content)" :is="() => content" />
+            <template v-else>{{ content }}</template>
+          </p>
         </div>
       </template>
       <template #footer>
-        <div class="absolute bottom-0 w-full flex justify-end border-t border-darkLight py-2" v-if="hasBtn">
-          <BaseButton
-            @click="handleAction('cancel')"
-            class="h-[40px] w-[80px] mr-3"
-            :styleType="'cancel'"
-            v-if="hasCancel"
-            >取消</BaseButton
-          >
-          <BaseButton v-if="hasSubmit" @click="handleAction('confirm')" :styleType="'confirm'" class="h-10 w-20"
-            >確認</BaseButton
-          >
+        <div class="absolute bottom-0 w-full flex justify-end border-t border-darkLight py-2">
+          <template v-if="$slots.footer">
+            <slot name="footer"></slot>
+          </template>
+          <template v-else-if="!$slots.footer && hasBtn">
+            <BaseButton @click="handleAction('cancel')" class="h-10 w-20 mr-3" :styleType="'cancel'" v-if="hasCancel"
+              >取消</BaseButton
+            >
+            <BaseButton v-if="hasSubmit" @click="handleAction('confirm')" :styleType="'confirm'" class="h-10 w-20"
+              >確認</BaseButton
+            >
+          </template>
         </div>
       </template>
     </Card>
@@ -42,6 +45,7 @@
 </template>
 
 <script setup lang="ts">
+import { isVNode, type VNode } from 'vue';
 import Card from '~~/components/card/index.vue';
 
 defineOptions({
@@ -51,7 +55,7 @@ defineOptions({
 const props = withDefaults(
   defineProps<{
     title: string;
-    content: string;
+    content: string | VNode;
     type?: 'normal' | 'success' | 'warning' | 'error';
     hasSubmit?: boolean;
     hasBtn?: boolean;

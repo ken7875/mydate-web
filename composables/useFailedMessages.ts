@@ -1,5 +1,5 @@
 import type { SendMessageDB } from '@/utils/indexedDB/sendMessage';
-import type { MessageStatus } from '~/api/types/chat';
+import type { Message, MessageStatus } from '~/api/types/chat';
 
 export function useFailedMessages(messageDB: SendMessageDB) {
   const timeoutQueue: ReturnType<typeof setTimeout>[] = [];
@@ -7,9 +7,9 @@ export function useFailedMessages(messageDB: SendMessageDB) {
 
   const getAll = async () => {
     try {
-      const res = await messageDB.getAll();
+      const res = await messageDB.getAll<Message>();
 
-      return res;
+      return res.filter((item) => item.status === 'failed');
     } catch (error) {
       console.log(error, 'get messageDB failed!!');
       return [];
@@ -85,11 +85,20 @@ export function useFailedMessages(messageDB: SendMessageDB) {
     });
   };
 
+  const removeFailedMessage = async ({ localId }: { localId: string }) => {
+    try {
+      await messageDB.removeByLocalId(localId);
+    } catch (error) {
+      console.log(`removeFailedMessage fail: ${error}`);
+    }
+  };
+
   return {
     getAll,
     clearTracking,
     markMessageSuccess,
     markMessageFailed,
-    startMessageTimeout
+    startMessageTimeout,
+    removeFailedMessage
   };
 }

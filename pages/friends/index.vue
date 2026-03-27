@@ -77,7 +77,6 @@ import type { Friends } from '@/api/types/friend';
 import type { WsMessage } from '~/api/types/chat';
 import type { ShowingFriendList } from './types';
 import { WsChannel } from '~/enums/websocket';
-import type { Pagination } from '~/api/types/common';
 
 defineOptions({
   name: 'friends'

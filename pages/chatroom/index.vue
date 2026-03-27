@@ -41,12 +41,16 @@
                   userInfoRes?.data?.uuid === item.senderId ? 'justify-end' : 'justify-start'
                 ]"
               >
+                <!-- 發送訊息失敗重發按鈕 -->
                 <template v-if="item.status === 'failed'">
                   <ClientOnly>
-                    <button @click="($event) => sendMessageHandler($event, item)">
-                      <!-- 訊息重新發送優化 -->
+                    <BaseButton
+                      styleType="neutral"
+                      @click="() => openResendMessageConfirmBox(item)"
+                      class="w-[18px] h-[18px] rounded-[50%] mr-1"
+                    >
                       <font-awesome-icon :icon="['fa', 'rotate-right']"></font-awesome-icon>
-                    </button>
+                    </BaseButton>
                   </ClientOnly>
                 </template>
                 <div
@@ -86,13 +90,21 @@
           />
           <button
             class="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 focus:outline-none"
-            @click="($event) => sendMessageHandler($event)"
+            @click="($event) => sendMessageHandler()"
           >
             發送
           </button>
         </div>
       </div>
     </div>
+    <Message v-if="resendConfirmModalConfig.status" title="重傳或刪除" :content="'請選擇要重新傳送還是刪除'">
+      <template #footer>
+        <div class="flex justify-end py-2">
+          <BaseButton class="h-10 w-20 mr-3" @click="resendModalHandler('resend')">重傳</BaseButton>
+          <BaseButton class="h-10 w-20" @click="resendModalHandler('remove')">刪除</BaseButton>
+        </div>
+      </template>
+    </Message>
   </div>
 </template>
 
@@ -112,7 +124,6 @@ const focusFriend = computed(() => ({
   uuid: routes.query.uuid as string
 }));
 const pageSize = 20;
-
 const messageDB = new SendMessageDB();
 
 const chatStore = useChat();
@@ -180,9 +191,41 @@ const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
     receiverId: body.message[0].receiverId
   });
 };
+
+const resendConfirmModalConfig = ref<{
+  status: boolean;
+  message: Message | null;
+}>({
+  status: false,
+  message: null
+});
+
+const openResendMessageConfirmBox = (message: Message) => {
+  resendConfirmModalConfig.value.status = true;
+  resendConfirmModalConfig.value.message = message;
+};
+
+const resendModalHandler = async (type: 'resend' | 'remove') => {
+  const message = resendConfirmModalConfig.value.message;
+  if (!message) return;
+
+  switch (type) {
+    case 'resend':
+      sendMessageHandler(message);
+      break;
+    case 'remove':
+      await failMessageHandler.removeFailedMessage({ localId: message.localId! });
+      await refreshFailMessages();
+      break;
+  }
+
+  resendConfirmModalConfig.value.status = false;
+  resendConfirmModalConfig.value.message = null;
+};
+
 const waitToSendMessage = ref('');
 
-const sendMessageHandler = (event: PointerEvent, message?: Message) => {
+const sendMessageHandler = (message?: Message) => {
   if (message) {
     sendMessage([message]);
     return;
@@ -250,6 +293,7 @@ const { data: messageRecordRes, fetchNextPage } = getMessageRecordQuery({
 });
 
 const failMessages = ref<(Message & { idx: string })[]>([]);
+
 const refreshFailMessages = async () => {
   const res = await failMessageHandler.getAll();
   failMessages.value = res.map((message, idx) => ({

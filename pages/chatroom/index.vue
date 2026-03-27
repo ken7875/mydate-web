@@ -44,6 +44,7 @@
                 <template v-if="item.status === 'failed'">
                   <ClientOnly>
                     <button @click="($event) => sendMessageHandler($event, item)">
+                      <!-- 訊息重新發送優化 -->
                       <font-awesome-icon :icon="['fa', 'rotate-right']"></font-awesome-icon>
                     </button>
                   </ClientOnly>

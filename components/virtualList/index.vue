@@ -9,8 +9,9 @@
 </template>
 
 <script setup lang="ts" generic="T extends { idx: string }">
-import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useIntersectionObserver } from '@vueuse/core';
+import type { Pagination } from '~/api/types/common';
 // import type { PagingRequest } from '@/api/types/';
 
 const props = withDefaults(
@@ -24,8 +25,8 @@ const props = withDefaults(
     loadDown?: boolean;
     listClass?: string;
     isReverse?: boolean;
-    fetchPrevHandler?: () => any;
-    fetchNewHandler?: () => any;
+    fetchPrevHandler?: (pagination: Pagination) => any;
+    fetchNewHandler?: (pagination: Pagination) => any;
   }>(),
   {
     perLoadNum: 20,
@@ -39,23 +40,24 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
-  (e: 'loadNewData', payload: { page: number; pageSize: number }): void;
-  (e: 'loadPrevData', payload: { page: number; pageSize: number }): void;
+  (e: 'loadNewData', payload: Pagination): void;
+  (e: 'loadPrevData', payload: Pagination): void;
 }>();
 
 const OFFSET = 1;
-const OBSERVER_ROOT_MARGIN = '50px 0px 50px 0px';
+const OBSERVER_ROOT_MARGIN = '30px 0px 30px 0px';
 const listBottom = useTemplateRef('listBottom');
 const listTop = useTemplateRef('listTop');
 
-// const totalPage = computed(() => Math.ceil(props.total / props.perLoadNum));
-// const startPage = ref(props.isReverse ? totalPage.value : 1);
-// const endPage = ref(props.isReverse ? totalPage.value : 1);
+const currentPage = ref(1);
+const totalPage = computed(() => props.total / props.perLoadNum);
 const startIdx = ref(0);
 const endIdx = ref(props.perLoadNum);
 const stopHandlers: (() => void)[] = [];
 
-const virtualListData = computed(() => props.totalData.slice(startIdx.value, endIdx.value));
+const virtualListData = computed(() => {
+  return props.totalData.slice(startIdx.value, endIdx.value);
+});
 
 // 數窗內最多限制DOM筆數（用實際渲染筆數，避免最後一頁不足 perLoadNum 時計算錯誤）
 const isExceedLimitData = computed(() => virtualListData.value.length > props.perLoadNum * props.maxPageCount);
@@ -72,8 +74,10 @@ const viewSlideDown = () => {
         return;
       }
       if (isIntersecting) {
+        if (currentPage.value === totalPage.value) return;
+        currentPage.value++;
         if (props.totalData.length < props.total) {
-          await props?.fetchNewHandler?.();
+          await props?.fetchNewHandler?.({ page: currentPage.value, pageSize: props.perLoadNum });
           endIdx.value = props.totalData.length;
         } else {
           if (endIdx.value + props.perLoadNum > props.total) {
@@ -83,7 +87,7 @@ const viewSlideDown = () => {
           }
         }
 
-        emit('loadNewData', { page: endIdx.value, pageSize: props.perLoadNum });
+        emit('loadNewData', { page: currentPage.value, pageSize: props.perLoadNum });
 
         if (isExceedLimitData.value && !props.singleSide) {
           sliceTopPage();
@@ -122,6 +126,7 @@ const virtualWrap = useTemplateRef('virtualWrap');
 // 視窗往上滑
 const viewSlideUp = () => {
   let initialized = false;
+  let heightBefore = virtualWrap.value?.scrollHeight || 0;
   const { stop } = useIntersectionObserver(
     listTop.value,
     async ([{ isIntersecting }]) => {
@@ -131,26 +136,25 @@ const viewSlideUp = () => {
       }
 
       if (isIntersecting) {
-        // isPrevLoadPending = true;
-
         // 若還沒快取完全部資料則持續向後端請求，若資料都拿到了則操作快取資料
         if (props.totalData.length < props.total) {
-          await props?.fetchPrevHandler?.();
+          await props?.fetchPrevHandler?.({ page: ++currentPage.value, pageSize: props.perLoadNum });
           startIdx.value = 0;
-          compensateScrollAfterPrepend();
-        } else {
+          compensateScrollAfterPrepend(heightBefore);
+        } else if (currentPage.value > 1) {
           startIdx.value - props.perLoadNum < 0 ? (startIdx.value = 0) : (startIdx.value -= props.perLoadNum);
+          currentPage.value--;
           if (startIdx.value > 0) {
-            compensateScrollAfterPrepend();
+            compensateScrollAfterPrepend(heightBefore);
           }
         }
 
-        emit('loadPrevData', { page: endIdx.value, pageSize: props.perLoadNum });
+        if (currentPage.value <= 1) return;
+        emit('loadPrevData', { page: currentPage.value, pageSize: props.perLoadNum });
+
         if (isExceedLimitData.value) {
           sliceBottomPage();
         }
-
-        // prevScrollHeight = virtualWrap.value?.scrollHeight ?? 0;
       }
     },
     {
@@ -189,10 +193,13 @@ const sliceBottomPage = () => {
 };
 
 // 向上滑動載入新資料後回彈到當前位置
-const compensateScrollAfterPrepend = async () => {
-  if (virtualWrap.value) {
-    virtualWrap.value.scrollTop += 1000;
-  }
+// 在 nextTick 前同步捕捉高度，確保拿到的是 DOM 更新前的舊高度
+const compensateScrollAfterPrepend = async (heightBefore: number) => {
+  await nextTick();
+  if (!virtualWrap.value) return;
+  console.log(virtualWrap.value.scrollHeight, heightBefore);
+  // const heightBefore = virtualWrap.value.scrollHeight;
+  virtualWrap.value.scrollTop += heightBefore;
 };
 
 const updateIndexWithTotal = async (total: number, preTotal: number) => {
@@ -235,6 +242,7 @@ watch(
 );
 
 onMounted(() => {
+  scrollToBottom();
   initVirtualScrollHandler();
 });
 

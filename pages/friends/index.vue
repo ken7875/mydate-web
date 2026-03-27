@@ -16,7 +16,6 @@
           :perLoadNum="10"
           :total="totalFriends"
           :fetchNewHandler="showNewFriendsData"
-          :fetchPrevHandler="showPrevFriendsData"
         >
           <template v-slot="{ item }">
             <div
@@ -78,6 +77,7 @@ import type { Friends } from '@/api/types/friend';
 import type { WsMessage } from '~/api/types/chat';
 import type { ShowingFriendList } from './types';
 import { WsChannel } from '~/enums/websocket';
+import type { Pagination } from '~/api/types/common';
 
 defineOptions({
   name: 'friends'
@@ -101,20 +101,14 @@ const { data: initialFriends } = await useMyAsyncData('friends', () =>
   })
 );
 
-const currentPage = ref(1);
+const endPage = ref(1);
 const showingFriendList = ref<ShowingFriendList>([...(initialFriends.value || [])]);
 const showNewFriendsData = async () => {
-  const data = await getAllFriendsHandler({ page: ++currentPage.value, pageSize: 10 });
+  endPage.value++;
+  const data = await getAllFriendsHandler({ page: endPage.value, pageSize: 10 });
 
   if (data) {
     showingFriendList.value.push(...data);
-  }
-};
-
-const showPrevFriendsData = async () => {
-  const data = await getAllFriendsHandler({ page: --currentPage.value, pageSize: 10 });
-  if (data) {
-    showingFriendList.value.unshift(...data);
   }
 };
 
@@ -222,7 +216,6 @@ const searchFriendHandler = useDebounceFn(async () => {
   });
   if (data) {
     showingFriendList.value = data;
-    currentPage.value = 1;
   }
 }, 300);
 </script>

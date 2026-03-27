@@ -14,23 +14,22 @@
       <p>{{ friendInfo?.userName }}</p>
     </div>
     <div class="flex flex-col overflow-scroll scrollbar-none w-full h-[90%]">
-      <div class="relative flex-1 px-[30px] py-2 overflow-y-auto h-full">
+      <div class="relative flex-1 px-5 py-2 overflow-y-auto h-full">
         <template v-if="Number(messageRecordTotal) > 0">
           <VirtualList
-            v-model:list="showingData"
+            :totalData="allMessageData"
             :perLoadNum="pageSize"
             :total="messageRecordTotal || 0"
             :listClass="'mb-5'"
             ref="chatroomDom"
             :maxPageCount="VIRTUALLIST_MAX_PAGE_COUNT"
-            @loadNewData="showNewRecordData"
-            @loadPrevData="showPrevRecordData"
+            :fetchPrevHandler="showPrevRecordData"
             :isReverse="true"
           >
             <template v-slot="{ item, index }">
               <div
                 class="bg-black opacity-5 text-white rounded-[10px] mx-auto w-fit p-[5px] mb-[3px]"
-                v-show="showDate(showingData[index - 1]?.sendTime, item.sendTime)"
+                v-show="showDate(messageRecordQueryData[index - 1]?.sendTime, item.sendTime)"
               >
                 <p class="text-[12px]">
                   {{ moment(item.sendTime).format('MM/DD') }}
@@ -38,14 +37,33 @@
               </div>
               <div
                 :class="[
-                  'max-w-[70%] rounded-lg p-3 shadow relative chatBoxHorn',
-                  isSelf(item) ? 'bg-primary text-white ml-auto chatBoxHorn__right' : 'bg-secondary chatBoxHorn__left'
+                  'w-full flex items-center',
+                  userInfoRes?.data?.uuid === item.senderId ? 'justify-end' : 'justify-start'
                 ]"
               >
-                <p class="text-sm">{{ item.message }}</p>
-                <p :class="[isSelf(item) ? 'text-gray-300' : 'text-gray-500', 'text-xs mt-1 text-right']">
-                  {{ moment(item.sendTime).format('HH:mm') }}
-                </p>
+                <!-- 發送訊息失敗重發按鈕 -->
+                <template v-if="item.status === 'failed'">
+                  <ClientOnly>
+                    <BaseButton
+                      styleType="neutral"
+                      @click="() => openResendMessageConfirmBox(item)"
+                      class="w-[18px] h-[18px] rounded-[50%] mr-1"
+                    >
+                      <font-awesome-icon :icon="['fa', 'rotate-right']"></font-awesome-icon>
+                    </BaseButton>
+                  </ClientOnly>
+                </template>
+                <div
+                  :class="[
+                    'w-[70%] rounded-lg p-3 shadow relative chatBoxHorn',
+                    isSelf(item) ? 'bg-primary text-white chatBoxHorn__right' : 'bg-secondary chatBoxHorn__left'
+                  ]"
+                >
+                  <p class="text-sm">{{ item.message }}</p>
+                  <p :class="[isSelf(item) ? 'text-gray-300' : 'text-gray-500', 'text-xs mt-1 text-right']">
+                    {{ moment(item.sendTime).format('HH:mm') }}
+                  </p>
+                </div>
               </div>
             </template>
           </VirtualList>
@@ -72,38 +90,49 @@
           />
           <button
             class="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 focus:outline-none"
-            @click="sendMessageHandler"
+            @click="($event) => sendMessageHandler()"
           >
             發送
           </button>
         </div>
       </div>
     </div>
+    <Message v-if="resendConfirmModalConfig.status" title="重傳或刪除" :content="'請選擇要重新傳送還是刪除'">
+      <template #footer>
+        <div class="flex justify-end py-2">
+          <BaseButton class="h-10 w-20 mr-3" @click="resendModalHandler('resend')">重傳</BaseButton>
+          <BaseButton class="h-10 w-20" @click="resendModalHandler('remove')">刪除</BaseButton>
+        </div>
+      </template>
+    </Message>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useChat } from '@/store/chat';
-import type { Message, WsMessage } from '@/api/types/chat';
+import type { Message, MessageStatus, WsMessage } from '@/api/types/chat';
 import moment from 'moment';
 import { markAsReadApi } from '@/api/modules/chat';
 import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
-import { WsChannel } from '~/enums/websocket';
-import { cloneDeep } from 'lodash-es';
+import { WsChannel, WSCode } from '~/enums/websocket';
+import { SendMessageDB } from '@/utils/indexedDB/sendMessage';
 
 const routes = useRoute();
 const focusFriend = computed(() => ({
   uuid: routes.query.uuid as string
 }));
 const pageSize = 20;
+const messageDB = new SendMessageDB();
 
 const chatStore = useChat();
 
 const { sendMessage } = chatStore;
 
-const { getMessageRecordQuery, updateQuery } = useMessageQuery();
+const { getMessageRecordQuery, updateMessageQuery } = useMessageQuery();
+
+const failMessageHandler = useFailedMessages(messageDB);
 
 const { data: friendData } = await useMyAsyncData(
   'friend',
@@ -156,38 +185,74 @@ const toggleNewMessageTipsHandler = () => {
 const isSelf = (record: Message) => record.senderId === userInfoRes.value?.data?.uuid;
 
 const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
-  updateQuery({
+  updateMessageQuery({
     newMessage: body.message,
     senderId: body.message[0].senderId,
     receiverId: body.message[0].receiverId
   });
 };
+
+const resendConfirmModalConfig = ref<{
+  status: boolean;
+  message: Message | null;
+}>({
+  status: false,
+  message: null
+});
+
+const openResendMessageConfirmBox = (message: Message) => {
+  resendConfirmModalConfig.value.status = true;
+  resendConfirmModalConfig.value.message = message;
+};
+
+const resendModalHandler = async (type: 'resend' | 'remove') => {
+  const message = resendConfirmModalConfig.value.message;
+  if (!message) return;
+
+  switch (type) {
+    case 'resend':
+      sendMessageHandler(message);
+      break;
+    case 'remove':
+      await failMessageHandler.removeFailedMessage({ localId: message.localId! });
+      await refreshFailMessages();
+      break;
+  }
+
+  resendConfirmModalConfig.value.status = false;
+  resendConfirmModalConfig.value.message = null;
+};
+
 const waitToSendMessage = ref('');
-const sendMessageHandler = () => {
+
+const sendMessageHandler = (message?: Message) => {
+  if (message) {
+    sendMessage([message]);
+    return;
+  }
+
   if (!waitToSendMessage.value) return;
+
   const newMessage = {
     receiverId: focusFriend.value.uuid as string,
     senderId: userInfoRes.value?.data?.uuid as string,
     message: waitToSendMessage.value,
-    sendTime: Date.now()
+    sendTime: Date.now(),
+    status: 'sending' as MessageStatus,
+    localId: crypto.randomUUID() as string
   };
 
   sendMessage([newMessage]);
+  messageDB.add(newMessage);
 
-  if (userInfoRes.value?.data) {
-    // 樂觀更新
-    const lastShowingIdx = showingData.value.at(-1)?.idx;
-    const lastRecordIdx = messageRecordQueryData.value.at(-1)?.idx;
-    const isViewingLatest = lastShowingIdx === lastRecordIdx;
+  // 樂觀更新
+  updateMessageRecord({ message: [newMessage] });
 
-    const prevLen = messageRecordQueryData.value.length;
-    updateMessageRecord({ message: [newMessage] });
+  scrollToBottom();
 
-    if (isViewingLatest) {
-      showingData.value.push(...messageRecordQueryData.value.slice(prevLen));
-    }
-    scrollToBottom();
-  }
+  failMessageHandler.startMessageTimeout(newMessage).then(() => {
+    refreshFailMessages();
+  });
 
   waitToSendMessage.value = '';
 };
@@ -226,53 +291,37 @@ const { data: messageRecordRes, fetchNextPage } = getMessageRecordQuery({
   receiverId: focusFriend.value.uuid as string,
   pageSize
 });
-const messageRecordTotal = computed(() => messageRecordRes.value?.total);
 
-const showingData = ref<(Message & { idx: string })[]>([]);
+const failMessages = ref<(Message & { idx: string })[]>([]);
+
+const refreshFailMessages = async () => {
+  const res = await failMessageHandler.getAll();
+  failMessages.value = res.map((message, idx) => ({
+    ...message,
+    idx: `${-1}-${idx}`
+  }));
+};
+refreshFailMessages();
+
+const messageRecordTotal = computed(() => (messageRecordRes.value?.total || 0) + failMessages.value.length);
 
 const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => messageRecordRes.value?.messages || []);
-
-const showNewRecordData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
-  const cloneData = messageRecordQueryData.value.slice(pageSize * (page - 1), pageSize * (page + 1));
-
-  showingData.value.push(...cloneData);
-};
-
-const unWatch = watch(
-  messageRecordQueryData,
-  (val) => {
-    if (showingData.value.length === 0) {
-      showingData.value = cloneDeep(val);
-    } else {
-      unWatch();
-    }
-  },
-  {
-    immediate: true
-  }
-);
-
-const debounceFetchNextPage = useDebounceFn(fetchNextPage, 10);
-const showPrevRecordData = async ({ pageSize }: { page: number; pageSize: number }) => {
-  await debounceFetchNextPage(); // 取得先前紀錄
-  const cloneData = cloneDeep(messageRecordQueryData.value.slice(0, pageSize));
-  showingData.value.unshift(...cloneData);
+const allMessageData = computed<(Message & { idx: string })[]>(() => [
+  ...(messageRecordRes.value?.messages || []),
+  ...(failMessages.value || [])
+]);
+const debounceFetchNextPage = useDebounceFn(fetchNextPage, 100);
+const showPrevRecordData = async () => {
+  return await debounceFetchNextPage(); // 取得先前紀錄
 };
 
 const chatRoomHandler = (body: WsPayload<WsMessage>) => {
+  // SUCCESS/FAIL 為確認訊息，由下方 handler 處理
+  if (body.code === WSCode.SUCCESS || body.code === WSCode.FAIL) return;
   if (routes.query?.uuid !== body.data.user?.uuid) return;
 
   try {
-    const lastShowingIdx = showingData.value.at(-1)?.idx;
-    const lastRecordIdx = messageRecordQueryData.value.at(-1)?.idx;
-    const isViewingLatest = lastShowingIdx === lastRecordIdx;
-
-    const prevLen = messageRecordQueryData.value.length;
     updateMessageRecord({ message: body.data.message });
-
-    if (isViewingLatest) {
-      showingData.value.push(...messageRecordQueryData.value.slice(prevLen));
-    }
 
     toggleNewMessageTipsHandler();
   } catch (error) {
@@ -280,7 +329,37 @@ const chatRoomHandler = (body: WsPayload<WsMessage>) => {
   }
 };
 
-useWsChannel([{ type: WsChannel.ChatRoom, handler: chatRoomHandler }]);
+// 實作 fail message 排到訊息最後
+useWsChannel([
+  {
+    type: WsChannel.ChatRoom,
+    handler: [
+      chatRoomHandler,
+      async (data: WsPayload<WsMessage>) => {
+        const msg = data.data?.message[0];
+        if (!msg?.localId) return;
+
+        if (data.code === WSCode.SUCCESS) {
+          await failMessageHandler.markMessageSuccess({
+            localId: msg.localId,
+            senderId: msg.senderId,
+            receiverId: msg.receiverId
+          });
+        }
+
+        if (data.code === WSCode.FAIL) {
+          await failMessageHandler.markMessageFailed({
+            localId: msg.localId,
+            senderId: msg.senderId,
+            receiverId: msg.receiverId
+          });
+        }
+
+        refreshFailMessages();
+      }
+    ]
+  }
+]);
 
 // watch(
 //   messageRecordQueryData,

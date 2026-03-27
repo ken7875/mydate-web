@@ -12,7 +12,9 @@ defineOptions({
 const styleMap = computed(() => ({
   default: 'button button__outline-primary',
   confirm: 'button button__primary',
-  cancel: 'button button__outline-primary'
+  cancel: 'button button__outline-primary',
+  danger: 'button button__error',
+  neutral: 'button button__gray'
 }));
 
 withDefaults(

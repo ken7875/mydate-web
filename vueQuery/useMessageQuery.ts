@@ -1,6 +1,9 @@
 import { getMessageRecordApi } from '@/api/modules/chat';
-import type { GetMessageRecord, Message } from '~/api/types/chat';
-// import type { BaseField } from '~/api/types/common';
+import type { GetMessageRecord, Message, MessageStatus } from '~/api/types/chat';
+import type { BaseField } from '~/api/types/common';
+import type { InfiniteData } from '@tanstack/vue-query';
+
+type MessagePage = BaseField<{ data: Message[] }, true>;
 
 export default () => {
   const queryClient = useQueryClient();
@@ -48,7 +51,7 @@ export default () => {
     };
   };
 
-  const updateQuery = ({
+  const updateMessageQuery = ({
     newMessage,
     senderId,
     receiverId
@@ -57,29 +60,99 @@ export default () => {
     senderId: string;
     receiverId: string;
   }) => {
-    queryClient.setQueryData(['messageRecord', { id: [senderId, receiverId].sort().join('_') }], (oldData: any) => {
-      if (!oldData) return oldData;
-      return {
-        ...oldData,
-        pages: oldData.pages.map((page: any, index: number) => {
-          if (index === 0) {
+    queryClient.setQueryData(
+      ['messageRecord', { id: [senderId, receiverId].sort().join('_') }],
+      (oldData: InfiniteData<MessagePage, number> | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page, index) => {
+            if (index === 0) {
+              return {
+                ...page,
+                total: (page.total ?? 0) + 1,
+                data: {
+                  ...page.data,
+                  data: [...newMessage, ...(page.data?.data ?? []).slice(0, -newMessage.length)]
+                }
+              };
+            }
+            return page;
+          })
+        };
+      }
+    );
+  };
+
+  const updateMessageQueryStatus = ({
+    senderId,
+    receiverId,
+    status,
+    localId
+  }: {
+    senderId: string;
+    receiverId: string;
+    status: MessageStatus;
+    localId: string;
+  }) => {
+    queryClient.setQueryData(
+      ['messageRecord', { id: [senderId, receiverId].sort().join('_') }],
+      (oldData: InfiniteData<MessagePage, number> | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => {
             return {
               ...page,
-              total: page.total + 1,
               data: {
                 ...page.data,
-                data: [...newMessage, ...page.data.data]
+                data: (page.data?.data ?? []).map((message) => {
+                  if (message.localId === localId) {
+                    return { ...message, status };
+                  }
+                  return message;
+                })
               }
             };
-          }
-          return page;
-        })
-      };
-    });
+          })
+        };
+      }
+    );
+  };
+
+  const removeMessageFromQuery = ({
+    senderId,
+    receiverId,
+    localId
+  }: {
+    senderId: string;
+    receiverId: string;
+    localId: string;
+  }) => {
+    queryClient.setQueryData(
+      ['messageRecord', { id: [senderId, receiverId].sort().join('_') }],
+      (oldData: InfiniteData<MessagePage, number> | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page, index) => {
+            const filtered = (page.data?.data ?? []).filter((message) => message.localId !== localId);
+            const wasRemoved = filtered.length < (page.data?.data ?? []).length;
+            return {
+              ...page,
+              total: wasRemoved && index === 0 ? Math.max((page.total ?? 0) - 1, 0) : page.total,
+              data: { ...page.data, data: filtered }
+            };
+          })
+        };
+      }
+    );
   };
 
   return {
     getMessageRecordQuery,
-    updateQuery
+    updateMessageQuery,
+    updateMessageQueryStatus,
+    removeMessageFromQuery
   };
 };

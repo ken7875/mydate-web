@@ -12,17 +12,15 @@
     <template v-if="totalFriends > 0">
       <div class="h-[calc(100%-60px-12px)]">
         <VirtualList
-          v-model:list="showingFriendList"
+          :totalData="showingFriendList"
           :perLoadNum="10"
           :total="totalFriends"
-          @loadNewData="showNewFriendsData"
-          @loadPrevData="showPrevFriendsData"
+          :fetchNewHandler="showNewFriendsData"
         >
           <template v-slot="{ item }">
             <div
-              :class="['flex w-full h-[5.5rem] cursor-pointer p-[5px] border-b-1 border-gray-300']"
+              :class="['flex w-full h-[5.5rem] cursor-pointer p-[5px] border-b border-gray-300']"
               @click="checkChatRoom(item)"
-              :data-idx="item.idx"
             >
               <div class="w-[65px] h-[65px] rounded-[50%] overflow-hidden">
                 <NuxtImg
@@ -102,21 +100,14 @@ const { data: initialFriends } = await useMyAsyncData('friends', () =>
   })
 );
 
-const currentPage = ref(1);
+const endPage = ref(1);
 const showingFriendList = ref<ShowingFriendList>([...(initialFriends.value || [])]);
-const showNewFriendsData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
-  const data = await getAllFriendsHandler({ page, pageSize });
+const showNewFriendsData = async () => {
+  endPage.value++;
+  const data = await getAllFriendsHandler({ page: endPage.value, pageSize: 10 });
+
   if (data) {
     showingFriendList.value.push(...data);
-    currentPage.value = page;
-  }
-};
-
-const showPrevFriendsData = async ({ page, pageSize }: { page: number; pageSize: number }) => {
-  const data = await getAllFriendsHandler({ page, pageSize });
-  if (data) {
-    showingFriendList.value.unshift(...data);
-    currentPage.value = page;
   }
 };
 
@@ -224,7 +215,6 @@ const searchFriendHandler = useDebounceFn(async () => {
   });
   if (data) {
     showingFriendList.value = data;
-    currentPage.value = 1;
   }
 }, 300);
 </script>

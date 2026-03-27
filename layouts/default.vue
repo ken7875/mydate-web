@@ -60,19 +60,23 @@
 import { useAuth } from '@/store/auth';
 import { useNotification } from '@/store/notificationWebSocket';
 import { useFriends } from '@/store/friends';
-import { useStream } from '~/store/stream';
+import { useStream } from '@/store/stream';
 import { getUserInfo } from '@/api/modules/auth';
-import { WsChannel } from '~/enums/websocket';
-import type { WsPayload } from '~/composables/useWsChannel';
+import { WsChannel, WSCode } from '@/enums/websocket';
+import { SendMessageDB } from '@/utils/indexedDB/sendMessage';
 import type { Friends } from '@/api/types/friend';
 import type { GetRoomsResponse } from '@/api/types/stream';
-import type { WsMessage } from '~/api/types/chat';
+import type { WsMessage } from '@/api/types/chat';
 
 const authStore = useAuth();
 const notificationStore = useNotification();
 const friendStore = useFriends();
 const streamStore = useStream();
+
 const route = useRoute();
+
+const messageDB = new SendMessageDB();
+messageDB.openDB();
 
 const queryClient = useQueryClient();
 // 於server side渲染
@@ -83,7 +87,9 @@ onServerPrefetch(async () => {
   });
 });
 
-const { updateQuery } = useMessageQuery();
+const { updateMessageQuery } = useMessageQuery();
+
+const failMessageHandler = useFailedMessages(messageDB);
 
 // handler 必須是具名函式（非匿名箭頭函式），unsubscribe 需要相同的函式參照
 const globalMessageHandler = (payload: WsPayload<any>) => notificationStore.websocketGlobalMessage(payload.data);
@@ -95,10 +101,12 @@ const deleteRoomHandler = (payload: WsPayload<{ uuid: string }>) => streamStore.
 const chatRoomMessageHandler = (payload: WsPayload<WsMessage>) => {
   // 若當前在 chatroom 頁面，由 chatroom page 自己的 handler 處理
   if (route.path === '/chatroom') return;
+  // SUCCESS/FAIL 為確認訊息，由下方 handler 處理
+  if (payload.code === WSCode.SUCCESS || payload.code === WSCode.FAIL) return;
 
   const msg = payload.data?.message[0];
   if (!msg) return;
-  updateQuery({ newMessage: [msg], senderId: msg.senderId, receiverId: msg.receiverId });
+  updateMessageQuery({ newMessage: [msg], senderId: msg.senderId, receiverId: msg.receiverId });
 };
 
 useWsChannel([
@@ -107,7 +115,33 @@ useWsChannel([
   { type: WsChannel.SetFriendStatus, handler: setFriendStatusHandler }, // TODO 每次接收到好友接受邀請訊息就要發一次api，需優化成就地修改
   { type: WsChannel.AddRoom, handler: addRoomHandler },
   { type: WsChannel.DeleteRoom, handler: deleteRoomHandler },
-  { type: WsChannel.ChatRoom, handler: chatRoomMessageHandler }
+  {
+    type: WsChannel.ChatRoom,
+    handler: [
+      chatRoomMessageHandler,
+      (data: WsPayload<WsMessage>) => {
+        if (route.path === '/chatroom') return;
+        const msg = data.data?.message[0];
+        if (!msg?.localId) return;
+
+        if (data.code === WSCode.SUCCESS) {
+          failMessageHandler.markMessageSuccess({
+            localId: msg.localId,
+            senderId: msg.senderId,
+            receiverId: msg.receiverId
+          });
+        }
+
+        if (data.code === WSCode.FAIL) {
+          failMessageHandler.markMessageFailed({
+            localId: msg.localId,
+            senderId: msg.senderId,
+            receiverId: msg.receiverId
+          });
+        }
+      }
+    ]
+  }
 ]);
 
 watch(

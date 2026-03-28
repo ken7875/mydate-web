@@ -12,11 +12,12 @@ export const useNotification = defineStore('notification', () => {
 
   const getWs = (): BaseWebsocket => {
     if (!websocketTool) {
-      const queryClient = useQueryClient();
       websocketTool = new BaseWebsocket(url, {
-        onUnauthorized: () => useForceKickOut(),
+        onUnauthorized: () => {
+          useForceKickOut().catch(console.error);
+        },
         onReconnect: () => {
-          queryClient.invalidateQueries({ queryKey: ['messageRecord'] });
+          useQueryClient().invalidateQueries({ queryKey: ['messageRecord'] });
         }
       });
     }

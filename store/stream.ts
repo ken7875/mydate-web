@@ -15,7 +15,9 @@ export const useStream = defineStore('stream', () => {
   const getWs = (): StreamWebsocket => {
     if (!websocketTool) {
       websocketTool = new StreamWebsocket(url, {
-        onUnauthorized: () => useForceKickOut()
+        onUnauthorized: () => {
+          useForceKickOut().catch(console.error);
+        }
       });
     }
     return websocketTool;

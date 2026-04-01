@@ -3,6 +3,7 @@ import { useNotification } from '@/store/notificationWebSocket';
 import type { Message } from '~/api/types/chat';
 import { getUnreadCount, getPreviewMessageApi } from '@/api/modules/chat';
 import type { PreviewMessage } from '@/api/types/chat';
+import { WsChannel, WSCode } from '~/enums/websocket';
 
 export const useChat = defineStore('chat', () => {
   const webSocketStore = useNotification();
@@ -33,7 +34,8 @@ export const useChat = defineStore('chat', () => {
   //   messageRecord.value.push(...message);
   // };
 
-  const sendMessage = (message: Message[]) => {
+  const sendMessage = ({ roomId, message }: { roomId: number; message: Message[] }) => {
+    webSocketStore.notify({ type: WsChannel.ChatRoom, data: { roomId, message }, code: WSCode.PENDING });
     webSocketStore.handleSend<Message[]>({
       type: 'chatRoom',
       data: message

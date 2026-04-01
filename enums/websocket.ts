@@ -11,5 +11,6 @@ export enum WsChannel {
 
 export enum WSCode {
   SUCCESS = 'SUCCESS',
-  FAIL = 'FAIL'
+  FAIL = 'FAIL',
+  PENDING = 'PENDING'
 }

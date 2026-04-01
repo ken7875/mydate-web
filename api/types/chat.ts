@@ -17,6 +17,7 @@ export interface Message {
 }
 
 export interface WsMessage {
+  roomId: number;
   user: Friends;
   message: Message[];
 }

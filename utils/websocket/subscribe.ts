@@ -16,7 +16,7 @@ const createSubscribeHandler = () => {
     ch.addEventListener('message', ({ data }) => {
       handlers.forEach((h) => {
         try {
-          h(data.data);
+          h(data);
         } catch (error) {
           console.error(`Error in BroadcastChannel handler for type ${type}:`, error);
         }

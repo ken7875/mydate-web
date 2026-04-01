@@ -183,7 +183,8 @@ const checkChatRoom = (friend: Friends) => {
   router.push({
     path: 'chatroom',
     query: {
-      uuid: friend.uuid
+      uuid: friend.uuid,
+      roomId: friend.roomId
     }
   });
 };

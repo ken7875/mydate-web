@@ -1,6 +1,7 @@
 import type { WsChannel } from '~/enums/websocket';
 import createSubscribeHandler from './subscribe';
 import { tokenCookie } from '@/utils/cookies/index';
+import { LeaderElection } from '@/utils/leaderElection';
 
 // 允許自動重連的 close code 白名單
 const RECONNECTABLE_CLOSE_CODES: ReadonlySet<number> = new Set([
@@ -45,6 +46,13 @@ export default class BaseWebsocket {
     reconnectInterval: number;
     maxReconnectAttempts: number;
   };
+
+  #leaderElection = new LeaderElection({
+    channelName: 'wsLeaderElection',
+    lockName: 'wsLeaderElectionLock',
+    wsSendHandler: (data: any) => this.handleSend(data)
+  });
+
   protected subscribeHandler: ReturnType<typeof createSubscribeHandler> | null = null;
 
   constructor(url: string, options?: BaseWebsocketOptions) {
@@ -73,11 +81,19 @@ export default class BaseWebsocket {
     return this.websocket?.readyState === WebSocket.OPEN;
   }
 
-  init(token: string) {
+  get isLeader() {
+    return this.#leaderElection.getRole === 'leader';
+  }
+
+  async init(token: string) {
     if (this.isConnecting() || this.isOpen()) {
       console.log('WebSocket is already connecting or open.');
       return;
     }
+
+    await this.#leaderElection.start();
+
+    if (!this.isLeader) return;
 
     try {
       // 使用 Sec-WebSocket-Protocol header 傳遞 token，避免 token 暴露在 URL log 中
@@ -216,6 +232,11 @@ export default class BaseWebsocket {
   handleSend<T = string, U = 'global'>(
     data: U extends 'video' ? Blob : { type: 'chatRoom' | 'global' | 'video'; data: T }
   ) {
+    if (!this.isLeader) {
+      this.#leaderElection.requestSendViaLeader(data);
+      return;
+    }
+
     if (data instanceof Blob) {
       this.websocket?.send?.(data);
       return;
@@ -230,6 +251,7 @@ export default class BaseWebsocket {
     this.websocket?.close();
     this.websocket = null;
     this.subscribeHandler?.removeAll();
+    this.#leaderElection.destroy();
   }
 
   websocketGlobalMessage(data: any) {

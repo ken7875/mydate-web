@@ -227,7 +227,7 @@ const waitToSendMessage = ref('');
 
 const sendMessageHandler = (message?: Message) => {
   if (message) {
-    sendMessage([message]);
+    sendMessage({ roomId: Number(routes.query?.roomId), message: [message] });
     return;
   }
 
@@ -242,11 +242,8 @@ const sendMessageHandler = (message?: Message) => {
     localId: crypto.randomUUID() as string
   };
 
-  sendMessage([newMessage]);
+  sendMessage({ roomId: Number(routes.query?.roomId), message: [newMessage] });
   messageDB.add(newMessage);
-
-  // 樂觀更新
-  updateMessageRecord({ message: [newMessage] });
 
   scrollToBottom();
 
@@ -316,16 +313,16 @@ const showPrevRecordData = async () => {
 };
 
 const chatRoomHandler = (body: WsPayload<WsMessage>) => {
-  // SUCCESS/FAIL 為確認訊息，由下方 handler 處理
-  if (body.code === WSCode.SUCCESS || body.code === WSCode.FAIL) return;
-  if (routes.query?.uuid !== body.data.user?.uuid) return;
+  const isCurrentRoomMessage = Number(routes.query?.roomId) === body.data?.roomId;
+  const alreadyUpdate = !isSelf(body.data.message[0]) || (isSelf(body.data.message[0]) && body.code === WSCode.PENDING);
 
-  try {
-    updateMessageRecord({ message: body.data.message });
-
-    toggleNewMessageTipsHandler();
-  } catch (error) {
-    console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
+  if (isCurrentRoomMessage && alreadyUpdate) {
+    try {
+      updateMessageRecord({ message: body.data.message });
+      toggleNewMessageTipsHandler();
+    } catch (error) {
+      console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
+    }
   }
 };
 
@@ -337,7 +334,7 @@ useWsChannel([
       chatRoomHandler,
       async (data: WsPayload<WsMessage>) => {
         const msg = data.data?.message[0];
-        if (!msg?.localId) return;
+        if (!msg?.localId || !isSelf(msg)) return;
 
         if (data.code === WSCode.SUCCESS) {
           await failMessageHandler.markMessageSuccess({

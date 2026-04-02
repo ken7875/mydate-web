@@ -27,12 +27,13 @@
             :isReverse="true"
           >
             <template v-slot="{ item, index }">
+              <!-- 訊息時間 tag -->
               <div
                 class="bg-black opacity-5 text-white rounded-[10px] mx-auto w-fit p-[5px] mb-[3px]"
-                v-show="showDate(messageRecordQueryData[index - 1]?.sendTime, item.sendTime)"
+                v-show="showDate(messageRecordQueryData[index - 1]?.sendTime, item.sendTime, item)"
               >
                 <p class="text-[12px]">
-                  {{ moment(item.sendTime).format('MM/DD') }}
+                  {{ moment(item.sendTime * 1000).format('MM/DD') }}
                 </p>
               </div>
               <div
@@ -213,7 +214,7 @@ const resendModalHandler = async (type: 'resend' | 'remove') => {
     case 'resend':
       sendMessageHandler({
         ...message,
-        sendTime: Date.now()
+        sendTime: Math.ceil(Date.now() / 1000)
       });
       break;
     case 'remove':
@@ -240,7 +241,7 @@ const sendMessageHandler = (message?: Message) => {
     receiverId: focusFriend.value.uuid as string,
     senderId: userInfoRes.value?.data?.uuid as string,
     message: waitToSendMessage.value,
-    sendTime: Date.now(),
+    sendTime: Math.ceil(Date.now() / 1000),
     status: 'sending' as MessageStatus,
     localId: crypto.randomUUID() as string
   };
@@ -265,13 +266,13 @@ const handleClickMessageTip = () => {
 
   scrollToBottom();
 };
-const showDate = (start: number, end: number) => {
+const showDate = (start: number, end: number, item: any) => {
   if (!start) {
     return false;
   }
 
-  const startDay = moment(start).day();
-  const endDay = moment(end).day();
+  const startDay = moment(start * 1000).day();
+  const endDay = moment(end * 1000).day();
 
   return endDay - startDay > 0;
 };

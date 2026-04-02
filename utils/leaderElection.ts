@@ -4,6 +4,7 @@ interface Options {
   channelName: string;
   lockName: string;
   wsSendHandler: (data: any) => void;
+  onBecomeLeader?: () => void;
 }
 
 type ElectionMessageType = 'ANNOUNCE_LEADER' | 'ANNOUNCE_ELECTION' | 'SEND_VIA_LEADER';
@@ -25,9 +26,8 @@ export class LeaderElection {
   #isDestroyed = false;
   #channel: BroadcastChannel | null = null;
   #wsSend: Options['wsSendHandler'];
+  #onBecomeLeader: (() => void) | null = null;
   #leaderTabId: string = '';
-
-  onBecomeLeader: (() => void) | null = null;
 
   constructor(options: Options) {
     this.#lockName = options.lockName;
@@ -35,13 +35,16 @@ export class LeaderElection {
     this.#tabId = crypto.randomUUID();
     this.#channelName = options.channelName;
     this.#wsSend = options.wsSendHandler;
+    this.#onBecomeLeader = options.onBecomeLeader ?? null;
   }
 
   get getRole() {
     return this.#role;
   }
 
-  #boundOnRequestLock = this.#requestLock.bind(this);
+  #boundOnRequestLock = () => {
+    if (document.visibilityState === 'visible') this.#requestLock();
+  };
   #boundOnDestroy = this.destroy.bind(this);
 
   #initChannel() {
@@ -64,7 +67,6 @@ export class LeaderElection {
     const role = this.getRole;
     if (this.#isDestroyed || role !== 'leader') return;
 
-    this.#requestLock();
     this.#becomeFollower();
   };
   #onResume = () => {
@@ -75,7 +77,6 @@ export class LeaderElection {
     if (this.#isDestroyed || !event.persisted) return;
     console.log('page hide!!');
     if (this.#leaderTabId === this.#tabId) {
-      this.#requestLock();
       this.#becomeFollower();
     }
   };
@@ -109,6 +110,7 @@ export class LeaderElection {
   requestSendViaLeader(data: unknown) {
     this.#channel?.postMessage({
       type: 'SEND_VIA_LEADER',
+      tabId: this.#tabId,
       data
     });
   }
@@ -130,9 +132,11 @@ export class LeaderElection {
   async destroy() {
     this.#isDestroyed = true;
     await nextTick();
-    removeEventListener('freeze', this.#onFreeze);
+    document.removeEventListener('freeze', this.#onFreeze);
     this.#channel?.removeEventListener('message', this.#channelMessage);
-    removeEventListener('resume', this.#onResume);
+    this.#channel?.close();
+    this.#channel = null;
+    document.removeEventListener('resume', this.#onResume);
     removeEventListener('pageshow', this.#onPageshow);
     removeEventListener('pagehide', this.#onPagehide);
     removeEventListener('visibilitychange', this.#boundOnRequestLock);
@@ -146,6 +150,7 @@ export class LeaderElection {
       tabId: this.#tabId,
       type: 'ANNOUNCE_LEADER'
     });
+    this.#onBecomeLeader?.();
   }
 
   #becomeFollower() {
@@ -153,17 +158,35 @@ export class LeaderElection {
     this.#role = 'follower';
   }
 
-  #requestLock() {
-    if (document.visibilityState === 'hidden') return;
-    return new Promise((resolve) => {
+  #requestLock(retryCount = 0): Promise<void> {
+    if (document.visibilityState === 'hidden') return Promise.resolve();
+    return new Promise<void>((resolve) => {
       navigator.locks.request(this.#lockName, { ifAvailable: true }, async (lock) => {
-        console.log(lock, 'lo');
-        if (!lock || this.#isDestroyed) return Promise.resolve();
-        await new Promise((lockResolve) => {
-          this.#resolver = lockResolve;
-          console.log(this.#resolver, 'resssss');
+        if (this.#isDestroyed) {
+          resolve();
+          return;
+        }
+
+        // 沒搶到所就會是null
+        if (!lock) {
+          // 鎖暫時不可用（前任 leader 尚未完全釋放），以指數退避重試，最多 3 次（總等待 ≤ 300ms）
+          if (retryCount < 3) {
+            setTimeout(
+              () => {
+                this.#requestLock(retryCount + 1).then(() => resolve());
+              },
+              50 * (retryCount + 1)
+            );
+          } else {
+            resolve();
+          }
+          return;
+        }
+
+        await new Promise<void>((lockResolve) => {
+          this.#resolver = lockResolve as (value: unknown) => void;
           this.#becomeLeader(this.#tabId);
-          resolve(null);
+          resolve();
         });
 
         // leader 釋放鎖，重新開始選舉

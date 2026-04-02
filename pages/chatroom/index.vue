@@ -211,7 +211,10 @@ const resendModalHandler = async (type: 'resend' | 'remove') => {
 
   switch (type) {
     case 'resend':
-      sendMessageHandler(message);
+      sendMessageHandler({
+        ...message,
+        sendTime: Date.now()
+      });
       break;
     case 'remove':
       await failMessageHandler.removeFailedMessage({ localId: message.localId! });
@@ -227,7 +230,7 @@ const waitToSendMessage = ref('');
 
 const sendMessageHandler = (message?: Message) => {
   if (message) {
-    sendMessage({ roomId: Number(routes.query?.roomId), message: [message] });
+    sendMessage({ roomId: Number(routes.query?.roomId), message: [toRaw(message)] });
     return;
   }
 

@@ -50,7 +50,17 @@ export default class BaseWebsocket {
   #leaderElection = new LeaderElection({
     channelName: 'wsLeaderElection',
     lockName: 'wsLeaderElectionLock',
-    wsSendHandler: (data: any) => this.handleSend(data)
+    wsSendHandler: (data: any) => {
+      if (data instanceof Blob) {
+        this.websocket?.send(data);
+        return;
+      }
+      this.websocket?.send(JSON.stringify(data));
+    },
+    onBecomeLeader: () => {
+      const token = tokenCookie().getItem();
+      if (token) this.#connectWebSocket(token);
+    }
   });
 
   protected subscribeHandler: ReturnType<typeof createSubscribeHandler> | null = null;
@@ -94,6 +104,12 @@ export default class BaseWebsocket {
     await this.#leaderElection.start();
 
     if (!this.isLeader) return;
+
+    this.#connectWebSocket(token);
+  }
+
+  #connectWebSocket(token: string) {
+    if (this.isConnecting() || this.isOpen()) return;
 
     try {
       // 使用 Sec-WebSocket-Protocol header 傳遞 token，避免 token 暴露在 URL log 中

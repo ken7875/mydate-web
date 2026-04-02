@@ -50,6 +50,7 @@ const createSubscribeHandler = () => {
 
     // 跨頁籤：透過 BroadcastChannel 廣播給其他頁籤
     const ch = ensureChannel(type);
+    console.log({ type, data, code }, '{ type, data, code }');
     ch.postMessage({ type, data, code });
   };
 

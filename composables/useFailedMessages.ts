@@ -37,15 +37,7 @@ export function useFailedMessages(messageDB: SendMessageDB) {
     senderId: string;
     receiverId: string;
   }) => {
-    // const dbMessage = await messageDB.get({ index: 'localId', partial: { localId } });
-
     await clearTracking({ localId });
-
-    // if (dbMessage?.status === 'failed') {
-    //   updateMessageQuery({ newMessage: [{ ...dbMessage, status: 'success' }], senderId, receiverId });
-    // } else {
-    //   updateMessageQueryStatus({ localId, status: 'success', senderId, receiverId });
-    // }
     updateMessageQueryStatus({ localId, status: 'success', senderId, receiverId });
   };
 

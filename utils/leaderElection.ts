@@ -92,7 +92,7 @@ export class LeaderElection {
     switch (type) {
       case 'ANNOUNCE_ELECTION':
         console.log('ANNOUNCE_ELECTION');
-        this.#announceElection({ type, tabId, data });
+        this.#announceElection();
         break;
       case 'ANNOUNCE_LEADER':
         console.log('ANNOUNCE_LEADER:', tabId);
@@ -119,11 +119,11 @@ export class LeaderElection {
     this.#wsSend(data);
   };
 
-  #announceElection = ({ type, tabId, data }: ElectionMessage) => {
+  #announceElection = () => {
     this.#requestLock();
   };
 
-  #announceLeader = ({ type, tabId, data }: ElectionMessage) => {
+  #announceLeader = ({ tabId }: ElectionMessage) => {
     if (this.#tabId !== tabId) {
       this.#becomeFollower();
     }

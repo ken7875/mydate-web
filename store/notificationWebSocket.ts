@@ -7,6 +7,8 @@ export const useNotification = defineStore('notification', () => {
   const runtimeConfig = useRuntimeConfig();
   const url = `${runtimeConfig.public.wsBase}/notificationWs` as string;
 
+  const queryClient = useQueryClient();
+
   // 延遲建立，避免 SSR 期間實例化
   let websocketTool: BaseWebsocket | null = null;
 
@@ -17,7 +19,7 @@ export const useNotification = defineStore('notification', () => {
           useForceKickOut().catch(console.error);
         },
         onReconnect: () => {
-          useQueryClient().invalidateQueries({ queryKey: ['messageRecord'] });
+          queryClient.invalidateQueries({ queryKey: ['messageRecord'] });
         }
       });
     }

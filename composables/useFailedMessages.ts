@@ -3,7 +3,7 @@ import type { Message, MessageStatus } from '~/api/types/chat';
 
 export function useFailedMessages(messageDB: SendMessageDB) {
   const timeoutQueue: ReturnType<typeof setTimeout>[] = [];
-  const { updateMessageQuery, updateMessageQueryStatus, removeMessageFromQuery } = useMessageQuery();
+  const { updateMessageQueryStatus } = useMessageQuery();
 
   const getAll = async () => {
     try {
@@ -51,7 +51,8 @@ export function useFailedMessages(messageDB: SendMessageDB) {
     receiverId: string;
   }) => {
     try {
-      removeMessageFromQuery({ localId, senderId, receiverId });
+      // removeMessageFromQuery({ localId, senderId, receiverId });
+      updateMessageQueryStatus({ localId, status: 'failed', senderId, receiverId });
       await updateDBStatus({ localId, status: 'failed' });
     } catch (error) {
       console.log(`markMessageFailed fail: ${error}`);

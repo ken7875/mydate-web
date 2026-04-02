@@ -30,10 +30,12 @@ export default () => {
       select: (data) => {
         const messages: (Message & { idx: string })[] = data.pages
           .flatMap((page, pageIdx) =>
-            (page?.data?.data ?? []).map((item, index) => ({
-              ...item,
-              idx: `${data.pageParams[pageIdx]}-${index}`
-            }))
+            (page?.data?.data ?? [])
+              .filter((message) => message.status !== 'failed')
+              .map((item, index) => ({
+                ...item,
+                idx: `${data.pageParams[pageIdx]}-${index}`
+              }))
           )
           .reverse();
         const total = data.pages[0]?.total ?? 0;
@@ -120,39 +122,9 @@ export default () => {
     );
   };
 
-  const removeMessageFromQuery = ({
-    senderId,
-    receiverId,
-    localId
-  }: {
-    senderId: string;
-    receiverId: string;
-    localId: string;
-  }) => {
-    queryClient.setQueryData(
-      ['messageRecord', { id: [senderId, receiverId].sort().join('_') }],
-      (oldData: InfiniteData<MessagePage, number> | undefined) => {
-        if (!oldData) return oldData;
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page, index) => {
-            const filtered = (page.data?.data ?? []).filter((message) => message.localId !== localId);
-            const wasRemoved = filtered.length < (page.data?.data ?? []).length;
-            return {
-              ...page,
-              total: wasRemoved && index === 0 ? Math.max((page.total ?? 0) - 1, 0) : page.total,
-              data: { ...page.data, data: filtered }
-            };
-          })
-        };
-      }
-    );
-  };
-
   return {
     getMessageRecordQuery,
     updateMessageQuery,
-    updateMessageQueryStatus,
-    removeMessageFromQuery
+    updateMessageQueryStatus
   };
 };

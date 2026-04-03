@@ -57,7 +57,7 @@ export default () => {
       ['messageRecord', { id: roomId }],
       (oldData: InfiniteData<MessagePage, number> | undefined) => {
         if (!oldData) return oldData;
-        return {
+        const res = {
           ...oldData,
           pages: oldData.pages.map((page, index) => {
             if (index === 0) {
@@ -66,13 +66,15 @@ export default () => {
                 total: (page.total ?? 0) + 1,
                 data: {
                   ...page.data,
-                  data: [...newMessage, ...(page.data?.data ?? []).slice(0, -newMessage.length)]
+                  data: [...newMessage, ...(page.data?.data ?? [])]
                 }
               };
             }
             return page;
           })
         };
+
+        return res;
       }
     );
   };

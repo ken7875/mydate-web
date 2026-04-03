@@ -167,17 +167,6 @@ const handleUnReadCountUpdate = ({ data }: WsPayload<WsMessage>) => {
   chatStore.unReadCount[data.roomId].count++;
 };
 
-// watch(
-//   () => chatStore.unReadCount,
-//   (unReadCount) => {
-//     if (previewMessagesObj.value) {
-//       Object.entries(unReadCount).forEach(([key, val]) => {
-//         unReadCountData.value![key] = val;
-//       });
-//     }
-//   }
-// );
-
 const checkChatRoom = (friend: Friends) => {
   if (previewMessagesObj.value?.[friend.uuid]?.sendTime) {
     // TODO 未讀訊息可做頁籤同步

@@ -1,8 +1,7 @@
 import type { Pagination } from './common';
 import type { Friends } from './friend';
 export interface GetMessageRecord extends Pagination {
-  senderId: string;
-  receiverId: string | string[];
+  roomId: number;
 }
 
 export type MessageStatus = 'sending' | 'success' | 'failed';
@@ -14,6 +13,7 @@ export interface Message {
   status?: MessageStatus;
   localId?: string;
   seq?: number;
+  roomId: number;
 }
 
 export interface WsMessage {
@@ -22,4 +22,4 @@ export interface WsMessage {
   message: Message[];
 }
 
-export type PreviewMessage = Record<string, Message & { friendId: string }>;
+export type PreviewMessage = Record<string, Message>;

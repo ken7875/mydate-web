@@ -7,13 +7,12 @@ type MessagePage = BaseField<{ data: Message[] }, true>;
 
 export default () => {
   const queryClient = useQueryClient();
-  const getMessageRecordQuery = ({ senderId, receiverId, pageSize }: Omit<GetMessageRecord, 'page'>) => {
+  const getMessageRecordQuery = ({ roomId, pageSize }: Omit<GetMessageRecord, 'page'>) => {
     const { data, isPending, isSuccess, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-      queryKey: ['messageRecord', { id: [senderId, receiverId].sort().join('_') }],
+      queryKey: ['messageRecord', { id: roomId }],
       queryFn: ({ pageParam = 1 }) =>
         getMessageRecordApi({
-          senderId,
-          receiverId,
+          roomId,
           page: pageParam,
           pageSize
         }),
@@ -53,17 +52,9 @@ export default () => {
     };
   };
 
-  const updateMessageQuery = ({
-    newMessage,
-    senderId,
-    receiverId
-  }: {
-    newMessage: Message[];
-    senderId: string;
-    receiverId: string;
-  }) => {
+  const updateMessageQuery = ({ newMessage, roomId }: { newMessage: Message[]; roomId: number }) => {
     queryClient.setQueryData(
-      ['messageRecord', { id: [senderId, receiverId].sort().join('_') }],
+      ['messageRecord', { id: roomId }],
       (oldData: InfiniteData<MessagePage, number> | undefined) => {
         if (!oldData) return oldData;
         return {
@@ -87,18 +78,16 @@ export default () => {
   };
 
   const updateMessageQueryStatus = ({
-    senderId,
-    receiverId,
+    roomId,
     status,
     localId
   }: {
-    senderId: string;
-    receiverId: string;
+    roomId: number;
     status: MessageStatus;
     localId: string;
   }) => {
     queryClient.setQueryData(
-      ['messageRecord', { id: [senderId, receiverId].sort().join('_') }],
+      ['messageRecord', { id: roomId }],
       (oldData: InfiniteData<MessagePage, number> | undefined) => {
         if (!oldData) return oldData;
         return {

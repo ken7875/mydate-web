@@ -44,13 +44,13 @@
                 </div>
                 <div class="flex justify-between items-center w-full">
                   <div class="w-[80%]">
-                    <p class="break-all" v-textSlice:[20]="previewMessagesObj?.[item.uuid]?.message || ''"></p>
+                    <p class="break-all" v-textSlice:[20]="previewMessagesObj?.[item.roomId]?.message || ''"></p>
                   </div>
-                  <div class="w-[20%] flex justify-center items-center" v-if="unReadCountData?.[item.uuid]?.count">
+                  <div class="w-[20%] flex justify-center items-center" v-if="unReadCountData?.[item.roomId]?.count">
                     <div
                       class="bg-primary leading-1 rounded-[50%] flex justify-center items-center min-w-[30px] h-[30px] px-[3px]"
                     >
-                      <span class="font-[600] text-[14px]">{{ unReadCountData?.[item.uuid]?.count || 0 }}</span>
+                      <span class="font-[600] text-[14px]">{{ unReadCountData?.[item.roomId]?.count || 0 }}</span>
                     </div>
                   </div>
                 </div>
@@ -89,10 +89,6 @@ const { totalFriends } = storeToRefs(friendsStore);
 const chatStore = useChat();
 const { getAllFriendsHandler } = friendsStore;
 
-const handleUnReadCountUpdate = ({ data }: WsPayload<WsMessage>) => {
-  chatStore.getUnReadCountHandler(data.message.map((item) => item.senderId));
-};
-
 const { data: initialFriends } = await useMyAsyncData('friends', () =>
   getAllFriendsHandler({
     page: 1,
@@ -124,8 +120,8 @@ const addNewMessage = ({ user }: { user: Friends }) => {
 };
 
 const updateFriendsList = ({ data }: WsPayload<WsMessage>) => {
-  const { user } = data;
-  const friendIndex = showingFriendList.value.findIndex((friend) => friend.uuid === user.uuid);
+  const { user, roomId } = data;
+  const friendIndex = showingFriendList.value.findIndex((friend) => friend.roomId === roomId);
   const isFirstUser = isFirstPageVisible.value && friendIndex === 0;
 
   if (isFirstUser) return;
@@ -146,34 +142,47 @@ const { data: previewMessagesObj } = await useMyAsyncData('getAllFriendsPreviewM
 const updatePreviewMessage = ({ data }: WsPayload<WsMessage>) => {
   if (!previewMessagesObj.value || !data.message.length) return;
   const latestMessage = data.message[0];
-  previewMessagesObj.value[data.user.uuid] = {
-    ...latestMessage,
-    friendId: data.user.uuid
+  previewMessagesObj.value[data.roomId] = {
+    ...latestMessage
   };
 };
 
-// 缺少idx所以無法觸發載入新資料後回彈
+// 取得未讀訊息
 const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', async () => {
-  const friendsId = showingFriendList.value.map((friend) => friend.uuid);
-  if (friendsId.length === 0) return {};
-  return await chatStore.getUnReadCountHandler(friendsId);
+  const roomIds = showingFriendList.value.map((friend) => friend.roomId);
+  if (roomIds.length === 0) return {};
+  return chatStore.getUnReadCountHandler(roomIds);
 });
 
-watch(
-  () => chatStore.unReadCount,
-  (unReadCount) => {
-    if (previewMessagesObj.value) {
-      Object.entries(unReadCount).forEach(([key, val]) => {
-        unReadCountData.value![key] = val;
-      });
-    }
+// TODO 未讀計算即時更新
+const handleUnReadCountUpdate = ({ data }: WsPayload<WsMessage>) => {
+  // chatStore.getUnReadCountHandler(data.message.map((item) => item.senderId));
+  console.log(chatStore.unReadCount, 'chatStore.unReadCount');
+  if (!chatStore.unReadCount[data.roomId]) {
+    chatStore.unReadCount[data.roomId] = {
+      count: 0
+    };
   }
-);
+
+  chatStore.unReadCount[data.roomId].count++;
+};
+
+// watch(
+//   () => chatStore.unReadCount,
+//   (unReadCount) => {
+//     if (previewMessagesObj.value) {
+//       Object.entries(unReadCount).forEach(([key, val]) => {
+//         unReadCountData.value![key] = val;
+//       });
+//     }
+//   }
+// );
 
 const checkChatRoom = (friend: Friends) => {
   if (previewMessagesObj.value?.[friend.uuid]?.sendTime) {
+    // TODO 未讀訊息可做頁籤同步
     markAsReadApi({
-      senderId: friend.uuid,
+      roomId: Number(friend.roomId),
       sendTime: previewMessagesObj.value?.[friend.uuid]?.sendTime
     });
 

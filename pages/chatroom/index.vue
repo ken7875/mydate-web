@@ -16,6 +16,7 @@
     <div class="flex flex-col overflow-scroll scrollbar-none w-full h-[90%]">
       <div class="relative flex-1 px-5 py-2 overflow-y-auto h-full">
         <template v-if="Number(messageRecordTotal) > 0">
+          <!-- TODO 修正無限滾動 bug -->
           <VirtualList
             :totalData="allMessageData"
             :perLoadNum="pageSize"
@@ -30,7 +31,7 @@
               <!-- 訊息時間 tag -->
               <div
                 class="bg-black opacity-5 text-white rounded-[10px] mx-auto w-fit p-[5px] mb-[3px]"
-                v-show="showDate(messageRecordQueryData[index - 1]?.sendTime, item.sendTime, item)"
+                v-show="showDate(messageRecordQueryData[index - 1]?.sendTime, item.sendTime)"
               >
                 <p class="text-[12px]">
                   {{ moment(item.sendTime * 1000).format('MM/DD') }}
@@ -188,8 +189,7 @@ const isSelf = (record: Message) => record.senderId === userInfoRes.value?.data?
 const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
   updateMessageQuery({
     newMessage: body.message,
-    senderId: body.message[0].senderId,
-    receiverId: body.message[0].receiverId
+    roomId: Number(routes.query.roomId)
   });
 };
 
@@ -243,7 +243,8 @@ const sendMessageHandler = (message?: Message) => {
     message: waitToSendMessage.value,
     sendTime: Math.ceil(Date.now() / 1000),
     status: 'sending' as MessageStatus,
-    localId: crypto.randomUUID() as string
+    localId: crypto.randomUUID() as string,
+    roomId: Number(routes.query.roomId)
   };
 
   sendMessage({ roomId: Number(routes.query?.roomId), message: [newMessage] });
@@ -266,7 +267,7 @@ const handleClickMessageTip = () => {
 
   scrollToBottom();
 };
-const showDate = (start: number, end: number, item: any) => {
+const showDate = (start: number, end: number) => {
   if (!start) {
     return false;
   }
@@ -279,7 +280,7 @@ const showDate = (start: number, end: number, item: any) => {
 
 onBeforeRouteLeave(() => {
   markAsReadApi({
-    senderId: focusFriend.value.uuid as string,
+    roomId: Number(routes.query.roomId),
     sendTime: Math.ceil(Date.now() / 1000)
   });
 });
@@ -288,8 +289,7 @@ onBeforeRouteLeave(() => {
 const VIRTUALLIST_MAX_PAGE_COUNT = 4;
 
 const { data: messageRecordRes, fetchNextPage } = getMessageRecordQuery({
-  senderId: userInfoRes.value?.data?.uuid as string,
-  receiverId: focusFriend.value.uuid as string,
+  roomId: Number(routes.query.roomId),
   pageSize
 });
 
@@ -343,16 +343,14 @@ useWsChannel([
         if (data.code === WSCode.SUCCESS) {
           await failMessageHandler.markMessageSuccess({
             localId: msg.localId,
-            senderId: msg.senderId,
-            receiverId: msg.receiverId
+            roomId: msg.roomId
           });
         }
 
         if (data.code === WSCode.FAIL) {
           await failMessageHandler.markMessageFailed({
             localId: msg.localId,
-            senderId: msg.senderId,
-            receiverId: msg.receiverId
+            roomId: msg.roomId
           });
         }
 

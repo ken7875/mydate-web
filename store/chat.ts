@@ -42,18 +42,23 @@ export const useChat = defineStore('chat', () => {
     });
   };
 
-  const getUnReadCountHandler = async (friendIds: string[]) => {
+  const getUnReadCountHandler = async (roomIds: number[]) => {
     const res = await getUnreadCount({
-      friendIds
+      roomIds
     });
     unReadCount.value = res.data!;
 
     return res.data!;
   };
 
+  const updateUnReadCountHandler = () => {
+    unReadCount.value;
+  };
+
   const getAllFriendsPreviewMessage = async () => {
     const res = await getPreviewMessageApi();
     previewMessage.value = res.data!;
+    console.log(previewMessage.value, 'previewMessage.value');
     return res.data;
   };
 
@@ -66,6 +71,7 @@ export const useChat = defineStore('chat', () => {
     // updateMessageRecord,
     sendMessage,
     getUnReadCountHandler,
-    getAllFriendsPreviewMessage
+    getAllFriendsPreviewMessage,
+    updateUnReadCountHandler
   };
 });

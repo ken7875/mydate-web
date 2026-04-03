@@ -106,7 +106,7 @@ const chatRoomMessageHandler = (payload: WsPayload<WsMessage>) => {
 
   const msg = payload.data?.message[0];
   if (!msg) return;
-  updateMessageQuery({ newMessage: [msg], senderId: msg.senderId, receiverId: msg.receiverId });
+  updateMessageQuery({ newMessage: [msg], roomId: msg.roomId });
 };
 
 useWsChannel([
@@ -127,16 +127,14 @@ useWsChannel([
         if (data.code === WSCode.SUCCESS) {
           failMessageHandler.markMessageSuccess({
             localId: msg.localId,
-            senderId: msg.senderId,
-            receiverId: msg.receiverId
+            roomId: msg.roomId
           });
         }
 
         if (data.code === WSCode.FAIL) {
           failMessageHandler.markMessageFailed({
             localId: msg.localId,
-            senderId: msg.senderId,
-            receiverId: msg.receiverId
+            roomId: msg.roomId
           });
         }
       }

@@ -16,7 +16,7 @@ export const getPreviewMessageApi = () => {
   });
 };
 
-export const markAsReadApi = (body: { senderId: string; sendTime: number }) => {
+export const markAsReadApi = (body: { roomId: number; sendTime: number }) => {
   return useHttp.put<null>({
     url: '/message/read',
     body,
@@ -24,7 +24,7 @@ export const markAsReadApi = (body: { senderId: string; sendTime: number }) => {
   });
 };
 
-export const getUnreadCount = (params: { friendIds: string[] }) => {
+export const getUnreadCount = (params: { roomIds: number[] }) => {
   return useHttp.get<Record<string, { count: number }>>({
     url: '/message/unReadCount',
     needLoading: false,

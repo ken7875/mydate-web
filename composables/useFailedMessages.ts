@@ -28,49 +28,25 @@ export function useFailedMessages(messageDB: SendMessageDB) {
     await messageDB.update({ id, partial: { status } });
   };
 
-  const markMessageSuccess = async ({
-    localId,
-    senderId,
-    receiverId
-  }: {
-    localId: string;
-    senderId: string;
-    receiverId: string;
-  }) => {
+  const markMessageSuccess = async ({ localId, roomId }: { localId: string; roomId: number }) => {
     await clearTracking({ localId });
-    updateMessageQueryStatus({ localId, status: 'success', senderId, receiverId });
+    updateMessageQueryStatus({ localId, status: 'success', roomId });
   };
 
-  const markMessageFailed = async ({
-    localId,
-    senderId,
-    receiverId
-  }: {
-    localId: string;
-    senderId: string;
-    receiverId: string;
-  }) => {
+  const markMessageFailed = async ({ localId, roomId }: { localId: string; roomId: number }) => {
     try {
       // removeMessageFromQuery({ localId, senderId, receiverId });
-      updateMessageQueryStatus({ localId, status: 'failed', senderId, receiverId });
+      updateMessageQueryStatus({ localId, status: 'failed', roomId });
       await updateDBStatus({ localId, status: 'failed' });
     } catch (error) {
       console.log(`markMessageFailed fail: ${error}`);
     }
   };
 
-  const startMessageTimeout = ({
-    localId,
-    senderId,
-    receiverId
-  }: {
-    localId: string;
-    senderId: string;
-    receiverId: string;
-  }) => {
+  const startMessageTimeout = ({ localId, roomId }: { localId: string; roomId: number }) => {
     return new Promise((resolve) => {
       const timer = setTimeout(async () => {
-        await markMessageFailed({ localId, senderId, receiverId });
+        await markMessageFailed({ localId, roomId });
 
         resolve('');
       }, 8000);

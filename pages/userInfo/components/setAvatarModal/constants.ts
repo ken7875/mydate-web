@@ -1,0 +1,10 @@
+export const MAX_PHOTOS = 3;
+export const MIN_PHOTOS = 1;
+export const MAX_FILE_SIZE_MB = 2;
+export const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
+export const ACCEPTED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+export const ACCEPTED_EXTENSIONS = '.jpg,.jpeg,.png,.webp';
+export const CROP_ASPECT_RATIO = 2 / 3;
+export const OUTPUT_WIDTH = 500;
+export const OUTPUT_HEIGHT = 750;
+export const COMPRESSION_QUALITY = 0.85;

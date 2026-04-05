@@ -15,7 +15,6 @@
 </template>
 
 <script setup lang="ts">
-// import { setAvatars } from '@/api/modules/auth';
 import { useMessage } from '~/store/message';
 
 const messageStore = useMessage();
@@ -67,7 +66,9 @@ const { avatarsMutateHandler } = useUserInfoQuery();
 const send = async () => {
   try {
     const formData = new FormData();
-    formData.append('photos', avatars.value[0]);
+    formData.append('photo1', avatars.value[0]);
+    formData.append('photo2', avatars.value[1]);
+    formData.append('photo3', avatars.value[2]);
 
     // await setAvatars(formData);
     await avatarsMutateHandler(formData);

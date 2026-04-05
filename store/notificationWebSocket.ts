@@ -38,7 +38,7 @@ export const useNotification = defineStore('notification', () => {
     getWs().handleClose();
   };
 
-  const handleSend = <T>(data: { type: 'chatRoom' | 'global'; data: T }) => {
+  const handleSend = <T>(data: { type: 'chatRoom' | 'global' | 'markAsRead'; data: T }) => {
     getWs().handleSend(data);
   };
 

@@ -6,7 +6,8 @@ export enum WsChannel {
   AddRoom = 'addRoom', // 其他直播主新增房間
   DeleteRoom = 'deleteRoom', // 其他直播主刪除房間
   ChatRoom = 'chatRoom', // 接收到聊天訊息
-  StreamRoomStatus = 'streamRoomStatus' // 當前直播室主播的播放狀態
+  StreamRoomStatus = 'streamRoomStatus', // 當前直播室主播的播放狀態
+  MarkAsRead = 'markAsRead' // 已讀確認
 }
 
 export enum WSCode {

@@ -83,7 +83,7 @@
           </div>
         </template>
       </Card>
-      <div class="absolute top-[91%] flex gap-[50px] justify-center w-full h-[50px]">
+      <div class="absolute top-[89%] flex gap-[50px] justify-center w-full h-[50px]">
         <div
           @click="handleDislike"
           class="bg-gray-400 w-[60px] h-[60px] rounded-[50%] flex justify-center items-center"

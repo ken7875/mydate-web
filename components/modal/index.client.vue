@@ -18,9 +18,9 @@
             <div class="overflow-x-hidden h-[calc(100%-3rem)]" data-test="modal-body">
               <slot />
             </div>
-            <div v-if="needOperationBtn">
-              <BaseButton :styleType="'confirm'" @click="confirm">確認</BaseButton>
-              <BaseButton :styleType="'cancel'" @click="cancel">取消</BaseButton>
+            <div v-if="needOperationBtn" class="flex justify-center gap-10">
+              <BaseButton :styleType="'confirm'" @click="confirm" class="w-20">確認</BaseButton>
+              <BaseButton :styleType="'cancel'" @click="cancel" class="w-20">取消</BaseButton>
             </div>
           </div>
         </template>
@@ -36,7 +36,7 @@ defineOptions({
 
 withDefaults(
   defineProps<{
-    needOperationBtn: boolean;
+    needOperationBtn?: boolean;
   }>(),
   {
     needOperationBtn: true

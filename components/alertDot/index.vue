@@ -8,10 +8,9 @@
         left: $props.left
       }"
       :class="[
-        `absolute bg-primary flex justify-center items-center rounded-[50%] text-white text-[10px] ${
-          $props.nums ? 'w-[15px] h-[15px]' : 'w-2 h-2'
-        }`
+        `absolute bg-primary flex justify-center items-center rounded-[50%] text-white text-[10px] ${'w-5 h-5'}`
       ]"
+      v-show="$props.nums && $props.nums > 0"
     >
       <span>{{ $props.nums }}</span>
     </div>

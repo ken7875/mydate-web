@@ -31,3 +31,10 @@ export const getUnreadCount = (params: { roomIds: number[] }) => {
     params
   });
 };
+
+export const getUnreadTotal = () => {
+  return useHttp.get<{ total: number }>({
+    url: '/message/unreadTotal',
+    needLoading: false
+  });
+};

@@ -20,12 +20,14 @@
         </NuxtLink>
       </li>
       <li>
-        <NuxtLink to="/friends" class="flex flex-col text-gray items-center">
-          <ClientOnly>
-            <font-awesome-icon :icon="['far', 'comments']" class="text-[1.6rem] mb-1" />
-          </ClientOnly>
-          <span class="text-xs">聊天</span>
-        </NuxtLink>
+        <AlertDot :nums="chatStore.totalUnreadCount">
+          <NuxtLink to="/friends" class="flex flex-col text-gray items-center">
+            <ClientOnly>
+              <font-awesome-icon :icon="['far', 'comments']" class="text-[1.6rem] mb-1" />
+            </ClientOnly>
+            <span class="text-xs">聊天</span>
+          </NuxtLink>
+        </AlertDot>
       </li>
       <li class="w-[20%] flex justify-center items-center">
         <NuxtLink to="/streamer">
@@ -60,6 +62,7 @@
 import { useAuth } from '@/store/auth';
 import { useNotification } from '@/store/notificationWebSocket';
 import { useFriends } from '@/store/friends';
+import { useChat } from '@/store/chat';
 import { useStream } from '@/store/stream';
 import { getUserInfo } from '@/api/modules/auth';
 import { WsChannel, WSCode } from '@/enums/websocket';
@@ -71,6 +74,7 @@ import type { WsMessage } from '@/api/types/chat';
 const authStore = useAuth();
 const notificationStore = useNotification();
 const friendStore = useFriends();
+const chatStore = useChat();
 const streamStore = useStream();
 
 const route = useRoute();
@@ -116,9 +120,21 @@ useWsChannel([
   { type: WsChannel.AddRoom, handler: addRoomHandler },
   { type: WsChannel.DeleteRoom, handler: deleteRoomHandler },
   {
+    type: WsChannel.MarkAsRead,
+    handler: () => {
+      chatStore.getTotalUnreadCount();
+    }
+  },
+  {
     type: WsChannel.ChatRoom,
     handler: [
       chatRoomMessageHandler,
+      (data: WsPayload<WsMessage>) => {
+        if (route.path === '/chatroom') return;
+        const msg = data.data?.message[0];
+        if (!msg) return;
+        chatStore.incrementTotalUnreadCount();
+      },
       (data: WsPayload<WsMessage>) => {
         if (route.path === '/chatroom') return;
         const msg = data.data?.message[0];
@@ -147,6 +163,7 @@ watch(
   (val) => {
     if (process.client && val) {
       notificationStore.init(val);
+      chatStore.getTotalUnreadCount();
     }
 
     if (!val) {

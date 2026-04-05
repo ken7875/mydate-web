@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { useNotification } from '@/store/notificationWebSocket';
 import type { Message } from '~/api/types/chat';
-import { getUnreadCount, getPreviewMessageApi } from '@/api/modules/chat';
+import { getUnreadCount, getUnreadTotal, getPreviewMessageApi } from '@/api/modules/chat';
 import type { PreviewMessage } from '@/api/types/chat';
 import { WsChannel, WSCode } from '~/enums/websocket';
 
@@ -9,6 +9,7 @@ export const useChat = defineStore('chat', () => {
   const webSocketStore = useNotification();
   const messageRecord = ref<Message[]>([]);
   const unReadCount = ref<Record<string, { count: number }>>({});
+  const totalUnreadCount = ref(0);
   const previewMessage = ref<PreviewMessage>({});
 
   // const getMessageRecord = async ({ senderId, receiverId, page, pageSize }: GetMessageRecord) => {
@@ -43,16 +44,32 @@ export const useChat = defineStore('chat', () => {
   };
 
   const getUnReadCountHandler = async (roomIds: number[]) => {
-    const res = await getUnreadCount({
-      roomIds
-    });
-    unReadCount.value = res.data!;
-
+    const res = await getUnreadCount({ roomIds });
+    // merge 而非覆蓋，避免載入更多好友時清除已有的未讀數
+    unReadCount.value = { ...unReadCount.value, ...res.data! };
     return res.data!;
   };
 
-  const updateUnReadCountHandler = () => {
-    unReadCount.value;
+  const getTotalUnreadCount = async () => {
+    const res = await getUnreadTotal();
+    totalUnreadCount.value = res.data?.total ?? 0;
+  };
+
+  const incrementTotalUnreadCount = () => {
+    totalUnreadCount.value++;
+  };
+
+  const incrementUnReadCount = (roomId: number) => {
+    if (!unReadCount.value[roomId]) {
+      unReadCount.value[roomId] = { count: 0 };
+    }
+    unReadCount.value[roomId].count++;
+  };
+
+  const resetUnReadCount = (roomId: number) => {
+    if (unReadCount.value[roomId]) {
+      unReadCount.value[roomId].count = 0;
+    }
   };
 
   const getAllFriendsPreviewMessage = async () => {
@@ -71,7 +88,11 @@ export const useChat = defineStore('chat', () => {
     // updateMessageRecord,
     sendMessage,
     getUnReadCountHandler,
-    getAllFriendsPreviewMessage,
-    updateUnReadCountHandler
+    getTotalUnreadCount,
+    incrementTotalUnreadCount,
+    totalUnreadCount,
+    incrementUnReadCount,
+    resetUnReadCount,
+    getAllFriendsPreviewMessage
   };
 });

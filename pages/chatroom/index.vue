@@ -114,12 +114,12 @@
 import { useChat } from '@/store/chat';
 import type { Message, MessageStatus, WsMessage } from '@/api/types/chat';
 import moment from 'moment';
-import { markAsReadApi } from '@/api/modules/chat';
 import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
 import { WsChannel, WSCode } from '~/enums/websocket';
 import { SendMessageDB } from '@/utils/indexedDB/sendMessage';
+import { useNotification } from '~/store/notificationWebSocket';
 
 const routes = useRoute();
 const focusFriend = computed(() => ({
@@ -131,6 +131,8 @@ const messageDB = new SendMessageDB();
 const chatStore = useChat();
 
 const { sendMessage } = chatStore;
+
+const webSocketStore = useNotification();
 
 const { getMessageRecordQuery, updateMessageQuery } = useMessageQuery();
 
@@ -279,9 +281,12 @@ const showDate = (start: number, end: number) => {
 };
 
 onBeforeRouteLeave(() => {
-  markAsReadApi({
-    roomId: Number(routes.query.roomId),
-    sendTime: Math.ceil(Date.now() / 1000)
+  webSocketStore.handleSend<{ roomId: number; sendTime: number }>({
+    type: 'markAsRead',
+    data: {
+      roomId: Number(routes.query.roomId),
+      sendTime: Math.ceil(Date.now() / 1000)
+    }
   });
 });
 

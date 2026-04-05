@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
+
 // import type { WsChannel } from '~/enums/websocket';
 
 interface Options {
@@ -32,7 +34,7 @@ export class LeaderElection {
   constructor(options: Options) {
     this.#lockName = options.lockName;
     this.#resolver = null;
-    this.#tabId = crypto.randomUUID();
+    this.#tabId = uuidv4();
     this.#channelName = options.channelName;
     this.#wsSend = options.wsSendHandler;
     this.#onBecomeLeader = options.onBecomeLeader ?? null;
@@ -160,6 +162,14 @@ export class LeaderElection {
 
   #requestLock(retryCount = 0): Promise<void> {
     if (document.visibilityState === 'hidden') return Promise.resolve();
+
+    // Web Locks API 需要 Secure Context（HTTPS 或 localhost）
+    // 在 http://IP 下（如手機測試環境）不可用，直接成為 leader
+    if (!navigator.locks) {
+      this.#becomeLeader(this.#tabId);
+      return Promise.resolve();
+    }
+
     return new Promise<void>((resolve) => {
       navigator.locks.request(this.#lockName, { ifAvailable: true }, async (lock) => {
         if (this.#isDestroyed) {

@@ -1,6 +1,6 @@
 <template>
   <div class="w-full h-full overflow-scroll">
-    <nav class="px-[12px] py-[8px] mb-[12px] h-[60px] shadow-[0_4px_6px_-1px_rgba(209,213,219,1)]">
+    <nav class="px-3 py-2 mb-3 h-[60px] shadow-[0_4px_6px_-1px_rgba(209,213,219,1)]">
       <BaseInput v-model="searchingString" placeholder="請輸入用戶名稱" @input="searchFriendHandler">
         <template #suffix>
           <!-- <client-only>
@@ -46,11 +46,11 @@
                   <div class="w-[80%]">
                     <p class="break-all" v-textSlice:[20]="previewMessagesObj?.[item.roomId]?.message || ''"></p>
                   </div>
-                  <div class="w-[20%] flex justify-center items-center" v-if="unReadCountData?.[item.roomId]?.count">
+                  <div class="w-[20%] flex justify-center items-center" v-if="unReadCount[item.roomId]?.count">
                     <div
                       class="bg-primary leading-1 rounded-[50%] flex justify-center items-center min-w-[30px] h-[30px] px-[3px]"
                     >
-                      <span class="font-[600] text-[14px]">{{ unReadCountData?.[item.roomId]?.count || 0 }}</span>
+                      <span class="font-[600] text-[14px]">{{ unReadCount[item.roomId]?.count || 0 }}</span>
                     </div>
                   </div>
                 </div>
@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { markAsReadApi } from '@/api/modules/chat';
+// import { markAsReadApi } from '@/api/modules/chat';
 import { useFriends } from '@/store/friends';
 import { useChat } from '@/store/chat';
 import { storeToRefs } from 'pinia';
@@ -77,6 +77,7 @@ import type { Friends } from '@/api/types/friend';
 import type { WsMessage } from '~/api/types/chat';
 import type { ShowingFriendList } from './types';
 import { WsChannel } from '~/enums/websocket';
+import { useNotification } from '~/store/notificationWebSocket';
 
 defineOptions({
   name: 'friends'
@@ -87,7 +88,10 @@ const friendsStore = useFriends();
 const { totalFriends } = storeToRefs(friendsStore);
 
 const chatStore = useChat();
+const { unReadCount } = storeToRefs(chatStore);
 const { getAllFriendsHandler } = friendsStore;
+
+const webSocketStore = useNotification();
 
 const { data: initialFriends } = await useMyAsyncData('friends', () =>
   getAllFriendsHandler({
@@ -98,12 +102,21 @@ const { data: initialFriends } = await useMyAsyncData('friends', () =>
 
 const endPage = ref(1);
 const showingFriendList = ref<ShowingFriendList>([...(initialFriends.value || [])]);
+
+const fetchUnReadCountForFriends = (friends: ShowingFriendList) => {
+  const roomIds = friends.map((f) => f.roomId);
+  if (roomIds.length > 0) chatStore.getUnReadCountHandler(roomIds);
+};
+
+fetchUnReadCountForFriends(showingFriendList.value);
+
 const showNewFriendsData = async () => {
   endPage.value++;
   const data = await getAllFriendsHandler({ page: endPage.value, pageSize: 10 });
 
   if (data) {
     showingFriendList.value.push(...data);
+    fetchUnReadCountForFriends(data);
   }
 };
 
@@ -147,35 +160,23 @@ const updatePreviewMessage = ({ data }: WsPayload<WsMessage>) => {
   };
 };
 
-// 取得未讀訊息
-const { data: unReadCountData } = await useMyAsyncData('getUnReadCountHandler', async () => {
-  const roomIds = showingFriendList.value.map((friend) => friend.roomId);
-  if (roomIds.length === 0) return {};
-  return chatStore.getUnReadCountHandler(roomIds);
-});
-
-// TODO 未讀計算即時更新
+// TODO 未讀新增測試
 const handleUnReadCountUpdate = ({ data }: WsPayload<WsMessage>) => {
-  // chatStore.getUnReadCountHandler(data.message.map((item) => item.senderId));
-  console.log(chatStore.unReadCount, 'chatStore.unReadCount');
-  if (!chatStore.unReadCount[data.roomId]) {
-    chatStore.unReadCount[data.roomId] = {
-      count: 0
-    };
-  }
-
-  chatStore.unReadCount[data.roomId].count++;
+  chatStore.incrementUnReadCount(data.roomId);
 };
 
 const checkChatRoom = (friend: Friends) => {
   if (previewMessagesObj.value?.[friend.uuid]?.sendTime) {
-    // TODO 未讀訊息可做頁籤同步
-    markAsReadApi({
-      roomId: Number(friend.roomId),
-      sendTime: previewMessagesObj.value?.[friend.uuid]?.sendTime
-    });
+    // TODO 已讀測試
+    chatStore.resetUnReadCount(friend.roomId);
 
-    unReadCountData.value[friend.uuid] && (unReadCountData.value[friend.uuid].count = 0);
+    webSocketStore.handleSend<{ roomId: number; sendTime: number }>({
+      type: 'markAsRead',
+      data: {
+        roomId: Number(friend.roomId),
+        sendTime: previewMessagesObj.value?.[friend.uuid]?.sendTime
+      }
+    });
   }
 
   router.push({
@@ -202,7 +203,7 @@ const openUserOperateMenu = () => {
 // };
 
 useWsChannel([
-  { type: WsChannel.ChatRoom, handler: [updateFriendsList, handleUnReadCountUpdate, updatePreviewMessage] }
+  { type: WsChannel.ChatRoom, handler: [updateFriendsList, updatePreviewMessage, handleUnReadCountUpdate] }
 ]);
 
 const searchingString = ref('');

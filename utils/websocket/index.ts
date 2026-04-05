@@ -246,7 +246,7 @@ export default class BaseWebsocket {
   }
 
   handleSend<T = string, U = 'global'>(
-    data: U extends 'video' ? Blob : { type: 'chatRoom' | 'global' | 'video'; data: T }
+    data: U extends 'video' ? Blob : { type: 'chatRoom' | 'global' | 'video' | 'markAsRead'; data: T }
   ) {
     if (!this.isLeader) {
       this.#leaderElection.requestSendViaLeader(data);

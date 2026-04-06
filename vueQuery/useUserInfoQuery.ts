@@ -37,11 +37,11 @@ export default () => {
   });
 
   const avatarsMutateHandler = (body: FormData) => {
-    return new Promise((resolve, reject) => {
+    return new Promise<{ avatarUrl: string[] }>((resolve, reject) => {
       avatarsMutate(body, {
-        onSuccess: () => {
+        onSuccess: (data) => {
           queryClient.invalidateQueries({ queryKey: ['userInfo'] });
-          resolve('success');
+          resolve(data);
         },
         onError: () => {
           reject('fail');

@@ -123,7 +123,7 @@ export default defineNuxtConfig({
   css: ['@/assets/css/tailwinds.css', '@fortawesome/fontawesome-svg-core/styles.css'],
 
   build: {
-    transpile: ['rxjs', 'gsap']
+    transpile: ['gsap']
   },
 
   nitro: {

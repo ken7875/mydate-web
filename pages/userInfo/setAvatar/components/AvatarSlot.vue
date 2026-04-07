@@ -1,8 +1,14 @@
 <template>
-  <div class="relative w-full aspect-[2/3]">
+  <div class="relative w-full aspect-2/3">
     <!-- 已有照片：顯示預覽與刪除按鈕 -->
     <template v-if="previewUrl">
-      <img :src="previewUrl" class="w-full h-full object-cover rounded-lg" alt="照片預覽" />
+      <img
+        crossorigin="anonymous"
+        :src="previewUrl"
+        class="w-full h-full object-cover rounded-lg cursor-pointer"
+        alt="照片預覽"
+        @click.stop="emit('add')"
+      />
       <button
         class="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded-full bg-black/60 text-white"
         type="button"

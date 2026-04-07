@@ -74,17 +74,3 @@ export const setPassword = (body: { email: string; password: string }) => {
   //   }
   // });
 };
-
-export const getAvatarsApi = () => {
-  return useHttp.get<string[]>({
-    url: '/auth/avatars'
-  });
-};
-
-export const setAvatars = (avatars: FormData) => {
-  return useHttp.put<Blob>({
-    url: '/auth/avatars',
-    body: avatars
-    // headers: { 'Content-Type': 'multipart/form-data' }
-  });
-};

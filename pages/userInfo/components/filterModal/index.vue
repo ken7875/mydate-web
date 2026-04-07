@@ -1,5 +1,5 @@
 <template>
-  <Modal v-model:isOpen="isOpen">
+  <Modal v-model:isOpen="isOpen" @confirm="submitHandler">
     <template #default>
       <div class="mb-[15px]">
         <span>性別:</span>
@@ -18,9 +18,6 @@
         <div class="w-[200px]">
           <RangeSlider v-model:start="form.age[0]" v-model:end="form.age[1]" :min="18" :max="50"></RangeSlider>
         </div>
-      </div>
-      <div class="flex justify-center mt-5">
-        <BaseButton @click="submitHandler">搜尋</BaseButton>
       </div>
     </template>
   </Modal>

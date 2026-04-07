@@ -7,3 +7,24 @@ export const getMeetUserList = (query: MeetingUserQuery) => {
     url: `/user?${queryString}`
   });
 };
+
+export const getAvatarsApi = () => {
+  return useHttp.get<string[]>({
+    url: '/user/avatars'
+  });
+};
+
+export const setAvatars = ({ uuid, avatars }: { uuid: string; avatars: FormData }) => {
+  return useHttp.post<{ avatarUrl: string[] }>({
+    url: `/user/${uuid}/avatars`,
+    body: avatars
+    // headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
+export const reorderAvatars = ({ uuid, order }: { uuid: string; order: number[] }) => {
+  return useHttp.put<void>({
+    url: `/user/${uuid}/avatars/order`,
+    body: { order }
+  });
+};

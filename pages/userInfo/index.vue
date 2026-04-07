@@ -1,12 +1,14 @@
 <template>
   <div class="full-screen-container">
     <div class="my-5 flex flex-col items-center gap-3">
-      <img
-        crossorigin="anonymous"
-        :src="getDefaultAvatar(userInfoRes?.data?.avatars?.at(-1))"
-        @click="setAvatarsToggle = true"
-        class="block w-[150px] h-[150px] border-2 rounded-[50%] object-cover"
-      />
+      <NuxtLink to="/userInfo/setAvatar">
+        <img
+          crossorigin="anonymous"
+          :src="getDefaultAvatar(userInfoRes?.data?.avatars?.[0])"
+          @click="setAvatarsToggle = true"
+          class="block w-[150px] h-[150px] border-2 rounded-[50%] object-cover"
+        />
+      </NuxtLink>
       <p class="font-bold text-xl">{{ userInfoRes?.data?.userName }}</p>
     </div>
     <hr />
@@ -18,7 +20,7 @@
     <hr />
     <FilterModal v-model:isOpen="filterModalToggle" v-if="filterModalToggle" />
     <SetUserModal v-model:isOpen="setUserInfoToggle" v-if="setUserInfoToggle" />
-    <SetAvatarModal v-model:isOpen="setAvatarsToggle" v-if="setAvatarsToggle" />
+    <!-- <SetAvatarModal v-model:isOpen="setAvatarsToggle" v-if="setAvatarsToggle" /> -->
   </div>
 </template>
 
@@ -27,7 +29,6 @@ import { useAuth } from '@/store/auth';
 
 const FilterModal = defineAsyncComponent(() => import('./components/filterModal/index.vue'));
 const SetUserModal = defineAsyncComponent(() => import('./components/setUserModal/index.vue'));
-const SetAvatarModal = defineAsyncComponent(() => import('./components/setAvatarModal/index.vue'));
 
 const router = useRouter();
 const authStore = useAuth();

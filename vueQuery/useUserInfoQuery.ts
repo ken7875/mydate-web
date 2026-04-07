@@ -1,4 +1,5 @@
-import { getUserInfo, setUserInfo, setAvatars } from '@/api/modules/auth';
+import { getUserInfo, setUserInfo } from '@/api/modules/auth';
+import { setAvatars, reorderAvatars } from '@/api/modules/user';
 import type { User } from '~/api/types/user';
 
 export default () => {
@@ -9,6 +10,7 @@ export default () => {
     refetchOnWindowFocus: false,
     enabled: true
   });
+  console.log(userInfoRes.value, 'userInfoRes');
 
   const queryClient = useQueryClient();
 
@@ -33,26 +35,43 @@ export default () => {
   };
 
   const { mutate: avatarsMutate } = useMutation({
-    mutationFn: (body: FormData) => setAvatars(body)
+    mutationFn: ({ uuid, avatars }: { uuid: string; avatars: FormData }) => setAvatars({ uuid, avatars })
   });
 
-  const avatarsMutateHandler = (body: FormData) => {
+  const { mutate: avatarsOrderMutate } = useMutation({
+    mutationFn: ({ uuid, order }: { uuid: string; order: number[] }) => reorderAvatars({ uuid, order })
+  });
+
+  const mutateCallBack = <TData>(
+    resolve: (value: TData) => void,
+    reject: (reason?: unknown) => void,
+    fallback?: TData
+  ) => ({
+    onSuccess: (data: { data?: TData }) => {
+      queryClient.invalidateQueries({ queryKey: ['userInfo'] });
+      resolve((data.data ?? fallback) as TData);
+    },
+    onError: () => {
+      reject('fail');
+    }
+  });
+
+  const avatarsMutateHandler = ({ uuid, avatars }: { uuid: string; avatars: FormData }) => {
     return new Promise<{ avatarUrl: string[] }>((resolve, reject) => {
-      avatarsMutate(body, {
-        onSuccess: (data) => {
-          queryClient.invalidateQueries({ queryKey: ['userInfo'] });
-          resolve(data);
-        },
-        onError: () => {
-          reject('fail');
-        }
-      });
+      avatarsMutate({ uuid, avatars }, mutateCallBack<{ avatarUrl: string[] }>(resolve, reject, { avatarUrl: [] }));
+    });
+  };
+
+  const avatarsOrderMutateHandler = ({ uuid, order }: { uuid: string; order: number[] }) => {
+    return new Promise<void>((resolve, reject) => {
+      avatarsOrderMutate({ uuid, order }, mutateCallBack<void>(resolve, reject));
     });
   };
 
   return {
     userInfoRes,
     userInfoMutateHandler,
-    avatarsMutateHandler
+    avatarsMutateHandler,
+    avatarsOrderMutateHandler
   };
 };

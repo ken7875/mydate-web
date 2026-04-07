@@ -80,7 +80,9 @@ const streamStore = useStream();
 const route = useRoute();
 
 const messageDB = new SendMessageDB();
-messageDB.openDB();
+onMounted(() => {
+  messageDB.openDB();
+});
 
 const queryClient = useQueryClient();
 // 於server side渲染

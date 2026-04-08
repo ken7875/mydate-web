@@ -51,16 +51,18 @@ const listTop = useTemplateRef('listTop');
 
 const currentPage = ref(1);
 const totalPage = computed(() => props.total / props.perLoadNum);
+const maxItemCount = computed(() => props.perLoadNum * props.maxPageCount);
 const startIdx = ref(0);
 const endIdx = ref(props.perLoadNum);
 const stopHandlers: (() => void)[] = [];
 
 const virtualListData = computed(() => {
+  console.log(startIdx.value, endIdx.value);
   return props.totalData.slice(startIdx.value, endIdx.value);
 });
 
 // 數窗內最多限制DOM筆數（用實際渲染筆數，避免最後一頁不足 perLoadNum 時計算錯誤）
-const isExceedLimitData = computed(() => virtualListData.value.length > props.perLoadNum * props.maxPageCount);
+const isExceedLimitData = computed(() => virtualListData.value.length > maxItemCount.value);
 
 // 視窗往下滑
 const viewSlideDown = () => {
@@ -73,18 +75,15 @@ const viewSlideDown = () => {
         initialized = true;
         return;
       }
+
       if (isIntersecting) {
         if (currentPage.value === totalPage.value) return;
         currentPage.value++;
-        if (props.totalData.length < props.total) {
+        if (props.totalData.length < props.total && !props.isReverse) {
           await props?.fetchNewHandler?.({ page: currentPage.value, pageSize: props.perLoadNum });
           endIdx.value = props.totalData.length;
         } else {
-          if (endIdx.value + props.perLoadNum > props.total) {
-            endIdx.value = props.total;
-          } else {
-            endIdx.value += props.perLoadNum;
-          }
+          endIdx.value = Math.min(endIdx.value + props.perLoadNum, props.total);
         }
 
         emit('loadNewData', { page: currentPage.value, pageSize: props.perLoadNum });
@@ -136,13 +135,13 @@ const viewSlideUp = () => {
       }
 
       if (isIntersecting) {
-        // 若還沒快取完全部資料則持續向後端請求，若資料都拿到了則操作快取資料
-        if (props.totalData.length < props.total) {
+        // 若是 reverse 且資料尚未全數快取，向後端請求前一頁
+        if (props.isReverse && props.totalData.length < props.total) {
           await props?.fetchPrevHandler?.({ page: ++currentPage.value, pageSize: props.perLoadNum });
           startIdx.value = 0;
           compensateScrollAfterPrepend(heightBefore);
-        } else if (currentPage.value > 1) {
-          startIdx.value - props.perLoadNum < 0 ? (startIdx.value = 0) : (startIdx.value -= props.perLoadNum);
+        } else if (!props.isReverse || currentPage.value > 1) {
+          startIdx.value = Math.max(startIdx.value - props.perLoadNum, 0);
           currentPage.value--;
           if (startIdx.value > 0) {
             compensateScrollAfterPrepend(heightBefore);
@@ -197,7 +196,7 @@ const sliceBottomPage = () => {
 const compensateScrollAfterPrepend = async (heightBefore: number) => {
   await nextTick();
   if (!virtualWrap.value) return;
-  console.log(virtualWrap.value.scrollHeight, heightBefore);
+
   // const heightBefore = virtualWrap.value.scrollHeight;
   virtualWrap.value.scrollTop += heightBefore;
 };
@@ -205,7 +204,11 @@ const compensateScrollAfterPrepend = async (heightBefore: number) => {
 const updateIndexWithTotal = async (total: number, preTotal: number) => {
   const diff = total - preTotal;
   if (endIdx.value === virtualListData.value.length || endIdx.value === props.totalData.length) {
-    endIdx.value += diff;
+    if (endIdx.value + diff > maxItemCount.value) {
+      endIdx.value = maxItemCount.value;
+    } else {
+      endIdx.value += diff;
+    }
   }
 };
 
@@ -218,12 +221,17 @@ const scrollToBottom = () => {
 
 watch(
   () => [props.totalData, props.total],
-  async (newVal, oldVal) => {
+  async () => {
     if (!isVirtualScrollInited) {
       initVirtualScrollHandler();
     }
+  }
+);
 
-    updateIndexWithTotal(newVal[1] as number, oldVal[1] as number);
+watch(
+  () => props.total,
+  (newVal, oldVal) => {
+    updateIndexWithTotal(newVal, oldVal);
   }
 );
 

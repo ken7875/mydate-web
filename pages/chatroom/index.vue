@@ -301,7 +301,7 @@ const { data: messageRecordRes, fetchNextPage } = getMessageRecordQuery({
 const failMessages = ref<(Message & { idx: string })[]>([]);
 
 const refreshFailMessages = async () => {
-  const res = await failMessageHandler.getAll();
+  const res = await failMessageHandler.getAll(Number(routes.query.roomId));
   failMessages.value = res.map((message, idx) => ({
     ...message,
     idx: `${-1}-${idx}`

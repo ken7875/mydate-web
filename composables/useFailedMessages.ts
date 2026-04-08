@@ -5,10 +5,9 @@ export function useFailedMessages(messageDB: SendMessageDB) {
   const timeoutQueue: ReturnType<typeof setTimeout>[] = [];
   const { updateMessageQueryStatus } = useMessageQuery();
 
-  const getAll = async () => {
+  const getAll = async (roomId: number) => {
     try {
-      const res = await messageDB.getAll<Message>();
-
+      const res = await messageDB.getByRoomId<Message>(roomId);
       return res.filter((item) => item.status === 'failed');
     } catch (error) {
       console.log(error, 'get messageDB failed!!');

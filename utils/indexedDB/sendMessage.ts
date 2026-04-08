@@ -6,13 +6,14 @@ export class SendMessageDB extends BaseIndexedDB {
     super({
       dbName: 'myDate',
       storeName: 'failMessage',
-      version: 1,
+      version: 2,
       indexes: [
         { name: 'status', keyPath: 'status', unique: false },
         { name: 'localId', keyPath: 'localId', unique: true },
         { name: 'senderId', keyPath: 'senderId', unique: false },
         { name: 'receiverId', keyPath: 'receiverId', unique: false },
-        { name: 'createdAt', keyPath: 'createdAt', unique: false }
+        { name: 'createdAt', keyPath: 'createdAt', unique: false },
+        { name: 'roomId', keyPath: 'roomId', unique: false } // 新
       ]
     });
   }
@@ -24,6 +25,13 @@ export class SendMessageDB extends BaseIndexedDB {
     });
 
     return result;
+  }
+
+  async getByRoomId<T = unknown>(roomId: number): Promise<T[]> {
+    return this.runTransaction<T[]>({
+      mode: 'readonly',
+      fn: (store) => store.index('roomId').getAll(roomId)
+    });
   }
 
   add(message: Message) {

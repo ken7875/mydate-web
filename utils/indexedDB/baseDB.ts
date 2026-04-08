@@ -34,13 +34,20 @@ export abstract class BaseIndexedDB {
 
       request.addEventListener('upgradeneeded', (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
+        const tx = (event.target as IDBOpenDBRequest).transaction!;
+        let store: IDBObjectStore;
+
         if (!db.objectStoreNames.contains(this.config.storeName)) {
-          const store = db.createObjectStore(this.config.storeName, {
+          store = db.createObjectStore(this.config.storeName, {
             keyPath: this.config.keyPath,
             autoIncrement: this.config.autoIncrement
           });
+        } else {
+          store = tx.objectStore(this.config.storeName);
+        }
 
-          for (const index of this.config.indexes) {
+        for (const index of this.config.indexes) {
+          if (!store.indexNames.contains(index.name)) {
             store.createIndex(index.name, index.keyPath, { unique: index.unique ?? false });
           }
         }

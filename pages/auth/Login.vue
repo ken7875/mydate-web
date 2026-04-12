@@ -10,7 +10,7 @@
       <BaseInput
         label="Email"
         type="text"
-        :class="['w-full mb-[8px]']"
+        :class="['w-full mb-2']"
         v-model="email"
         :error="formError?.email || ''"
         placeholder="Enter your email address..."
@@ -28,7 +28,7 @@
         v-if="registerProcess === 'password'"
         :label="emailData.isPasswordSign ? 'password' : `${emailData.hasAccount ? 'Login' : 'Sign up'} code`"
         type="text"
-        :class="['w-full mb-[8px]']"
+        :class="['w-full mb-2']"
         v-model="password"
         :error="passwordErrorMsg"
         placeholder="Paste login code"

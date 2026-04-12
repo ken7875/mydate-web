@@ -41,7 +41,7 @@ const myFetch = ({
   const apiFetch = $fetch.create({
     baseURL,
     responseType: responseType,
-    timeout: 3000,
+    timeout: 8000,
     // ...fetchOptions,
     onRequest({ options }) {
       // get方法传递数组形式参数

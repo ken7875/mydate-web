@@ -6,6 +6,7 @@
         <slot name="suffix"></slot>
       </div>
       <input
+        :id="label"
         v-bind="{ ...$attrs }"
         :disabled="disabled"
         type="text"

@@ -5,6 +5,8 @@ export interface GetMessageRecord extends Pagination {
 }
 
 export type MessageStatus = 'sending' | 'success' | 'failed';
+export type MessageType = 'text' | 'image';
+
 export interface Message {
   senderId: string;
   receiverId: string;
@@ -14,6 +16,14 @@ export interface Message {
   localId?: string;
   seq?: number;
   roomId: number;
+  type?: MessageType;
+  imageId?: string;
+  thumbnailUrl?: string;
+  originalUrl?: string;
+  blurHash?: string;
+  imageWidth?: number;
+  imageHeight?: number;
+  isExpired?: boolean;
 }
 
 export interface WsMessage {
@@ -23,3 +33,85 @@ export interface WsMessage {
 }
 
 export type PreviewMessage = Record<string, Message>;
+
+export interface InitUploadRequest {
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  checksum: string;
+  totalChunks: number;
+  receiverId: string;
+  roomId: number;
+}
+
+export interface InitUploadResponse {
+  uploadId: string;
+  totalChunks: number;
+  expiresAt: string;
+}
+
+export interface ChunkUploadRequest {
+  uploadId: string;
+  chunkIndex: number;
+}
+
+export interface ChunkUploadPartialResponse {
+  uploadId: string;
+  chunkIndex: number;
+  chunkBytesReceived: number;
+  chunkTotal: number;
+  receivedChunks: number;
+  totalChunks: number;
+}
+
+export interface ChunkUploadChunkDoneResponse {
+  uploadId: string;
+  chunkIndex: number;
+  receivedChunks: number;
+  totalChunks: number;
+}
+
+export interface ChunkUploadAllDoneResponse {
+  uploadId: string;
+  receivedChunks: number;
+  totalChunks: number;
+}
+
+export type ChunkUploadResponse =
+  | ChunkUploadPartialResponse
+  | ChunkUploadChunkDoneResponse
+  | ChunkUploadAllDoneResponse;
+
+export interface UploadStatusResponse {
+  uploadId: string;
+  status: 'uploading' | 'completed';
+  fileSize: number;
+  totalChunks: number;
+  receivedChunks: number;
+  receivedChunkIndices: number[];
+  chunkProgress: Record<string, number>;
+  expiresAt: string;
+}
+
+export interface ImageMessagePayload {
+  roomId: number;
+  messageId: string;
+  senderId: string;
+  imageId: string;
+  thumbnailUrl: string;
+  blurHash: string;
+  width: number;
+  height: number;
+  timestamp: string;
+}
+
+export interface UploadRecord {
+  uploadId: string;
+  roomId: number;
+  receiverId: string;
+  fileName: string;
+  fileSize: number;
+  fileChecksum: string;
+  totalChunks: number;
+  createdAt: number;
+}

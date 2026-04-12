@@ -1,1263 +1,560 @@
-# Implementation Plan: WebSocket 架構重構與修復
+# Implementation Plan: 聊天室圖片上傳功能
 
 ## Overview
 
-HOT DATE 專案的 WebSocket 架構存在 20 個已識別問題，涵蓋關鍵 bug（訊息順序、錯誤處理、race condition）、架構耦合（store 與 utility 互相依賴、SSR 安全性）、多頁籤效能（缺乏 Leader Election）以及型別安全與持續改進。本計畫將這些問題分為 4 個 Phase，共 15 個 TASK，每個 TASK 可獨立執行與驗證。
+在聊天室內新增圖片上傳功能，支援檔案選擇、預覽確認、分片上傳（>2MB）、上傳進度條、斷線續傳（sub-chunk 級別）、圖片訊息顯示（含過期狀態）、以及全屏預覽。整體架構遵循現有專案慣例：API 與型別統一歸入現有的 `chat` 模組、業務邏輯封裝為 composable、UI 元件放 `components/`。
 
 ## Requirements
 
-- 修復 UNAUTHORIZATION 訊息廣播順序錯誤，避免未授權訊息洩漏到 UI
-- 修復 StreamWebsocket.onmessage 缺少 JSON.parse 錯誤處理
-- 修復重連時舊 WebSocket onclose 覆蓋新實例的 race condition
-- 解除 BaseWebsocket 對 authStore 和 useForceKickOut 的直接依賴
-- 分離訂閱生命週期與連線生命週期
-- 消除 ChatRoom handler 在 layout 和 chatroom page 的重複訂閱
-- 實作 Leader Election，多頁籤只建立單一 WS 連線
-- 重連上限後提供恢復機制與 UI 通知
-- 強化型別安全，消除 any 型別
-- 高併發訊息批次/節流機制
+- 用戶在聊天室選擇圖片後，彈出確認視窗預覽並確認上傳
+- 檔案限制：20MB 上限、僅接受 webp/jpg/jpeg/png
+- 檔案 > 2MB 時拆分為 chunks，循序上傳（API 要求依序傳送）
+- SHA-256 checksum 驗證（僅整檔，無需分片 checksum）
+- 上傳進度條 UI
+- 斷線續傳：localStorage 記錄 uploadId，重連後透過 Status API 查詢 `receivedChunkIndices` 與 `chunkProgress`，支援 sub-chunk 級別續傳
+- 取消上傳（使用者主動取消 + 元件 unmount 時清理），需處理 409 Conflict（已完成的上傳不可取消）
+- 後端合併完成後透過 WebSocket `imageMessage` 事件推播，前端接收並顯示
+- 圖片過期狀態提示（24 小時有效期）
+- 圖片 lightbox 全屏預覽
 
 ## Architecture Changes
 
-- `utils/websocket/index.ts` — 移除 authStore/forceKickOut 直接依賴，改為 constructor 注入；修復 onmessage 順序與 onclose race condition
-- `utils/websocket/subscribe.ts` — 分離 removeAll 為 closeChannels（只關 BroadcastChannel）與 clearHandlers（清除 handler）
-- `utils/websocket/stream.ts` — 加入 JSON.parse 錯誤處理，修正 pong 比對邏輯
-- `utils/websocket/types.ts` — 強化 DataType 型別，使用 WsChannel enum 取代 string
-- `utils/websocket/leaderElection.ts` — 新增 Leader Election 機制
-- `store/notificationWebSocket.ts` — 延遲初始化 BaseWebsocket，注入 token getter 與 onUnauthorized callback
-- `store/stream.ts` — 延遲初始化 StreamWebsocket
-- `composables/useWsChannel.ts` — Handler 型別強化
-- `layouts/default.vue` — 移除 ChatRoom handler，只保留全域通知邏輯
-- `pages/chatroom/index.vue` — 承擔完整 ChatRoom 訊息處理
-- `pages/live/[uuid].vue` — 改用 useWsChannel composable
-- `enums/websocket.ts` — 保持不變，已有正確 enum 定義
+- **修改** `api/types/chat.ts` — 新增上傳相關型別定義、Message 型別擴充圖片欄位
+- **修改** `api/modules/chat.ts` — 新增上傳相關 API 函式
+- **新增** `composables/useChunkUpload.ts` — 分片上傳核心邏輯 composable
+- **新增** `utils/crypto.ts` — SHA-256 計算工具函式
+- **新增** `components/upload/ImagePreviewModal.vue` — 圖片預覽確認彈窗
+- **新增** `components/upload/UploadProgressBar.vue` — 上傳進度條元件
+- **新增** `components/chatroom/ImageMessage.vue` — 聊天室圖片訊息泡泡
+- **新增** `components/lightbox/index.vue` — 圖片全屏預覽元件
+- **修改** `enums/websocket.ts` — 新增 `ImageMessage` channel
+- **修改** `pages/chatroom/index.vue` — 整合圖片選擇、上傳、顯示
+- **修改** `layouts/default.vue` — 訂閱 `ImageMessage` WebSocket 事件
 
 ## Implementation Steps
 
-### Phase 1: 關鍵修復（High Priority）
+### Phase 1: 型別定義與 API 層（基礎設施）
 
-#### TASK-001: 修復 UNAUTHORIZATION 訊息先 notify 再處理的順序問題
+#### TASK-001: 新增上傳相關型別定義與擴充 Message 型別
 
-- **說明**: 目前 `onmessage` 先呼叫 `this.notify()` 廣播訊息到所有訂閱者，然後才檢查 `UNAUTHORIZATION`，導致未授權訊息會被 UI 元件接收處理
-- **修改檔案**: `utils/websocket/index.ts`
-- **前置依賴**: 無
-- **風險**: Low
+- **檔案**: `api/types/chat.ts`（修改）
+- **Action**: 在現有檔案中新增上傳 API 的 request/response 型別，並擴充 Message interface
+- **詳細步驟**:
+  1. 新增上傳相關型別：
+     - `InitUploadRequest`：`{ fileName: string; fileSize: number; mimeType: string; checksum: string; totalChunks: number; receiverId: string; roomId: number }`
+     - `InitUploadResponse`：`{ uploadId: string; totalChunks: number; expiresAt: string }`
+     - `ChunkUploadResponse`（聯合型別，依 HTTP status 區分）：
+       - 206（分片部分接收）：`{ uploadId: string; chunkIndex: number; chunkBytesReceived: number; chunkTotal: number; receivedChunks: number; totalChunks: number }`
+       - 206（分片完整接收）：`{ uploadId: string; chunkIndex: number; receivedChunks: number; totalChunks: number }`
+       - 200（全部完成）：`{ uploadId: string; receivedChunks: number; totalChunks: number }`
+     - `UploadStatusResponse`：`{ status: 'uploading' | 'completed'; fileSize: number; totalChunks: number; receivedChunks: number; receivedChunkIndices: number[]; chunkProgress: Record<string, number>; expiresAt: string }`
+     - `ImageMessagePayload`：`{ messageId: string; roomId: number; senderId: string; imageId: string; thumbnailUrl: string; blurHash: string; width: number; height: number; timestamp: string }`
+  2. 新增 `MessageType` 型別：`'text' | 'image'`
+  3. 在現有 `Message` interface 中新增可選欄位：
+     - `type?: MessageType`（預設為 `'text'`，向後相容）
+     - `imageId?: string`
+     - `thumbnailUrl?: string`
+     - `originalUrl?: string`
+     - `blurHash?: string`
+     - `imageWidth?: number`
+     - `imageHeight?: number`
+     - `isExpired?: boolean` — 圖片是否已過期
+- **Why**: 統一型別確保 API 呼叫與 WebSocket 事件的型別安全，所有新欄位為 optional 確保向後相容
+- **Dependencies**: 無
+- **Risk**: Low — 只新增 optional 欄位，不影響現有功能
+- **驗收標準**: 所有型別定義完整，現有引用 Message 的程式碼無 TypeScript 編譯錯誤
 
-**實作步驟**:
+#### TASK-002: 新增上傳 API 函式
 
-1. 在 `utils/websocket/index.ts` 第 173-195 行的 `onmessage` 方法中，將 `UNAUTHORIZATION` 檢查移到 `notify` 之前：
+- **檔案**: `api/modules/chat.ts`（修改）
+- **Action**: 在現有檔案中新增 4 個上傳相關 API 函式
+- **詳細步驟**:
+  1. `initUploadApi(body: InitUploadRequest)` — POST `/uploads/init`，使用 `useHttp.post<InitUploadResponse>`，`needLoading: false`。body 包含 `fileName`、`fileSize`、`mimeType`、`checksum`、`totalChunks`、`receiverId`、`roomId`
+  2. `uploadChunkApi(uploadId: string, chunkIndex: number, chunk: Blob, globalStart: number, globalEnd: number, fileSize: number)` — 此 API 需要發送 raw binary 與 `Content-Range` header，`useHttp` 目前不支援 `application/octet-stream` 與自訂 header 的組合。建議方案：在此函式內使用原生 `$fetch` 封裝，手動從 `useCookie('access_token')` 取得 token 注入 Authorization header，設定 `Content-Type: application/octet-stream` 與 **`Content-Range: bytes ${globalStart}-${globalEnd}/${fileSize}`** header（必填）。PUT `/uploads/${uploadId}/chunks/${chunkIndex}`
+  3. `getUploadStatusApi(uploadId: string)` — GET `/uploads/${uploadId}/status`，使用 `useHttp.get<UploadStatusResponse>`，`needLoading: false`
+  4. `cancelUploadApi(uploadId: string)` — DELETE `/uploads/${uploadId}`，使用 `useHttp.delete`，`gateway: 'normal'`，`needLoading: false`。需處理 `409 Conflict`（`UPLOAD_ALREADY_COMPLETED`）：已完成的上傳不可取消，呼叫端應捕獲此錯誤並清除本地記錄
+  5. 所有 API 的 `needLoading` 設為 `false`（上傳有自己的進度條，不需要全域 loading）
+- **Why**: 遵循專案慣例將聊天相關 API 集中在 `chat.ts`
+- **Dependencies**: TASK-001
+- **Risk**: Medium — `uploadChunkApi` 無法直接使用 `useHttp`，需要特殊處理 binary body 與 `Content-Range` header
+- **驗收標準**: 每個 API 函式可正確呼叫對應端點，TypeScript 型別正確，import 路徑無誤
 
-```typescript
-// 目前程式碼（錯誤順序）:
-// L186: this.notify({ type, data, code });
-// L187: if (res.code === 'UNAUTHORIZATION') {
+#### TASK-003: 新增 WebSocket channel 列舉
 
-// 修正為:
-async onmessage(event: MessageEvent) {
-  const raw = typeof event.data === 'string' ? event.data : await (event.data as Blob).text();
-
-  if (raw === 'pong') {
-    this.startHeartBeat();
-    return;
-  }
-
-  try {
-    const res = JSON.parse(raw);
-    const { type, data, code } = res;
-
-    // 先檢查未授權，阻止訊息廣播
-    if (code === 'UNAUTHORIZATION') {
-      this.handleClose();
-      this.onUnauthorized?.();
-      return;
-    }
-
-    this.notify({ type, data, code });
-  } catch (error) {
-    console.error('WebSocket 訊息解析失敗:', error, event.data);
-  }
-}
-```
-
-2. 注意：此步驟同時涉及問題 #4（`useForceKickOut` 改為 callback），但 callback 注入會在 TASK-004 完成。此處先保留 `useForceKickOut()` 呼叫，僅調整順序。暫時寫為：
-
-```typescript
-if (code === 'UNAUTHORIZATION') {
-  this.handleClose();
-  useForceKickOut();
-  return;
-}
-```
-
-**驗證方式**:
-- 單元測試：mock `notify` 方法，發送 `UNAUTHORIZATION` 訊息時驗證 `notify` 未被呼叫
-- 手動測試：token 過期後確認不會有未授權訊息閃現在 UI
+- **檔案**: `enums/websocket.ts`（修改）
+- **Action**: 在 `WsChannel` enum 中新增 `ImageMessage`
+- **詳細步驟**:
+  1. 新增 `ImageMessage = 'imageMessage'`
+- **Why**: WebSocket 訊息透過 BroadcastChannel 廣播，需要在 enum 中註冊 channel 名稱，名稱必須與後端事件 `type` 欄位完全一致
+- **Dependencies**: 無
+- **Risk**: Low
+- **驗收標準**: 新增的 enum 值可在 `useWsChannel` 中使用
 
 ---
 
-#### TASK-002: StreamWebsocket.onmessage 加入 JSON.parse 錯誤處理
+### Phase 2: 核心上傳邏輯（Composable 層）
 
-- **說明**: `stream.ts` 第 17-18 行 `JSON.parse` 沒有 try/catch；且當 `event.data` 為 string 類型的 `'pong'` 時，第 17 行 `(event.data as Blob).text()` 會拋出錯誤，因為 pong 檢查（第 12 行）只比對 `event.data === 'pong'`，但如果 data 是 Blob 形式的 pong，會漏掉
-- **修改檔案**: `utils/websocket/stream.ts`
-- **前置依賴**: 無
-- **風險**: Low
+#### TASK-004: SHA-256 計算工具函式
 
-**實作步驟**:
+- **檔案**: `utils/crypto.ts`（新增）
+- **Action**: 封裝 Web Crypto API 的 SHA-256 計算
+- **詳細步驟**:
+  1. `computeSHA256(data: ArrayBuffer): Promise<string>` — 使用 `crypto.subtle.digest('SHA-256', data)` 計算，將結果 `ArrayBuffer` 轉換為 hex 字串（逐 byte 轉 `toString(16).padStart(2, '0')` 後 join）
+  2. `computeFileSHA256(file: File): Promise<string>` — 呼叫 `file.arrayBuffer()` 取得 ArrayBuffer 後呼叫 `computeSHA256`（20MB 內可一次讀取，記憶體可接受）
+- **Why**: API 規格要求整檔 SHA-256 checksum（init API 的 `checksum` 欄位）
+- **Dependencies**: 無
+- **Risk**: Low — Web Crypto API 在所有現代瀏覽器皆支援
+- **驗收標準**: 對已知輸入產生正確的 SHA-256 hex 字串，可撰寫 unit test 驗證
 
-1. 重寫 `StreamWebsocket.onmessage` 方法：
+#### TASK-005: 分片上傳 Composable
 
-```typescript
-override async onmessage(event: MessageEvent): Promise<void> {
-  if (this.websocket?.readyState !== WebSocket.OPEN) {
-    console.error(this.websocket?.readyState, 'websocket is closed');
-    this.websocket?.close();
-    return;
-  }
+- **檔案**: `composables/useChunkUpload.ts`（新增）
+- **Action**: 封裝完整的分片上傳生命週期
+- **詳細步驟**:
+  1. 定義常數與 `Options` interface：
+     ```typescript
+     const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB，前端自行定義
 
-  // 統一取得字串：string 直接使用，Blob 透過 text() 解析
-  const raw = typeof event.data === 'string' ? event.data : null;
-
-  if (raw === 'pong') {
-    this.startHeartBeat();
-    return;
-  }
-
-  // 非 string 的情況：可能是 Blob（影音串流）或 JSON 控制訊息
-  try {
-    // 嘗試解析為 JSON 控制訊息
-    const text = typeof event.data === 'string' ? event.data : await (event.data as Blob).text();
-    const data = JSON.parse(text);
-
-    if (data.type === 'global') {
-      this.notify(data);
-      return;
-    }
-  } catch {
-    // JSON 解析失敗 — 視為影音串流資料，正常流程
-  }
-
-  // 影音串流資料
-  this.notify({
-    type: 'video',
-    data: event.data,
-    code: StatusCode.SUCCESS
-  });
-}
-```
-
-**驗證方式**:
-- 單元測試：傳入非 JSON 的 Blob 資料，驗證不會拋出未捕獲錯誤且正確走入 video notify
-- 單元測試：傳入 string 'pong'，驗證觸發 startHeartBeat
-- 單元測試：傳入 JSON `{ type: 'global', ... }`，驗證呼叫 notify 且 type 為 global
-
----
-
-#### TASK-003: 修復重連時舊 WebSocket onclose 覆蓋新實例（race condition）
-
-- **說明**: `init()` 建立新 WebSocket 時，舊實例的 `onclose` callback 仍然綁定在 `this` 上。舊 WS 的 `onclose` 觸發時執行 `this.websocket = null`（第 165 行），但此時 `this.websocket` 已指向新建立的實例，導致新連線被意外清除
-- **修改檔案**: `utils/websocket/index.ts`
-- **前置依賴**: 無
-- **風險**: Medium — 修改核心連線邏輯
-
-**實作步驟**:
-
-1. 在 `init()` 方法中，建立新 WebSocket 前先清理舊實例的事件監聽：
-
-```typescript
-init(token: string) {
-  if (this.isConnecting() || this.isOpen()) {
-    console.log('WebSocket is already connecting or open.');
-    return;
-  }
-
-  try {
-    // 清理舊實例的事件監聽，防止舊 onclose 覆蓋新實例
-    if (this.websocket) {
-      this.websocket.onopen = null;
-      this.websocket.onclose = null;
-      this.websocket.onerror = null;
-      this.websocket.onmessage = null;
-    }
-
-    this.websocket = new WebSocket(this.url, [`bearer-${token}`]);
-    this.websocket.binaryType = 'blob';
-    this.isHandleClose = false;
-    this.isReconnecting = false;
-
-    this.websocket.onopen = this.#boundOnOpen;
-    this.websocket.onclose = this.#boundOnClose;
-    this.websocket.onerror = this.#boundOnError;
-    this.websocket.onmessage = this.#boundOnMessage;
-  } catch (error) {
-    console.log('websocket建立失敗', error);
-    this.reconnect();
-  }
-}
-```
-
-2. 在 `onclose` 中加入 identity check，確保只有當前活躍的 WebSocket 觸發的 close 才會操作 `this.websocket`：
-
-```typescript
-onclose(event: CloseEvent) {
-  console.log(`name: ${this.url} - websocket close`, event.code);
-
-  // Identity check：若觸發 onclose 的不是當前活躍實例，忽略
-  // 因為使用 bound function，需要透過 event.target 比對
-  if (event.target !== this.websocket) {
-    console.log('Ignoring onclose from stale WebSocket instance');
-    return;
-  }
-
-  this.websocket = null;
-  this.resetHeartBeat();
-
-  if (!this.isHandleClose && RECONNECTABLE_CLOSE_CODES.has(event.code)) {
-    this.reconnect();
-  }
-}
-```
-
-**注意**: `#boundOnClose` 使用 `this.onclose.bind(this)`，`onclose` 接收的 `event.target` 就是觸發事件的 WebSocket 實例，可以用來做 identity check。但由於 `onclose` 的參數型別是 `CloseEvent`，`event.target` 的型別是 `EventTarget | null`，需要做型別斷言。
-
-**驗證方式**:
-- 單元測試：模擬快速重連場景，舊 WS 的 onclose 觸發時不應將 `this.websocket` 設為 null
-- 手動測試：在不穩定網路環境下多次重連，確認連線穩定
+     interface Options {
+       onProgress?: (progress: number) => void;
+       onError?: (error: Error) => void;
+     }
+     ```
+  2. `useChunkUpload(options?: Options)` 回傳：
+     - `progress: Ref<number>` — 0~100 進度百分比
+     - `isUploading: Ref<boolean>`
+     - `uploadId: Ref<string | null>`
+     - `phase: Ref<'idle' | 'hashing' | 'uploading' | 'done' | 'error' | 'cancelled'>`
+     - `startUpload(file: File, receiverId: string, roomId: number): Promise<void>`
+     - `cancelUpload(): Promise<void>`
+     - `resumeUpload(savedUploadId: string, file: File): Promise<void>`
+  3. `startUpload` 流程：
+     a. 驗證檔案大小（<= 20MB）與格式（webp/jpg/jpeg/png），驗證失敗直接 throw Error
+     b. 設定 `phase = 'hashing'`，呼叫 `computeFileSHA256` 計算整檔 SHA-256
+     c. 計算 `totalChunks = Math.ceil(fileSize / CHUNK_SIZE)`
+     d. 呼叫 `initUploadApi` 傳入 `{ fileName, fileSize, mimeType, checksum, totalChunks, receiverId, roomId }`，取得 `uploadId`、`totalChunks`、`expiresAt`
+     e. 將上傳狀態存入 `localStorage`：key 為 `upload_progress_${uploadId}`，value 為 JSON 序列化的 `UploadRecord`（見 TASK-012）
+     f. 設定 `phase = 'uploading'`，**循序上傳**所有 chunks（不並行，API 要求依序傳送）：
+        - 依序從 chunkIndex 0 到 totalChunks - 1
+        - 每個 chunk：`file.slice(chunkIndex * CHUNK_SIZE, Math.min((chunkIndex + 1) * CHUNK_SIZE, fileSize))` 取出 Blob
+        - 計算 `globalStart = chunkIndex * CHUNK_SIZE`
+        - 計算 `globalEnd = Math.min(globalStart + chunk.size, fileSize) - 1`
+        - 呼叫 `uploadChunkApi(uploadId, chunkIndex, chunk, globalStart, globalEnd, fileSize)`，傳入 AbortController 的 signal
+        - 成功後更新 `progress`：`Math.round((chunkIndex + 1) / totalChunks * 100)`
+        - 單一 chunk 失敗時重試最多 2 次（因 API 冪等），重試仍失敗則標記為 failed
+        - 處理 `416 Range Not Satisfiable`：取回 response 中的 `expectedStart`，從 `expectedStart` 位置重新切片該 chunk 繼續傳送
+     g. 若有任何 chunk 最終失敗，設定 `phase = 'error'`，保留 localStorage 記錄供續傳
+     h. 所有 chunks 成功後（最後一個 chunk 回傳 200 OK），後端自動合併，設定 `phase = 'done'`，清除 `localStorage` 中的上傳記錄
+     i. 函式回傳 void，上傳結果透過 WebSocket `imageMessage` 事件通知
+  4. `cancelUpload` 流程：
+     a. 設定 `phase = 'cancelled'`
+     b. 呼叫 `AbortController.abort()` 中止進行中的 chunk 上傳請求
+     c. 呼叫 `cancelUploadApi(uploadId)`，捕獲 409 Conflict（已完成則忽略）
+     d. 清除 `localStorage` 中的上傳記錄
+     e. 重置所有 ref 狀態（`progress = 0`、`isUploading = false`、`uploadId = null`）
+  5. `resumeUpload` 流程（斷線續傳，sub-chunk 級別）：
+     a. 從 `localStorage` 讀取上傳記錄
+     b. 呼叫 `getUploadStatusApi(savedUploadId)` 取得 `receivedChunkIndices` 和 `chunkProgress`
+     c. 循序遍歷 chunkIndex 0 到 totalChunks - 1：
+        - 若 `receivedChunkIndices.includes(chunkIndex)` → 跳過（已完整接收）
+        - 否則取 `subChunkOffset = chunkProgress[String(chunkIndex)] ?? 0`
+        - 從 `file.slice(chunkIndex * CHUNK_SIZE + subChunkOffset, Math.min((chunkIndex + 1) * CHUNK_SIZE, fileSize))` 取出剩餘 Blob
+        - 計算 `globalStart = chunkIndex * CHUNK_SIZE + subChunkOffset`
+        - 計算 `globalEnd = Math.min((chunkIndex + 1) * CHUNK_SIZE, fileSize) - 1`
+        - 呼叫 `uploadChunkApi(uploadId, chunkIndex, chunk, globalStart, globalEnd, fileSize)`
+        - 處理 `416 Range Not Satisfiable`：使用 response 中的 `expectedStart` 修正起始位置，重新切片繼續傳送
+     d. 完成後設定 `phase = 'done'`，清除 localStorage
+  6. AbortController 管理：每次 `startUpload` / `resumeUpload` 建立新的 `AbortController`，所有 `uploadChunkApi` 呼叫共享同一個 signal
+  7. 元件 unmount 時的清理：使用 `onBeforeUnmount` hook，若 `isUploading` 為 true，僅中止請求（abort）但保留 localStorage 記錄，以便下次進入頁面時續傳
+  8. 錯誤處理：區分網路錯誤（可重試）與業務錯誤（如 uploadId 過期），業務錯誤直接清除記錄
+- **Why**: 將複雜的上傳邏輯封裝為 composable，符合專案 `composables/` 慣例與 `composable.md` 規範，讓頁面元件保持簡潔
+- **Dependencies**: TASK-001, TASK-002, TASK-004
+- **Risk**: High — 循序上傳、sub-chunk 續傳、416 錯誤處理邏輯較複雜，需要仔細處理 AbortController 生命週期
+- **驗收標準**:
+  - 小檔案（<= 2MB）可成功單一 chunk 上傳
+  - 大檔案（> 2MB）以循序方式完成分片上傳
+  - `progress` ref 正確反映上傳進度（0→100 遞增）
+  - 取消上傳後正確呼叫 DELETE API 並清理狀態（409 Conflict 時不報錯）
+  - localStorage 正確記錄/清除上傳進度
+  - 上傳完成後回傳 void，等待 WebSocket `imageMessage` 事件通知結果
 
 ---
 
-### Phase 2: 架構解耦（Medium Priority）
+### Phase 3: UI 元件層
 
-#### TASK-004: BaseWebsocket 移除 authStore 和 useForceKickOut 直接依賴
+#### TASK-006: 圖片預覽確認彈窗
 
-- **說明**: `BaseWebsocket` 在 class field（第 21 行）直接實例化 `useAuth()`，且在 `onmessage`（第 189 行）直接呼叫 `useForceKickOut()`。utility 層不應反向依賴 store 層，且 `useAuth()` 在 SSR 期間缺少 Pinia context 會拋錯
-- **修改檔案**:
-  - `utils/websocket/index.ts`
-  - `store/notificationWebSocket.ts`
-  - `store/stream.ts`
-- **前置依賴**: TASK-001（onmessage 順序已修正）
-- **風險**: Medium
+- **檔案**: `components/upload/ImagePreviewModal.vue`（新增）
+- **Action**: 用戶選擇圖片後彈出確認視窗，預覽圖片並提供確認/取消按鈕
+- **詳細步驟**:
+  1. Props 定義：
+     - `file: File | null` — 選中的檔案
+     - `visible: boolean` — 控制顯示/隱藏
+  2. Emits：`confirm`、`cancel`
+  3. 使用 `URL.createObjectURL(file)` 產生預覽 URL，用 `computed` 或 `watchEffect` 管理，在 file 變更或元件銷毀時呼叫 `URL.revokeObjectURL` 釋放記憶體
+  4. 顯示內容：圖片預覽（限制最大高度避免超出螢幕）、檔案名稱、檔案大小（格式化為 KB/MB）
+  5. 驗證邏輯：若超過 20MB 或格式不符，顯示紅色錯誤提示文字並禁用確認按鈕
+  6. UI 結構參考現有 `components/message/index.vue` 的 overlay + Card 模式：
+     - 外層 `.overlay` 遮罩
+     - 內層使用 `Card` 元件，高度根據圖片自適應（移除固定 `h-[200px]`）
+  7. 確認按鈕點擊 emit `confirm` 事件
+  8. 取消按鈕 / 點擊 overlay 外部 emit `cancel` 事件
+- **Why**: 需求要求選擇圖片後先預覽確認再上傳
+- **Dependencies**: 無
+- **Risk**: Low
+- **驗收標準**: 可正確預覽圖片、顯示檔案資訊、確認/取消操作正常、超限檔案顯示錯誤
 
-**實作步驟**:
+#### TASK-007: 上傳進度條元件
 
-1. 修改 `BaseWebsocket` constructor，接收 `tokenGetter` 和 `onUnauthorized` callback：
+- **檔案**: `components/upload/UploadProgressBar.vue`（新增）
+- **Action**: 顯示上傳進度百分比的進度條
+- **詳細步驟**:
+  1. Props：
+     - `progress: number` — 0~100
+     - `phase: string` — 當前上傳階段
+     - `visible: boolean`
+  2. Emits：`cancel`
+  3. 使用 TailwindCSS 實作進度條：
+     - 外層：`w-full bg-gray-200 rounded-full h-2.5`（灰底圓角）
+     - 內層：`bg-primary h-2.5 rounded-full transition-all duration-300`，`style` 動態綁定 `width: ${progress}%`
+  4. 進度條上方顯示階段文字：
+     - `hashing` → "計算檔案校驗碼..."
+     - `uploading` → "上傳中 {progress}%"
+  5. 右側或下方顯示取消按鈕（X 圖示），點擊 emit `cancel`
+  6. `v-show="visible"` 控制顯示
+- **Why**: 需求明確要求顯示上傳進度條
+- **Dependencies**: 無
+- **Risk**: Low
+- **驗收標準**: 進度條隨 progress prop 平滑更新，不同 phase 顯示對應文字，取消按鈕可觸發事件
 
-```typescript
-// utils/websocket/index.ts
+#### TASK-008: 圖片訊息泡泡元件
 
-// 移除頂部 import:
-// import { useAuth } from '@/store/auth';
-// import { useForceKickOut } from '@/utils/forceLogout';
+- **檔案**: `components/chatroom/ImageMessage.vue`（新增）
+- **Action**: 在聊天室中顯示圖片訊息，支援縮圖、BlurHash placeholder、過期狀態
+- **詳細步驟**:
+  1. Props：
+     - `message: Message` — 包含圖片相關欄位的訊息物件
+     - `isSelf: boolean` — 是否為自己發送
+  2. Emits：`preview` — 攜帶 `originalUrl`，由父層開啟 lightbox
+  3. 顯示邏輯：
+     a. 若 `message.isExpired === true`：顯示「圖片已過期」提示文字 + 過期圖示（使用 font-awesome 的 `clock` 或 `image` 圖示），灰色背景區塊，不顯示圖片
+     b. 若未過期：使用 `NuxtImg` 或 `<img>` 載入 `thumbnailUrl`
+     c. 圖片載入前：使用 CSS `background-color` 加上 `filter: blur()` 作為簡易 placeholder（避免額外引入 blurhash 套件增加 bundle）。備選方案：若團隊決定使用 `blurhash` 套件，則用 canvas 解碼 blurHash 產生 base64 圖片作為 placeholder
+     d. 圖片設定 `width` / `height` attribute 避免 CLS（layout shift），使用 `aspect-ratio` CSS 保持比例
+  4. 點擊圖片（非過期狀態）emit `preview` 事件
+  5. 圖片 URL 組成規則：
+     - 原圖：`/images/messageImage/${imageId}/original.webp`
+     - 縮圖：`/images/messageImage/${imageId}/thumb.webp`
+  6. 樣式：
+     - 外層容器最大寬度 70%（與文字訊息泡泡的 `w-[70%]` 一致）
+     - 圓角 `rounded-lg`、陰影 `shadow`
+     - 自己發送靠右、對方靠左（同現有文字泡泡邏輯）
+     - 圖片 `rounded-lg overflow-hidden` 裁切圓角
+  7. 圖片載入失敗（`@error` 事件）時顯示 fallback 圖示與「圖片載入失敗」文字
+  8. 底部顯示發送時間（同文字訊息格式 `HH:mm`）
+- **Why**: 圖片訊息需要獨立元件處理縮圖、過期、載入狀態等邏輯，避免在 chatroom 頁面 slot 中塞入過多判斷
+- **Dependencies**: TASK-001（Message 型別擴充）
+- **Risk**: Medium — BlurHash placeholder 的實作方案需要決定（CSS blur vs blurhash 套件）
+- **驗收標準**: 圖片正確顯示、過期狀態有明確提示、載入中有 placeholder、載入失敗有 fallback
 
-export interface BaseWebsocketOptions {
-  heartBeatTime?: number;
-  reconnectInterval?: number;
-  maxReconnectAttempts?: number;
-  tokenGetter?: () => string;
-  onUnauthorized?: () => void;
-}
+#### TASK-009: 圖片 Lightbox 全屏預覽元件
 
-export default class BaseWebsocket {
-  url: string;
-  websocket: WebSocket | null = null;
-
-  // 移除 #authStore
-  #tokenGetter: (() => string) | null = null;
-  #onUnauthorized: (() => void) | null = null;
-
-  // ... 其餘 field 不變
-
-  constructor(url: string, options?: BaseWebsocketOptions) {
-    this.url = url;
-    this.isReconnecting = false;
-    this.#tokenGetter = options?.tokenGetter ?? null;
-    this.#onUnauthorized = options?.onUnauthorized ?? null;
-    this.#options = {
-      heartBeatTime: options?.heartBeatTime ?? 25000,
-      reconnectInterval: options?.reconnectInterval ?? 5000,
-      maxReconnectAttempts: options?.maxReconnectAttempts ?? 3
-    };
-    this.reconnectCount = 0;
-    this.isHandleClose = true;
-    if (process.client) {
-      this.subscribeHandler = createSubscribeHandler();
-    }
-  }
-
-  // reconnect 中使用 tokenGetter 取代 this.#authStore.token
-  reconnect() {
-    if (this.isReconnecting || this.isHandleClose) return;
-    if (this.reconnectCount >= this.#options.maxReconnectAttempts) {
-      console.log('websocket 自動重連次數已達上限, 請手動重連!!');
-      return;
-    }
-
-    this.isReconnecting = true;
-    this.reconnectCount++;
-
-    const delay = Math.min(
-      this.#options.reconnectInterval * Math.pow(2, this.reconnectCount - 1) + Math.random() * 1000,
-      30000
-    );
-
-    window.setTimeout(() => {
-      const token = this.#tokenGetter?.();
-      if (!token) {
-        console.warn('No token available for reconnection');
-        return;
-      }
-      this.init(token);
-    }, delay);
-  }
-
-  // onmessage 中使用 callback 取代直接呼叫
-  async onmessage(event: MessageEvent) {
-    const raw = typeof event.data === 'string' ? event.data : await (event.data as Blob).text();
-    if (raw === 'pong') {
-      this.startHeartBeat();
-      return;
-    }
-    try {
-      const res = JSON.parse(raw);
-      const { type, data, code } = res;
-      if (code === 'UNAUTHORIZATION') {
-        this.handleClose();
-        this.#onUnauthorized?.();
-        return;
-      }
-      this.notify({ type, data, code });
-    } catch (error) {
-      console.error('WebSocket 訊息解析失敗:', error, event.data);
-    }
-  }
-}
-```
-
-2. 更新 `store/notificationWebSocket.ts`，延遲建立 WebSocket 並注入依賴：
-
-```typescript
-// store/notificationWebSocket.ts
-import { defineStore } from 'pinia';
-import { StatusCode } from '~/enums/common';
-import BaseWebsocket from '@/utils/websocket/index';
-import { useAuth } from '@/store/auth';
-import { useForceKickOut } from '@/utils/forceLogout';
-
-export const useNotification = defineStore('notification', () => {
-  const runtimeConfig = useRuntimeConfig();
-  const url = `${runtimeConfig.public.wsBase}/notificationWs` as string;
-
-  // 延遲建立，避免 SSR 期間實例化
-  let websocketTool: BaseWebsocket | null = null;
-
-  const getWs = (): BaseWebsocket => {
-    if (!websocketTool) {
-      const authStore = useAuth();
-      websocketTool = new BaseWebsocket(url, {
-        tokenGetter: () => authStore.token,
-        onUnauthorized: () => useForceKickOut()
-      });
-    }
-    return websocketTool;
-  };
-
-  const init = (token: string) => {
-    getWs().init(token);
-  };
-
-  // ... 其餘方法同理，將 websocketTool 替換為 getWs()
-  const notify = ({ type, data, code }: { type: string; data: any; code: StatusCode }) => {
-    getWs().notify({ type, data, code });
-  };
-
-  const handleClose = () => {
-    getWs().handleClose();
-  };
-
-  const handleSend = <T>(data: { type: 'chatRoom' | 'global'; data: T }) => {
-    getWs().handleSend(data);
-  };
-
-  const websocketGlobalMessage = (data: any) => {
-    getWs().websocketGlobalMessage(data);
-  };
-
-  const subscribe = (type: string, handler: (data: any) => void) => {
-    getWs().subscribe(type, handler);
-  };
-
-  const unsubscribe = (type: string, handler: (data: any) => void) => {
-    getWs().unsubscribe(type, handler);
-  };
-
-  return { init, handleClose, notify, handleSend, websocketGlobalMessage, subscribe, unsubscribe };
-});
-```
-
-3. 同理更新 `store/stream.ts`，延遲建立 `StreamWebsocket`：
-
-```typescript
-let websocketTool: StreamWebsocket | null = null;
-
-const getWs = (): StreamWebsocket => {
-  if (!websocketTool) {
-    const authStore = useAuth();
-    websocketTool = new StreamWebsocket(url, {
-      tokenGetter: () => authStore.token,
-      onUnauthorized: () => useForceKickOut()
-    });
-  }
-  return websocketTool;
-};
-```
-
-**驗證方式**:
-- 確認 `utils/websocket/index.ts` 不再 import 任何 store 或 Nuxt composable
-- SSR 建置不會因為 WebSocket 實例化而拋錯
-- 手動測試：token 過期 → 收到 UNAUTHORIZATION → 正確觸發登出流程
+- **檔案**: `components/lightbox/index.vue`（新增）
+- **Action**: 全屏預覽圖片，支援手機端手勢縮放
+- **詳細步驟**:
+  1. Props：
+     - `src: string` — 圖片原始 URL
+     - `visible: boolean`
+  2. Emits：`close`
+  3. UI 結構：
+     - 外層 fixed overlay，`inset-0`，背景 `bg-black/90`
+     - z-index 使用 tailwind.config 中的 `modal` 層級（`z-modal` = 901）
+     - 內層圖片 `object-contain w-full h-full`，保持原始比例置中
+     - 右上角 X 關閉按鈕（`position: absolute`）
+     - 點擊背景區域也可關閉（`@click.self`）
+  4. 手機端：設定 `touch-action: pinch-zoom` 支援原生雙指縮放
+  5. 圖片載入中：在圖片區域中央顯示 loading spinner（複用 `components/loading/index.vue` 的 CSS spinner 樣式）
+  6. 使用 `<Teleport to="body">` 確保 overlay 不受父層 overflow 影響
+  7. 開啟時 `document.body.style.overflow = 'hidden'` 防止背景捲動，關閉時恢復
+- **Why**: 需求要求圖片可全屏預覽
+- **Dependencies**: 無
+- **Risk**: Low
+- **驗收標準**: 圖片全屏居中顯示、可關閉、手機端可雙指縮放、背景不可捲動
 
 ---
 
-#### TASK-005: 分離訂閱生命週期與連線生命週期
+### Phase 4: 頁面整合
 
-- **說明**: `handleClose()` 呼叫 `subscribeHandler.removeAll()` 清除所有訂閱（包括 BroadcastChannel 和 handler）。重連成功後，所有元件的 handler 都已丟失，導致訊息無法送達 UI
-- **修改檔案**:
-  - `utils/websocket/subscribe.ts`
-  - `utils/websocket/index.ts`
-- **前置依賴**: 無
-- **風險**: Medium
+#### TASK-010: 聊天室頁面整合圖片上傳
 
-**實作步驟**:
+- **檔案**: `pages/chatroom/index.vue`（修改）
+- **Action**: 在聊天室輸入區新增圖片選擇入口，串接上傳流程與圖片訊息顯示
+- **詳細步驟**:
+  1. **輸入區改造**（template 部分）：
+     - 在輸入框左側新增圖片按鈕：`<font-awesome-icon :icon="['fas', 'image']">`
+     - 按鈕點擊觸發隱藏的 `<input ref="fileInputRef" type="file" accept="image/webp,image/jpeg,image/png" class="hidden">`
+     - `@change` 事件取得 `event.target.files[0]` 存入 `selectedFile` ref
+  2. **預覽確認流程**：
+     - 引入 `ImagePreviewModal` 元件
+     - `selectedFile` 有值時 `showPreviewModal = true`
+     - `@confirm`：呼叫 `handleUpload()`
+     - `@cancel`：`selectedFile = null`、`showPreviewModal = false`、重置 file input
+  3. **上傳流程**：
+     - 引入 `useChunkUpload` composable，取得 `{ progress, phase, isUploading, startUpload, cancelUpload }`
+     - `handleUpload` 內呼叫 `startUpload(selectedFile.value, receiverId, roomId)`
+     - 顯示 `UploadProgressBar`：`visible="isUploading"`，綁定 `progress`、`phase`
+     - `UploadProgressBar` 的 `@cancel` 呼叫 `cancelUpload()`
+     - 上傳完成（`phase === 'done'`）後關閉進度條、重置狀態，等待 WebSocket `imageMessage` 事件推播圖片訊息到聊天列表
+  4. **訊息列表圖片渲染**（VirtualList slot 內）：
+     - 在現有的訊息泡泡渲染處，根據 `item.type` 判斷：
+       - `item.type === 'image'` 或 `item.imageId`：渲染 `ImageMessage` 元件
+       - 否則：渲染現有文字泡泡
+     - `ImageMessage` 的 `@preview` 事件：設定 `lightboxSrc = originalUrl`、`lightboxVisible = true`
+  5. **Lightbox 整合**：
+     - 在 template 底部引入 `Lightbox` 元件
+     - 綁定 `src="lightboxSrc"`、`visible="lightboxVisible"`
+     - `@close`：`lightboxVisible = false`
+  6. **新增的 ref 狀態**：
+     - `selectedFile: Ref<File | null>`
+     - `showPreviewModal: Ref<boolean>`
+     - `lightboxSrc: Ref<string>`
+     - `lightboxVisible: Ref<boolean>`
+  7. **頁面離開處理**：在現有 `onBeforeRouteLeave` 中新增邏輯——若 `isUploading` 為 true，保留 localStorage 記錄（composable 的 `onBeforeUnmount` 已處理 abort）
+- **Why**: 聊天室是圖片上傳的主要使用場景
+- **Dependencies**: TASK-005, TASK-006, TASK-007, TASK-008, TASK-009
+- **Risk**: High — 需要修改現有頁面，整合多個新元件，需確保不破壞現有文字訊息功能與 VirtualList 渲染
+- **驗收標準**:
+  - 可選擇圖片並預覽確認
+  - 上傳過程顯示進度條
+  - 上傳完成後等待 WebSocket `imageMessage` 事件，圖片訊息出現在聊天列表
+  - 可取消上傳
+  - 點擊圖片可開啟 lightbox 全屏預覽
+  - 文字訊息功能完全不受影響
 
-1. 在 `subscribe.ts` 中新增 `closeChannels` 方法，只關閉 BroadcastChannel 但保留 handler：
+#### TASK-011: WebSocket 事件訂閱與處理
 
-```typescript
-// utils/websocket/subscribe.ts
-
-const createSubscribeHandler = () => {
-  const consumers = new Map<string, { ch: BroadcastChannel | null; handlers: Set<Handler> }>();
-
-  const ensureChannel = (type: string): BroadcastChannel => {
-    const entry = consumers.get(type);
-    if (entry && entry.ch) return entry.ch;
-
-    const ch = new BroadcastChannel(type);
-    const handlers = entry?.handlers ?? new Set<Handler>();
-
-    ch.addEventListener('message', ({ data }) => {
-      handlers.forEach((h) => {
-        try {
-          h(data.data);
-        } catch (error) {
-          console.error(`Error in BroadcastChannel handler for type ${type}:`, error);
-        }
-      });
-    });
-
-    consumers.set(type, { ch, handlers });
-    return ch;
-  };
-
-  const dispatch = (type: string, data: unknown, code: unknown) => {
-    const entry = consumers.get(type);
-    if (!entry) return;
-
-    entry.handlers.forEach((h) => {
-      try {
-        h(data);
-      } catch (error) {
-        console.error(`Error in BroadcastChannel handler for type ${type}:`, error);
-      }
-    });
-
-    // 確保 channel 存在再廣播
-    const ch = ensureChannel(type);
-    ch.postMessage({ type, data, code });
-  };
-
-  const broadcast = (type: string, data: unknown, code: unknown) => {
-    dispatch(type, data, code);
-  };
-
-  const subscribe = (type: string, handler: Handler) => {
-    ensureChannel(type);
-    consumers.get(type)!.handlers.add(handler);
-  };
-
-  const unsubscribe = (type: string, handler: Handler) => {
-    const entry = consumers.get(type);
-    if (!entry) return;
-    entry.handlers.delete(handler);
-    if (entry.handlers.size === 0) {
-      entry.ch?.close();
-      consumers.delete(type);
-    }
-  };
-
-  // 只關閉 BroadcastChannel，保留 handler 供重連後使用
-  const closeChannels = () => {
-    consumers.forEach((entry) => {
-      entry.ch?.close();
-      entry.ch = null;
-    });
-  };
-
-  // 完全清除（登出時使用）
-  const removeAll = () => {
-    consumers.forEach(({ ch }) => ch?.close());
-    consumers.clear();
-  };
-
-  return {
-    broadcast,
-    subscribe,
-    unsubscribe,
-    closeChannels,
-    removeAll
-  };
-};
-```
-
-2. 修改 `BaseWebsocket.handleClose()`，區分「斷線重連」與「主動登出」：
-
-```typescript
-// utils/websocket/index.ts
-
-// 斷線時只關閉 channel，不清除 handler
-onclose(event: CloseEvent) {
-  // ... identity check (TASK-003)
-  this.websocket = null;
-  this.resetHeartBeat();
-  this.subscribeHandler?.closeChannels(); // 取代 removeAll
-
-  if (!this.isHandleClose && RECONNECTABLE_CLOSE_CODES.has(event.code)) {
-    this.reconnect();
-  }
-}
-
-// 主動關閉（登出）時完全清除
-handleClose() {
-  this.isHandleClose = true;
-  this.resetHeartBeat();
-  this.websocket?.close();
-  this.websocket = null;
-  this.subscribeHandler?.removeAll(); // 完全清除
-}
-```
-
-**驗證方式**:
-- 手動測試：斷網 → 重連成功後，訊息仍能正確送達 UI 元件
-- 單元測試：呼叫 `closeChannels` 後 handler 數量不變，呼叫 `removeAll` 後 consumers 為空
+- **檔案**: `pages/chatroom/index.vue`（修改）、`layouts/default.vue`（修改）
+- **Action**: 訂閱 `imageMessage` WebSocket 事件，將圖片訊息插入聊天記錄
+- **詳細步驟**:
+  1. **`pages/chatroom/index.vue`**：
+     - 在現有 `useWsChannel` 陣列中新增 `WsChannel.ImageMessage` 訂閱項目
+     - handler 邏輯：
+       a. 解構 `payload.data` 為 `ImageMessagePayload`
+       b. 判斷 `roomId`（number 型別）是否為當前聊天室
+       c. 若是，將 payload 轉換為 Message 格式：`{ type: 'image', senderId, imageId, thumbnailUrl, blurHash, imageWidth: width, imageHeight: height, sendTime: timestamp, roomId, message: '[圖片]' }`
+       d. 圖片 URL 組成：`thumbnailUrl` 直接使用 payload 中的值，`originalUrl` 為 `/images/messageImage/${imageId}/original.webp`
+       e. 呼叫 `updateMessageRecord({ message: [imageMessage] })` 插入訊息列表
+       f. 觸發 `toggleNewMessageTipsHandler()` 提示新訊息
+  2. **`layouts/default.vue`**：
+     - 在現有 `useWsChannel` 陣列中新增 `WsChannel.ImageMessage` 訂閱項目
+     - handler 邏輯（當不在 chatroom 頁面時）：
+       a. `if (route.path === '/chatroom') return;`（由 chatroom 自己處理）
+       b. 解構 payload，取得 roomId（number 型別）和訊息內容
+       c. 呼叫 `updateMessageQuery` 更新對應 roomId 的訊息快取
+       d. 呼叫 `chatStore.incrementTotalUnreadCount()` 增加未讀計數
+       e. 呼叫 `chatStore.incrementUnReadCount(roomId)` 增加該房間未讀計數
+- **Why**: 圖片上傳完成後，後端自動合併並透過 WebSocket 廣播 `imageMessage` 給聊天室所有成員，前端需接收並即時顯示
+- **Dependencies**: TASK-003, TASK-010
+- **Risk**: Medium — 需要確保 WebSocket 事件的 data 結構與 Message 型別正確對應，以及 handler 在不同頁面狀態下的行為正確
+- **驗收標準**:
+  - 對方上傳圖片後，自己的聊天室即時顯示圖片訊息
+  - 不在聊天室時收到圖片訊息，未讀計數正確增加
+  - 預覽訊息列表顯示 `[圖片]` 文字
 
 ---
 
-#### TASK-006: 消除 ChatRoom handler 在 layout 和 page 的重複訂閱
-
-- **說明**: `layouts/default.vue` 第 67-71 行和 `pages/chatroom/index.vue` 第 261 行都訂閱了 `WsChannel.ChatRoom`，導致同一訊息被處理兩次。Layout 應只負責全域級通知（如更新聊天列表 badge），chatroom page 負責即時訊息渲染
-- **修改檔案**:
-  - `layouts/default.vue`
-  - `pages/chatroom/index.vue`
-- **前置依賴**: 無
-- **風險**: Low
-
-**實作步驟**:
-
-1. 在 `layouts/default.vue` 中，將 `chatRoomMessageHandler` 的邏輯改為「僅在非 chatroom 頁面時更新 query cache」（因為 chatroom page 已有自己的 handler 處理）：
-
-```typescript
-// layouts/default.vue
-
-const route = useRoute();
-
-const chatRoomMessageHandler = (payload: WsPayload) => {
-  const msg = payload.data?.message;
-  if (!msg) return;
-
-  // 若當前在 chatroom 頁面，由 chatroom page 自己的 handler 處理
-  if (route.path === '/chatroom') return;
-
-  updateQuery({ newMessage: msg, senderId: msg.senderId, receiverId: msg.receiverId });
-};
-```
-
-2. `pages/chatroom/index.vue` 的 `chatRoomHandler` 保持不變，負責即時訊息渲染與 query cache 更新。
-
-**驗證方式**:
-- 手動測試：在 chatroom 頁面收到訊息時，確認 `updateQuery` 只被呼叫一次
-- 手動測試：在其他頁面（如 friends）收到訊息時，確認 badge/列表仍會更新
-
----
-
-### Phase 3: 多頁籤優化
-
-#### TASK-007: 實作 Leader Election 機制
-
-- **說明**: 目前每個頁籤都獨立建立 WebSocket 連線，造成伺服器資源浪費。應只由 leader 頁籤建立 WS 連線並透過 BroadcastChannel 廣播給 follower
-- **修改檔案**:
-  - 新增 `utils/websocket/leaderElection.ts`
-- **前置依賴**: TASK-005（訂閱生命週期分離）
-- **風險**: High — 核心架構變更，需充分測試多頁籤場景
-
-**實作步驟**:
-
-1. 建立 `utils/websocket/leaderElection.ts`：
-
-```typescript
-// utils/websocket/leaderElection.ts
-
-interface LeaderElectionOptions {
-  /** 用於區分不同 lock 的名稱 */
-  name: string;
-  /** 成為 leader 時呼叫 */
-  onBecomeLeader: () => void;
-  /** 失去 leader 身份時呼叫 */
-  onLoseLeadership: () => void;
-}
-
-/**
- * 使用 Web Locks API 實現 Leader Election。
- * 第一個取得 lock 的頁籤成為 leader，lock 釋放後（頁籤關閉）其他頁籤競爭。
- *
- * 瀏覽器支援：Chrome 69+, Firefox 96+, Safari 15.4+
- * 若不支援，則每個頁籤都當 leader（降級為現有行為）
- */
-export function createLeaderElection(options: LeaderElectionOptions) {
-  const { name, onBecomeLeader, onLoseLeadership } = options;
-  let isLeader = false;
-  let abortController: AbortController | null = null;
-
-  const start = () => {
-    // 降級：不支援 Web Locks API 時，直接當 leader
-    if (!navigator.locks) {
-      isLeader = true;
-      onBecomeLeader();
-      return;
-    }
-
-    abortController = new AbortController();
-
-    navigator.locks.request(
-      `ws-leader-${name}`,
-      { signal: abortController.signal },
-      () => {
-        isLeader = true;
-        onBecomeLeader();
-
-        // 回傳一個永遠不會 resolve 的 Promise，保持 lock 直到頁籤關閉
-        return new Promise<void>(() => {});
-      }
-    ).catch((err) => {
-      if (err.name === 'AbortError') return; // 正常取消
-      console.error('Leader election error:', err);
-    });
-  };
-
-  const stop = () => {
-    if (isLeader) {
-      onLoseLeadership();
-    }
-    isLeader = false;
-    abortController?.abort();
-    abortController = null;
-  };
-
-  return {
-    start,
-    stop,
-    get isLeader() {
-      return isLeader;
-    }
-  };
-}
-```
-
-2. 此 TASK 僅建立基礎設施，整合到 store 在 TASK-008 處理。
-
-**驗證方式**:
-- 單元測試：mock `navigator.locks`，驗證 `onBecomeLeader` 被呼叫
-- 單元測試：不支援 `navigator.locks` 時，直接成為 leader
-
----
-
-#### TASK-008: 整合 Leader Election 到 notificationWebSocket store
-
-- **說明**: 將 Leader Election 整合到 notification store，只有 leader 頁籤建立 WS 連線。Follower 頁籤透過 BroadcastChannel 接收訊息（已由 `subscribe.ts` 支援）
-- **修改檔案**:
-  - `store/notificationWebSocket.ts`
-  - `layouts/default.vue`
-- **前置依賴**: TASK-004, TASK-007
-- **風險**: High
-
-**實作步驟**:
-
-1. 修改 `store/notificationWebSocket.ts`：
-
-```typescript
-import { createLeaderElection } from '@/utils/websocket/leaderElection';
-
-export const useNotification = defineStore('notification', () => {
-  const runtimeConfig = useRuntimeConfig();
-  const url = `${runtimeConfig.public.wsBase}/notificationWs` as string;
-
-  let websocketTool: BaseWebsocket | null = null;
-  let leaderElection: ReturnType<typeof createLeaderElection> | null = null;
-
-  const getWs = (): BaseWebsocket => {
-    if (!websocketTool) {
-      const authStore = useAuth();
-      websocketTool = new BaseWebsocket(url, {
-        tokenGetter: () => authStore.token,
-        onUnauthorized: () => useForceKickOut()
-      });
-    }
-    return websocketTool;
-  };
-
-  const init = (token: string) => {
-    if (leaderElection) return; // 已經啟動
-
-    leaderElection = createLeaderElection({
-      name: 'notification',
-      onBecomeLeader: () => {
-        console.log('This tab is now the WS leader');
-        getWs().init(token);
-      },
-      onLoseLeadership: () => {
-        console.log('This tab lost WS leadership');
-        getWs().handleClose();
-      }
-    });
-
-    leaderElection.start();
-  };
-
-  const handleClose = () => {
-    leaderElection?.stop();
-    leaderElection = null;
-    websocketTool?.handleClose();
-    websocketTool = null;
-  };
-
-  // ... 其餘方法保持不變
-});
-```
-
-2. `layouts/default.vue` 的 `watch(authStore.token)` 不需要修改，因為 `init()` 內部已處理 leader election。
-
-**驗證方式**:
-- 手動測試：開啟 2 個頁籤，確認只有 1 個建立 WS 連線（透過瀏覽器 DevTools Network 面板檢查）
-- 手動測試：關閉 leader 頁籤，確認另一個頁籤接管連線
-- 手動測試：兩個頁籤都能正常收到訊息
-
----
-
-#### TASK-009: 重連達上限後的恢復機制與 UI 通知
-
-- **說明**: 目前重連 3 次失敗後只 console.log，使用者無感知且無法恢復
-- **修改檔案**:
-  - `utils/websocket/index.ts`
-  - `store/notificationWebSocket.ts`
-- **前置依賴**: TASK-004
-- **風險**: Low
-
-**實作步驟**:
-
-1. 在 `BaseWebsocket` 中加入 `onReconnectExhausted` callback 和網路恢復監聽：
-
-```typescript
-// utils/websocket/index.ts — constructor options 新增:
-export interface BaseWebsocketOptions {
-  // ... 既有欄位
-  onReconnectExhausted?: () => void;
-}
-
-// constructor 中存儲:
-this.#onReconnectExhausted = options?.onReconnectExhausted ?? null;
-
-// reconnect() 中，達上限時觸發 callback:
-if (this.reconnectCount >= this.#options.maxReconnectAttempts) {
-  console.log('websocket 自動重連次數已達上限');
-  this.#onReconnectExhausted?.();
-  return;
-}
-
-// 新增網路恢復自動重連方法:
-enableAutoRecovery() {
-  if (!process.client) return;
-
-  const handleOnline = () => {
-    if (!this.isOpen() && !this.isConnecting() && !this.isHandleClose) {
-      console.log('Network restored, attempting reconnection');
-      this.reconnectCount = 0; // 重設計數
-      const token = this.#tokenGetter?.();
-      if (token) this.init(token);
-    }
-  };
-
-  const handleVisibilityChange = () => {
-    if (document.visibilityState === 'visible' && !this.isOpen() && !this.isConnecting() && !this.isHandleClose) {
-      console.log('Tab visible, checking connection');
-      this.reconnectCount = 0;
-      const token = this.#tokenGetter?.();
-      if (token) this.init(token);
-    }
-  };
-
-  window.addEventListener('online', handleOnline);
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-
-  // 返回清理函式
-  return () => {
-    window.removeEventListener('online', handleOnline);
-    document.removeEventListener('visibilitychange', handleVisibilityChange);
-  };
-}
-```
-
-2. 在 `store/notificationWebSocket.ts` 中使用 `onReconnectExhausted` 觸發 UI 通知：
-
-```typescript
-const getWs = (): BaseWebsocket => {
-  if (!websocketTool) {
-    const authStore = useAuth();
-    const messageStore = useMessage();
-    websocketTool = new BaseWebsocket(url, {
-      tokenGetter: () => authStore.token,
-      onUnauthorized: () => useForceKickOut(),
-      onReconnectExhausted: () => {
-        messageStore.openMessage({
-          title: '連線中斷',
-          content: '即時訊息連線已中斷，將在網路恢復時自動重連',
-          type: 'error',
-          hasCancel: false
-        });
-      }
-    });
-    websocketTool.enableAutoRecovery();
-  }
-  return websocketTool;
-};
-```
-
-**驗證方式**:
-- 手動測試：斷網 → 等待 3 次重連失敗 → 確認 UI 顯示「連線中斷」提示
-- 手動測試：恢復網路 → 確認自動重連成功
-- 手動測試：切換到其他頁籤再切回 → 確認連線恢復
-
----
-
-### Phase 4: 持續改進
-
-#### TASK-010: 強化 WsPayload 型別安全（消除 any）
-
-- **說明**: `DataType<T>` 的 `type` 欄位是 `string`，`WsPayload` 的 `data` 是 `any`，無法在編譯時期發現型別錯誤
-- **修改檔案**:
-  - `utils/websocket/types.ts`
-  - `composables/useWsChannel.ts`
-  - `enums/websocket.ts`
-- **前置依賴**: 無
-- **風險**: Low
-
-**實作步驟**:
-
-1. 更新 `utils/websocket/types.ts`：
-
-```typescript
-import { StatusCode } from '@/enums/common';
-import type { WsChannel } from '@/enums/websocket';
-
-export interface DataType<T = unknown> {
-  type: WsChannel | string; // 逐步遷移：允許 string 但優先使用 enum
-  data: T;
-  code: StatusCode;
-}
-```
-
-2. 在 `composables/useWsChannel.ts` 中，為已知 channel 建立型別映射：
-
-```typescript
-import type { WsChannel, WSCode } from '~/enums/websocket';
-import type { Message } from '@/api/types/chat';
-import type { GetRoomsResponse } from '@/api/types/stream';
-
-// 已知 channel 的 payload data 型別映射
-export interface WsChannelDataMap {
-  [WsChannel.Global]: unknown;
-  [WsChannel.InviteFriend]: { uuid: string; userName: string };
-  [WsChannel.SetFriendStatus]: void;
-  [WsChannel.AddRoom]: GetRoomsResponse;
-  [WsChannel.DeleteRoom]: { uuid: string };
-  [WsChannel.ChatRoom]: { user?: unknown; message: Message[] };
-  [WsChannel.StreamRoomStatus]: { uuid: string; status: boolean };
-  [WsChannel.OpenStatus]: unknown;
-}
-
-export type WsPayload<T extends WsChannel = WsChannel> = {
-  data: WsChannelDataMap[T];
-  code: WSCode;
-  type: T;
-};
-
-// 向後相容：通用型別
-export type WsPayloadGeneric = { data: any; code: WSCode; type: WsChannel };
-export type Handler<T extends WsChannel = WsChannel> = (payload: WsPayload<T>) => void;
-```
-
-3. 此為漸進式遷移，既有程式碼使用 `WsPayloadGeneric` 維持向後相容，新程式碼使用泛型 `WsPayload<T>`。
-
-**驗證方式**:
-- `yarn lint` 無新增錯誤
-- 確認既有元件的 handler 型別相容
-
----
-
-#### TASK-011: live/[uuid].vue 改用 useWsChannel composable
-
-- **說明**: `pages/live/[uuid].vue` 第 145-146 行直接呼叫 `streamStore.subscribe('streamRoomStatus', startVideo)`，未使用 `useWsChannel` composable，不一致且未自動清理
-- **修改檔案**: `pages/live/[uuid].vue`
-- **前置依賴**: 無
-- **風險**: Low
-
-**實作步驟**:
-
-1. 將直接訂閱改為 `useWsChannel`：
-
-```typescript
-// pages/live/[uuid].vue
-
-// 移除:
-// const startVideoHandler = () => { ... streamStore.subscribe('streamRoomStatus', startVideo); }
-// onUnmounted(() => { streamStore.unSubscribe('streamRoomStatus', startVideo); ... })
-
-// 改為:
-const streamStore = useStream();
-
-const streamRoomStatusHandler = (payload: WsPayload) => {
-  startVideo(payload.data as { uuid: string; status: boolean });
-};
-
-useWsChannel(
-  [{ type: WsChannel.StreamRoomStatus, handler: streamRoomStatusHandler }],
-  { subscribe: streamStore.subscribe, unsubscribe: streamStore.unSubscribe }
-);
-
-onMounted(() => {
-  getRoomInfo().then(() => {
-    if (import.meta.client && isVideoStart.value) {
-      startVideo({ uuid: roomInfo.value?.uuid || '', status: true });
-    }
-  });
-});
-
-onUnmounted(() => {
-  hls && hls.destroy();
-});
-```
-
-**驗證方式**:
-- 手動測試：進入直播間，開播時影片正常播放
-- 手動測試：離開直播間後，不再收到 streamRoomStatus 訊息
-
----
-
-#### TASK-012: Timer 型別修正
-
-- **說明**: `#heartBeatTimer` 和 `#waitServerHeartBeatTimer` 宣告為 `number | null`，但 `setTimeout` 在不同環境回傳 `NodeJS.Timeout`（SSR）或 `number`（browser）。目前第 115 行已用 `as unknown as number` 強制轉型，不夠安全
-- **修改檔案**: `utils/websocket/index.ts`
-- **前置依賴**: 無
-- **風險**: Low
-
-**實作步驟**:
-
-1. 使用 `ReturnType<typeof setTimeout>` 統一型別：
-
-```typescript
-// utils/websocket/index.ts
-
-#heartBeatTimer: ReturnType<typeof setTimeout> | null = null;
-#waitServerHeartBeatTimer: ReturnType<typeof setTimeout> | null = null;
-```
-
-2. 移除第 115 行的 `as unknown as number` 強制轉型，改用 `window.setTimeout`（因為只在 client 端執行，`window.setTimeout` 回傳 `number`）：
-
-```typescript
-startHeartBeat() {
-  this.resetHeartBeat();
-  this.#heartBeatTimer = window.setTimeout(() => {
-    this.websocket?.send('ping');
-    this.#waitServerHeartBeatTimer = window.setTimeout(() => {
-      console.warn('伺服器心跳回覆超時，主動斷開');
-      this.websocket?.close(4000, '等待心跳超時');
-    }, 5000);
-  }, this.#options.heartBeatTime);
-}
-```
-
-**驗證方式**:
-- `yarn lint` 與 `yarn build` 通過，無型別錯誤
-
----
-
-#### TASK-013: 高併發訊息批次/節流機制
-
-- **說明**: 聊天室活躍時可能短時間收到大量訊息，每條訊息都觸發 handler 和 DOM 更新，造成效能問題
-- **修改檔案**:
-  - 新增 `utils/websocket/batchNotifier.ts`
-  - `utils/websocket/index.ts`（可選整合）
-- **前置依賴**: 無
-- **風險**: Medium
-
-**實作步驟**:
-
-1. 建立 `utils/websocket/batchNotifier.ts`：
-
-```typescript
-// utils/websocket/batchNotifier.ts
-
-interface BatchNotifierOptions {
-  /** 批次間隔時間（ms），預設 100ms */
-  interval?: number;
-  /** 單批次最大訊息數，預設 50 */
-  maxBatchSize?: number;
-}
-
-/**
- * 將高頻訊息合併為批次處理。
- * 在 interval 時間內收集訊息，統一 flush 給 handler。
- */
-export function createBatchNotifier<T>(
-  handler: (batch: T[]) => void,
-  options: BatchNotifierOptions = {}
-) {
-  const { interval = 100, maxBatchSize = 50 } = options;
-  let buffer: T[] = [];
-  let timer: ReturnType<typeof setTimeout> | null = null;
-
-  const flush = () => {
-    if (buffer.length === 0) return;
-    const batch = buffer;
-    buffer = [];
-    timer = null;
-    handler(batch);
-  };
-
-  const push = (item: T) => {
-    buffer.push(item);
-
-    if (buffer.length >= maxBatchSize) {
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
-      flush();
-      return;
-    }
-
-    if (!timer) {
-      timer = setTimeout(flush, interval);
-    }
-  };
-
-  const destroy = () => {
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-    buffer = [];
-  };
-
-  return { push, flush, destroy };
-}
-```
-
-2. 在 `pages/chatroom/index.vue` 的 chatRoomHandler 中使用：
-
-```typescript
-// pages/chatroom/index.vue
-import { createBatchNotifier } from '@/utils/websocket/batchNotifier';
-
-const batchNotifier = createBatchNotifier<Message>((batch) => {
-  updateMessageRecord({ message: batch });
-  toggleNewMessageTipsHandler();
-}, { interval: 100 });
-
-const chatRoomHandler = (body: { data: { user: Friends; message: Message[]; type: 'chatRoom' } }) => {
-  if (routes.query?.uuid !== body.data.user?.uuid) return;
-  body.data.message.forEach((msg) => batchNotifier.push(msg));
-};
-
-onBeforeUnmount(() => {
-  batchNotifier.destroy();
-});
-```
-
-**驗證方式**:
-- 單元測試：100ms 內 push 10 條訊息，handler 只被呼叫 1 次且收到 10 條
-- 單元測試：push 超過 maxBatchSize 時立即 flush
-
----
-
-#### TASK-014: Store API 精簡與靜默失敗修正
-
-- **說明**: `store/notificationWebSocket.ts` 和 `store/stream.ts` 暴露過多 API（如 `notify`、`websocketGlobalMessage`），store 應只暴露必要的公開介面。另外 `handleSend` 在 WebSocket 未連接時靜默失敗
-- **修改檔案**:
-  - `store/notificationWebSocket.ts`
-  - `store/stream.ts`
-  - `utils/websocket/index.ts`
-- **前置依賴**: TASK-004
-- **風險**: Medium — 需確認所有 store 消費者
-
-**實作步驟**:
-
-1. 在 `BaseWebsocket.handleSend` 中加入連線狀態檢查：
-
-```typescript
-handleSend<T = string, U = 'global'>(
-  data: U extends 'video' ? Blob : { type: 'chatRoom' | 'global' | 'video'; data: T }
-) {
-  if (!this.isOpen()) {
-    console.warn('WebSocket is not open, message not sent');
-    return false;
-  }
-
-  if (data instanceof Blob) {
-    this.websocket?.send?.(data);
-  } else {
-    this.websocket?.send?.(JSON.stringify(data));
-  }
-  return true;
-}
-```
-
-2. 精簡 store 對外 API，移除不應暴露的方法：
-
-```typescript
-// store/notificationWebSocket.ts
-// 移除對外暴露: notify, websocketGlobalMessage
-// 保留: init, handleClose, handleSend, subscribe, unsubscribe
-return { init, handleClose, handleSend, subscribe, unsubscribe };
-```
-
-3. 檢查 `layouts/default.vue` 第 61 行 `notificationStore.websocketGlobalMessage` 的使用，確認 `globalMessageHandler` 內部邏輯是否可直接內聯或改用其他方式。
-
-**驗證方式**:
-- `yarn lint` 無錯誤
-- 確認所有使用 `notify` 和 `websocketGlobalMessage` 的地方都已遷移
-
----
-
-#### TASK-015: 補充單元測試
-
-- **說明**: 為前述修改補充測試覆蓋
-- **修改檔案**:
-  - 新增 `utils/websocket/__test__/baseWebsocket.spec.ts`
-  - 新增 `utils/websocket/__test__/subscribe.spec.ts`
-  - 新增 `utils/websocket/__test__/leaderElection.spec.ts`
-  - 新增 `utils/websocket/__test__/batchNotifier.spec.ts`
-- **前置依賴**: TASK-001 ~ TASK-013
-- **風險**: Low
-
-**實作步驟**:
-
-1. `baseWebsocket.spec.ts` 測試項目：
-   - UNAUTHORIZATION 訊息不觸發 notify
-   - onclose identity check 防止舊實例覆蓋
-   - reconnect 使用 tokenGetter
-   - reconnect exhausted 觸發 callback
-   - JSON parse 錯誤被捕獲
-
-2. `subscribe.spec.ts` 測試項目：
-   - subscribe/unsubscribe 正常運作
-   - closeChannels 保留 handler
-   - removeAll 完全清除
-   - 跨頁籤廣播（mock BroadcastChannel）
-
-3. `leaderElection.spec.ts` 測試項目：
-   - 取得 lock 後觸發 onBecomeLeader
-   - 不支援 navigator.locks 時降級
-   - stop 觸發 onLoseLeadership
-
-4. `batchNotifier.spec.ts` 測試項目：
-   - 批次合併與定時 flush
-   - 超過 maxBatchSize 立即 flush
-   - destroy 清理
-
-**驗證方式**:
-- `yarn test:ci` 全部通過
+### Phase 5: 斷線續傳與邊界處理
+
+#### TASK-012: 斷線續傳機制完善
+
+- **檔案**: `composables/useChunkUpload.ts`（修改）、`pages/chatroom/index.vue`（修改）
+- **Action**: 完善斷線續傳的 UX 流程與邊界處理
+- **詳細步驟**:
+  1. localStorage 資料結構定義（在 `api/types/chat.ts` 中新增）：
+     ```typescript
+     interface UploadRecord {
+       uploadId: string;
+       roomId: number;
+       receiverId: string;
+       fileName: string;
+       fileSize: number;
+       fileChecksum: string; // 整檔 SHA-256，用於續傳時驗證檔案一致性
+       totalChunks: number;
+       createdAt: number; // timestamp
+     }
+     ```
+     localStorage key 格式：`upload_progress_${uploadId}`
+     注意：不再儲存 `completedChunks`，每次續傳時透過 `getUploadStatusApi` 查詢 `receivedChunkIndices` 取得最新狀態
+  2. 在 `useChunkUpload` 中新增輔助方法：
+     - `getPendingUploads(roomId: number): UploadRecord[]` — 掃描 localStorage 中所有 `upload_progress_*` key，篩選匹配 roomId 且未過期（< 24 小時）的記錄
+     - `cleanExpiredUploads()` — 清除 `createdAt` 超過 24 小時的記錄（配合後端圖片 1 天過期）
+  3. 在聊天室頁面 `onMounted` 中新增：
+     a. 呼叫 `cleanExpiredUploads()` 清除過期記錄
+     b. 呼叫 `getPendingUploads(roomId)` 檢查是否有未完成上傳
+     c. 若有，使用現有 `Message` 元件彈出確認視窗：「偵測到有未完成的圖片上傳（{fileName}），是否繼續？」
+     d. 用戶選擇「繼續」：
+        - 顯示 file input 請用戶重新選擇檔案（File 物件無法序列化到 localStorage）
+        - 選擇後計算 SHA-256，與 `UploadRecord.fileChecksum` 比對
+        - 一致 → 呼叫 `resumeUpload(savedUploadId, file)`
+        - 不一致 → 提示「檔案不一致，請選擇原始檔案」
+     e. 用戶選擇「取消」 → 呼叫 `cancelUpload()`，清除 localStorage 記錄
+  4. 斷線續傳核心流程（在 composable 內）：
+     a. 呼叫 `getUploadStatusApi(uploadId)` 取得 `receivedChunkIndices` 和 `chunkProgress`
+     b. 循序遍歷所有 chunkIndex：
+        - 若 `receivedChunkIndices.includes(chunkIndex)` → 跳過（已完整接收）
+        - 否則取 `subChunkOffset = chunkProgress[String(chunkIndex)] ?? 0` 作為已接收 bytes
+        - 從 `file.slice(chunkIndex * CHUNK_SIZE + subChunkOffset, ...)` 取出剩餘部分
+        - 計算 `globalStart = chunkIndex * CHUNK_SIZE + subChunkOffset`
+        - 呼叫 `uploadChunkApi` 帶 `Content-Range: bytes globalStart-globalEnd/fileSize`
+        - 處理 `416 Range Not Satisfiable`：取回 `expectedStart`，修正 `subChunkOffset = expectedStart - chunkIndex * CHUNK_SIZE`，重新切片繼續傳送
+  5. 監聽網路狀態（在 composable 內）：
+     - `window.addEventListener('offline', ...)` — 暫停上傳，呼叫 `AbortController.abort()`，保留 localStorage 記錄
+     - `window.addEventListener('online', ...)` — 若之前因斷線暫停，自動嘗試 `resumeUpload`
+     - 在 `onBeforeUnmount` 中移除這兩個 event listener
+  6. 錯誤邊界：
+     - `getUploadStatusApi` 回傳 404（uploadId 已過期）→ 清除 localStorage，提示用戶重新上傳
+     - `getUploadStatusApi` 回傳 `status: 'completed'` → 清除 localStorage，不需額外處理（圖片訊息已透過 WebSocket 送達）
+- **Why**: 需求明確要求斷線續傳，需要完整的 UX 流程處理各種邊界情境
+- **Dependencies**: TASK-005
+- **Risk**: High — File 物件無法持久化，續傳需要用戶重新選擇檔案並驗證一致性；sub-chunk 續傳的 Content-Range 計算與 416 錯誤處理需謹慎
+- **驗收標準**:
+  - 上傳中斷網後重新連線，可自動從中斷處繼續上傳（sub-chunk 級別）
+  - 重新進入聊天室可偵測到未完成上傳並提示續傳
+  - 選擇不同檔案時會提示不一致
+  - 過期記錄（> 24h）自動清除
+  - 416 Range Not Satisfiable 錯誤正確處理
 
 ---
 
 ## Testing Strategy
 
-- **Unit tests**: `utils/websocket/__test__/` 目錄下的所有測試檔案（TASK-015）
-- **Integration tests**:
-  - 多頁籤 Leader Election 場景（手動測試，開 2-3 個頁籤）
-  - 斷網重連流程（手動測試，使用 DevTools Network throttling）
-  - Token 過期 → UNAUTHORIZATION → 登出流程
+### Unit Tests
+
+- **`utils/__test__/crypto.spec.ts`**:
+  - 測試 `computeSHA256` 對空 ArrayBuffer 產生正確 hash
+  - 測試對已知字串（轉 ArrayBuffer）產生預期的 SHA-256 hex
+  - 測試 `computeFileSHA256` 對 mock File 物件產生正確 hash
+
+- **`composables/__test__/useChunkUpload.spec.ts`**:
+  - 測試檔案驗證：超過 20MB 時 throw Error
+  - 測試檔案驗證：不支援的格式（如 gif）時 throw Error
+  - 測試 chunk 切割邏輯：驗證切割數量與大小（CHUNK_SIZE = 2MB）
+  - 測試進度計算：已上傳 chunk 數增加時 progress 正確更新
+  - Mock API 測試完整上傳流程（init → 循序 chunks → 等待 WebSocket）
+  - 測試取消上傳：AbortController 被 abort、DELETE API 被呼叫、localStorage 被清除
+  - 測試取消已完成上傳：409 Conflict 被正確捕獲
+  - 測試 localStorage 讀寫：記錄正確儲存與讀取
+  - 測試 sub-chunk 續傳：使用 `receivedChunkIndices` 和 `chunkProgress` 計算正確的起始位置
+  - 測試 416 Range Not Satisfiable 處理：使用 `expectedStart` 修正起始位置
+
+- **`components/upload/__test__/ImagePreviewModal.spec.ts`**:
+  - 測試 `visible=true` 時渲染、`visible=false` 時不渲染
+  - 測試確認/取消按鈕 emit 正確事件
+  - 測試超限檔案顯示錯誤提示
+
+- **`components/upload/__test__/UploadProgressBar.spec.ts`**:
+  - 測試不同 progress 值時進度條寬度
+  - 測試不同 phase 顯示對應文字
+  - 測試取消按鈕 emit 事件
+
+- **`components/chatroom/__test__/ImageMessage.spec.ts`**:
+  - 測試正常圖片：顯示 thumbnailUrl
+  - 測試過期圖片：顯示過期提示，不渲染 img
+  - 測試圖片載入失敗：顯示 fallback
+  - 測試點擊圖片 emit preview 事件
+
+### Integration Tests
+
+- 完整上傳流程：選擇檔案 → 預覽 → 確認 → 進度條 → 完成 → WebSocket `imageMessage` 接收（Mock API）
+- 取消上傳流程：上傳中 → 點取消 → API 呼叫 DELETE → 狀態重置
+- WebSocket `imageMessage` 接收 → 聊天列表新增圖片訊息
+- 斷線續傳流程：Status API 查詢 → 跳過已完成分片 → sub-chunk 續傳
 
 ## Risks & Mitigations
 
-- **風險**: Leader Election（TASK-007/008）改變核心連線機制，可能導致部分瀏覽器不支援
-  - Mitigation: `navigator.locks` 不支援時降級為每個頁籤獨立連線（現有行為）
+- **風險**: `useHttp` 不支援 binary body 與自訂 header 的組合
+  - **Mitigation**: `uploadChunkApi` 內使用原生 `$fetch` 封裝，手動注入 token 與 `Content-Range` header，不修改全域 `useHttp` 以避免影響其他模組
 
-- **風險**: TASK-005 分離訂閱生命週期後，重連時 BroadcastChannel 需要重建，可能短暫丟失跨頁籤訊息
-  - Mitigation: `ensureChannel` 在 broadcast 時自動重建 channel
+- **風險**: 大檔案 SHA-256 計算阻塞主執行緒
+  - **Mitigation**: 20MB 內的 SHA-256 計算在 Web Crypto API 下通常 < 100ms，可接受。若未來需支援更大檔案，可改用 Web Worker
 
-- **風險**: TASK-006 修改 layout ChatRoom handler 可能影響非 chatroom 頁面的訊息通知
-  - Mitigation: 用 `route.path` 判斷，確保非 chatroom 頁面仍能更新 query cache
+- **風險**: File 物件無法序列化，斷線續傳需重新選擇檔案
+  - **Mitigation**: 續傳時引導用戶重新選擇檔案，並透過 SHA-256 比對確認是同一個檔案，不一致時提示用戶
 
-- **風險**: TASK-014 精簡 store API 可能遺漏消費者
-  - Mitigation: 全域搜尋 `notificationStore.notify`、`notificationStore.websocketGlobalMessage` 確認無遺漏
+- **風險**: BlurHash 套件增加 bundle 大小
+  - **Mitigation**: 優先使用 CSS `filter: blur()` + 主色調背景作為簡易 placeholder，不引入額外套件。若 UX 要求精確 BlurHash 效果再評估引入
+
+- **風險**: 修改 chatroom 頁面可能破壞現有文字訊息功能
+  - **Mitigation**: 圖片訊息判斷使用 `item.type === 'image'` 條件渲染，text 路徑完全不變；所有新增 Message 欄位為 optional
+
+- **風險**: 416 Range Not Satisfiable 錯誤導致上傳卡住
+  - **Mitigation**: 捕獲 416 錯誤，從 response body 的 `expectedStart` 重新計算切片位置，重試上傳
+
+- **風險**: Cancel API 對已完成上傳回傳 409 Conflict
+  - **Mitigation**: `cancelUploadApi` 呼叫端捕獲 409 錯誤，視為「已完成」正常處理，清除本地記錄即可
 
 ## Success Criteria
 
-- [ ] UNAUTHORIZATION 訊息不會被廣播到 UI 元件
-- [ ] StreamWebsocket JSON.parse 錯誤被正確捕獲，不影響影音串流
-- [ ] 快速重連時舊 WebSocket 的 onclose 不會清除新實例
-- [ ] `utils/websocket/index.ts` 不再直接 import 任何 store 或 Nuxt composable
-- [ ] 斷線重連後所有 handler 仍然有效
-- [ ] ChatRoom 訊息不會被重複處理
-- [ ] 多頁籤場景只有 leader 建立 WS 連線，follower 透過 BroadcastChannel 收到訊息
-- [ ] 重連 3 次失敗後顯示 UI 通知，網路恢復後自動重連
-- [ ] 新增至少 15 個單元測試案例
-- [ ] `yarn lint` 與 `yarn build` 無錯誤
-- [ ] 所有手動測試場景驗證通過
+- [ ] 用戶可在聊天室選擇 webp/jpg/jpeg/png 圖片（<= 20MB）
+- [ ] 選擇圖片後彈出預覽確認視窗
+- [ ] 確認後開始上傳，顯示進度條
+- [ ] 檔案 > 2MB 時自動分片，循序上傳
+- [ ] SHA-256 checksum 正確計算（僅整檔）
+- [ ] 上傳過程可取消，正確呼叫 DELETE API（處理 409 Conflict）
+- [ ] 上傳完成後透過 WebSocket `imageMessage` 事件接收圖片訊息並顯示在聊天列表
+- [ ] 對方即時收到圖片訊息（透過 WebSocket `imageMessage`）
+- [ ] 點擊圖片可全屏預覽
+- [ ] 過期圖片顯示「圖片已過期」提示
+- [ ] 斷線後可從中斷處續傳（sub-chunk 級別）
+- [ ] 離開頁面並重新進入可偵測未完成上傳
+- [ ] 現有文字訊息功能完全不受影響
+- [ ] 所有核心邏輯有 unit test 覆蓋
 
 ## 影響檔案總覽
 
-| 檔案 | 修改類型 | 涉及 TASK |
-|------|----------|-----------|
-| `utils/websocket/index.ts` | 修改 | 001, 003, 004, 005, 009, 012, 014 |
-| `utils/websocket/subscribe.ts` | 修改 | 005 |
-| `utils/websocket/stream.ts` | 修改 | 002 |
-| `utils/websocket/types.ts` | 修改 | 010 |
-| `utils/websocket/leaderElection.ts` | 新增 | 007 |
-| `utils/websocket/batchNotifier.ts` | 新增 | 013 |
-| `store/notificationWebSocket.ts` | 修改 | 004, 008, 009, 014 |
-| `store/stream.ts` | 修改 | 004, 014 |
-| `composables/useWsChannel.ts` | 修改 | 010 |
-| `layouts/default.vue` | 修改 | 006 |
-| `pages/live/[uuid].vue` | 修改 | 011 |
-| `pages/chatroom/index.vue` | 修改 | 013 |
-| `utils/websocket/__test__/*.spec.ts` | 新增 | 015 |
+| 檔案 | 操作 | 說明 |
+|------|------|------|
+| `api/types/chat.ts` | 修改 | 新增上傳型別、Message 擴充圖片欄位、UploadRecord 型別 |
+| `api/modules/chat.ts` | 修改 | 新增 4 個上傳相關 API 函式（init、chunk、status、cancel） |
+| `enums/websocket.ts` | 修改 | 新增 ImageMessage channel |
+| `utils/crypto.ts` | 新增 | SHA-256 計算工具 |
+| `composables/useChunkUpload.ts` | 新增 | 分片上傳 composable |
+| `components/upload/ImagePreviewModal.vue` | 新增 | 圖片預覽確認彈窗 |
+| `components/upload/UploadProgressBar.vue` | 新增 | 上傳進度條 |
+| `components/chatroom/ImageMessage.vue` | 新增 | 圖片訊息泡泡 |
+| `components/lightbox/index.vue` | 新增 | 全屏預覽 |
+| `pages/chatroom/index.vue` | 修改 | 整合所有圖片上傳功能 |
+| `layouts/default.vue` | 修改 | 全域 ImageMessage WS 訂閱 |
 
 ## 進度追蹤
 
-- [ ] **Phase 1**: 關鍵修復
-  - [x] TASK-001: UNAUTHORIZATION 訊息順序修正
-  - [x] TASK-002: StreamWebsocket JSON.parse 錯誤處理
-  - [x] TASK-003: 重連 race condition 修復
-- [ ] **Phase 2**: 架構解耦
-  - [ ] TASK-004: BaseWebsocket 依賴注入重構
-  - [ ] TASK-005: 訂閱生命週期分離
-  - [ ] TASK-006: ChatRoom handler 去重
-- [ ] **Phase 3**: 多頁籤優化
-  - [ ] TASK-007: Leader Election 機制
-  - [ ] TASK-008: 整合 Leader Election 到 store
-  - [ ] TASK-009: 重連恢復機制與 UI 通知
-- [ ] **Phase 4**: 持續改進
-  - [ ] TASK-010: WsPayload 型別強化
-  - [ ] TASK-011: live/[uuid].vue 改用 useWsChannel
-  - [ ] TASK-012: Timer 型別修正
-  - [ ] TASK-013: 高併發訊息批次機制
-  - [ ] TASK-014: Store API 精簡
-  - [ ] TASK-015: 補充單元測試
+- [x] TASK-001: 上傳型別定義與 Message 擴充（`api/types/chat.ts`）— Completed 2026-04-12
+- [ ] TASK-002: 上傳 API 函式（`api/modules/chat.ts`）
+- [ ] TASK-003: WebSocket channel 列舉（`enums/websocket.ts`）
+- [ ] TASK-004: SHA-256 工具函式（`utils/crypto.ts`）
+- [ ] TASK-005: 分片上傳 Composable（`composables/useChunkUpload.ts`）
+- [ ] TASK-006: 圖片預覽確認彈窗（`components/upload/ImagePreviewModal.vue`）
+- [ ] TASK-007: 上傳進度條元件（`components/upload/UploadProgressBar.vue`）
+- [ ] TASK-008: 圖片訊息泡泡元件（`components/chatroom/ImageMessage.vue`）
+- [ ] TASK-009: Lightbox 全屏預覽（`components/lightbox/index.vue`）
+- [ ] TASK-010: 聊天室頁面整合（`pages/chatroom/index.vue`）
+- [ ] TASK-011: WebSocket 事件訂閱（`pages/chatroom/index.vue` + `layouts/default.vue`）
+- [ ] TASK-012: 斷線續傳機制完善（`composables/useChunkUpload.ts` + `pages/chatroom/index.vue`）
+
+## 約束與注意事項
+
+- `useHttp.delete` 的 `gateway` 參數為必填，呼叫時需傳入 `'normal'`
+- `uploadChunkApi` 無法使用 `useHttp`（不支援 binary body + 自訂 header），需用原生 `$fetch` 封裝並手動注入 token
+- `Content-Range` header 為 chunk upload API 的必填欄位，格式：`bytes {start}-{end}/{fileSize}`
+- 後端不回傳 `chunkSize`，前端自行定義常數 `CHUNK_SIZE = 2 * 1024 * 1024`（2MB）
+- 後端自動合併分片，無需前端呼叫 complete API
+- 所有上傳 API 的 `needLoading` 應設為 `false`，避免觸發全域 loading overlay
+- WebSocket 訊息透過 `BroadcastChannel` 廣播，新增的 `WsChannel` enum 值需與後端 WebSocket 事件的 `type` 欄位名稱完全一致（`imageMessage` 非 `image_message`）
+- 現有 `Message` interface 的擴充必須全部使用 optional field（`?:`），確保向後相容
+- 專案使用 Nuxt 3 auto-import，`composables/` 與 `components/` 下的檔案會自動可用，不需手動 import
+- CSS z-index 需遵循 `tailwind.config.js` 中的層級定義（modal: 901、shadow: 1000）
+- 聊天室頁面的 VirtualList 使用 scoped slot 渲染訊息，新增圖片訊息渲染時需注意 slot data 的 `item` 型別
+- `composables/useChunkUpload.ts` 需遵循 `composable.md` 規範：Options interface 獨立定義、函式以 `use` 開頭、明確定義回傳值
+- `ImageMessagePayload.roomId` 型別為 `number`（非 `string`）
+- 圖片 URL 組成規則：`/images/messageImage/${imageId}/original.webp`（原圖）、`/images/messageImage/${imageId}/thumb.webp`（縮圖）
+- 圖片有效期 24 小時，過期後 `isExpired: true`

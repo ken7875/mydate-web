@@ -10,6 +10,7 @@ import type {
   UploadStatusResponse
 } from '../types/chat';
 import qs from 'qs';
+import type { BaseField } from '../types/common';
 
 export const getMessageRecordApi = (message: GetMessageRecord) => {
   const queryString = qs.stringify(message);
@@ -65,7 +66,7 @@ export const uploadChunks = ({
   headers: ChunkUploadRequestHeader;
   params: ChunkUploadRequest;
   chunk: Blob;
-}) => {
+}): Promise<BaseField<ChunkUploadResponse>> => {
   return new Promise((resolve, reject) => {
     const token = useCookie('access_token').value;
     if (!token) {
@@ -79,7 +80,7 @@ export const uploadChunks = ({
     xhr.setRequestHeader('Content-Range', `bytes ${headers.start}-${headers.end}/${headers.total}`);
     xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.onload = function () {
-      resolve(JSON.parse(xhr.responseText) as ChunkUploadResponse);
+      resolve(JSON.parse(xhr.responseText) as BaseField<ChunkUploadResponse>);
     };
     xhr.onerror = function (e) {
       reject(e);

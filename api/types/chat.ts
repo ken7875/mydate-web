@@ -55,6 +55,12 @@ export interface ChunkUploadRequest {
   chunkIndex: number;
 }
 
+export interface ChunkUploadRequestHeader {
+  start: number;
+  end: number;
+  total: number;
+}
+
 export interface ChunkUploadPartialResponse {
   uploadId: string;
   chunkIndex: number;

@@ -129,7 +129,7 @@ export const useHttp = {
     // headers = { 'Content-Type': 'application/json' }
   }: {
     url: string;
-    body?: BodyInit | Record<string, unknown>;
+    body?: BodyInit | Record<string, any>;
     isMock?: boolean;
     headers?: HeadersInit;
     gateway?: Gateway;
@@ -166,7 +166,7 @@ export const useHttp = {
     url: string;
     body?: Record<string, unknown>;
     isMock?: boolean;
-    gateway: Gateway;
+    gateway?: Gateway;
     needLoading?: boolean;
   }) => {
     return myFetch({ isMock, gateway, needLoading })<BaseField<T>>(url, { method: 'delete', body });

@@ -16,7 +16,6 @@
     <div class="flex flex-col overflow-scroll scrollbar-none w-full h-[90%]">
       <div class="relative flex-1 px-5 py-2 overflow-y-auto h-full">
         <template v-if="Number(messageRecordTotal) > 0">
-          <!-- TODO 修正無限滾動 bug -->
           <VirtualList
             :totalData="allMessageData"
             :perLoadNum="pageSize"
@@ -61,7 +60,11 @@
                     isSelf(item) ? 'bg-primary text-white chatBoxHorn__right' : 'bg-secondary chatBoxHorn__left'
                   ]"
                 >
-                  <p class="text-sm">{{ item.message }}</p>
+                  <p v-if="item.type === 'text' || item.status === 'failed'" class="text-sm">{{ item.message }}</p>
+                  <div v-else-if="item.type === 'image'">
+                    <img :src="item.thumbnailUrl" alt="圖片預覽" />
+                    <p>{{ loadedProgress }}</p>
+                  </div>
                   <p :class="[isSelf(item) ? 'text-gray-300' : 'text-gray-500', 'text-xs mt-1 text-right']">
                     {{ moment(item.sendTime).format('HH:mm') }}
                   </p>
@@ -83,11 +86,23 @@
       </div>
       <div class="p-4 bg-secondary">
         <div class="flex">
+          <button class="px-3 py-2 text-gray-500 hover:text-blue-500 focus:outline-none" @click="fileInputRef?.click()">
+            <ClientOnly>
+              <font-awesome-icon :icon="['fas', 'paperclip']" />
+            </ClientOnly>
+          </button>
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept="image/webp,image/jpeg,image/png"
+            class="hidden"
+            @change="onUploadFileChange"
+          />
           <input
             type="text"
             placeholder="輸入消息..."
             maxlength="5000"
-            class="flex-1 p-2 rounded-l-md border border-gray-300 focus:outline-none focus:border-blue-500"
+            class="flex-1 p-2 border border-gray-300 focus:outline-none focus:border-blue-500"
             v-model="waitToSendMessage"
           />
           <button
@@ -99,7 +114,12 @@
         </div>
       </div>
     </div>
-    <Message v-if="resendConfirmModalConfig.status" title="重傳或刪除" :content="'請選擇要重新傳送還是刪除'">
+    <Message
+      v-if="resendConfirmModalConfig.status"
+      title="重傳或刪除"
+      :content="'請選擇要重新傳送還是刪除'"
+      @close="() => (resendConfirmModalConfig.status = false)"
+    >
       <template #footer>
         <div class="flex justify-end py-2">
           <BaseButton class="h-10 w-20 mr-3" @click="resendModalHandler('resend')">重傳</BaseButton>
@@ -120,22 +140,26 @@ import type { Friends } from '@/api/types/friend';
 import { WsChannel, WSCode } from '~/enums/websocket';
 import { SendMessageDB } from '@/utils/indexedDB/sendMessage';
 import { useNotification } from '~/store/notificationWebSocket';
+import { useMessage } from '~/store/message';
+import { initUploadApi, uploadChunkApi } from '@/api/modules/chat';
+import { computeFileSHA256 } from '@/utils/crypto';
 
 const routes = useRoute();
 const focusFriend = computed(() => ({
   uuid: routes.query.uuid as string
 }));
 const pageSize = 20;
-const messageDB = new SendMessageDB();
 
 const chatStore = useChat();
-
 const { sendMessage } = chatStore;
 
 const webSocketStore = useNotification();
 
+const messageStore = useMessage();
+
 const { getMessageRecordQuery, updateMessageQuery } = useMessageQuery();
 
+const messageDB = new SendMessageDB();
 const failMessageHandler = useFailedMessages(messageDB);
 
 const { data: friendData } = await useMyAsyncData(
@@ -307,7 +331,10 @@ const refreshFailMessages = async () => {
     idx: `${-1}-${idx}`
   }));
 };
-refreshFailMessages();
+
+onMounted(() => {
+  refreshFailMessages();
+});
 
 const messageRecordTotal = computed(() => (messageRecordRes.value?.total || 0) + failMessages.value.length);
 
@@ -319,6 +346,82 @@ const allMessageData = computed<(Message & { idx: string })[]>(() => [
 const debounceFetchNextPage = useDebounceFn(fetchNextPage, 100);
 const showPrevRecordData = async () => {
   return await debounceFetchNextPage(); // 取得先前紀錄
+};
+
+const fileInputRef = useTemplateRef<HTMLInputElement>('fileInputRef');
+const selectedFile = ref<File | null>(null);
+const loadedProgress = ref(0);
+const onUploadFileChange = async (event: Event) => {
+  selectedFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
+  if (fileInputRef.value) fileInputRef.value.value = '';
+  if (!selectedFile.value) return;
+  const url = URL.createObjectURL(selectedFile.value);
+  try {
+    await messageStore.openMessage({
+      title: '圖片預覽',
+      height: 'fit-content',
+      content: h(
+        'div',
+        {
+          style: 'display: flex; justify-content: center; align-items: center; height: 300px; overflow: hidden;'
+        },
+        [
+          h('img', {
+            src: url,
+            alt: '上傳圖片預覽',
+            style: 'height: 100%; object-fit: contain;'
+          })
+        ]
+      )
+    });
+
+    const checksum = await computeFileSHA256(selectedFile.value);
+    const initRes = await initUploadApi({
+      fileName: selectedFile.value.name,
+      fileSize: selectedFile.value.size,
+      mimeType: selectedFile.value.type,
+      checksum,
+      receiverId: routes.query.uuid as string,
+      roomId: Number(routes.query.roomId)
+    });
+
+    const perChunkSize = Math.pow(1024, 2) * 2; // 2MB;
+    const file = selectedFile.value;
+    const uploadId = initRes.data?.uploadId;
+    if (!uploadId) {
+      await messageStore.openMessage({
+        title: '錯誤',
+        content: '上傳失敗',
+        type: 'error'
+      });
+      return;
+    }
+
+    loadedProgress.value = 0;
+    let globalLoaded = 0;
+    await useChunkUpload({
+      perChunkSize,
+      fileSize: file.size,
+      uploadApi: async ({ start, end, fileSize }) =>
+        uploadChunkApi({
+          uploadId,
+          chunkIndex: Math.floor(start / perChunkSize),
+          chunk: file.slice(start, end),
+          globalStart: start,
+          globalEnd: end,
+          fileSize,
+          onUploadProgress: ({ loaded }: { loaded: number; total: number }) => {
+            globalLoaded = start + loaded;
+            loadedProgress.value = Math.floor((globalLoaded / fileSize) * 100);
+          }
+        })
+    });
+  } catch (error) {
+    console.error('上傳失敗:', error);
+  } finally {
+    selectedFile.value = null;
+    URL.revokeObjectURL(url);
+  }
 };
 
 const chatRoomHandler = (body: WsPayload<WsMessage>) => {

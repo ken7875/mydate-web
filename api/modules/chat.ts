@@ -1,6 +1,4 @@
 import type {
-  ChunkUploadRequest,
-  ChunkUploadRequestHeader,
   ChunkUploadResponse,
   GetMessageRecord,
   InitUploadRequest,
@@ -50,7 +48,7 @@ export const getUnreadTotal = () => {
   });
 };
 
-export const initUploadFile = (body: InitUploadRequest) => {
+export const initUploadApi = (body: InitUploadRequest) => {
   return useHttp.post<InitUploadResponse>({
     url: '/uploads/init',
     needLoading: false,
@@ -58,33 +56,49 @@ export const initUploadFile = (body: InitUploadRequest) => {
   });
 };
 
-export const uploadChunks = ({
-  headers,
-  params,
-  chunk
+export const uploadChunkApi = ({
+  uploadId,
+  chunkIndex,
+  chunk,
+  globalStart,
+  globalEnd,
+  fileSize,
+  signal,
+  onUploadProgress
 }: {
-  headers: ChunkUploadRequestHeader;
-  params: ChunkUploadRequest;
+  uploadId: string;
+  chunkIndex: number;
   chunk: Blob;
+  globalStart: number;
+  globalEnd: number;
+  fileSize: number;
+  signal?: AbortSignal;
+  onUploadProgress?: (progress: { loaded: number; total: number }) => void;
 }): Promise<BaseField<ChunkUploadResponse>> => {
+  const runtimeConfig = useRuntimeConfig();
+  const apiUrl = import.meta.client ? runtimeConfig.public.apiBase : runtimeConfig.public.apiBaseServer;
+  const token = useCookie('access_token').value;
+
   return new Promise((resolve, reject) => {
-    const token = useCookie('access_token').value;
-    if (!token) {
-      useForceKickOut();
-      return;
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onUploadProgress?.({ loaded: event.loaded, total: event.total });
+      }
+    };
+
+    xhr.onload = () => resolve(JSON.parse(xhr.responseText) as BaseField<ChunkUploadResponse>);
+    xhr.onerror = (e) => reject(e);
+
+    if (signal) {
+      signal.addEventListener('abort', () => xhr.abort());
     }
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `/api/uploads/${params.uploadId}/chunks/${params.chunkIndex}`, true);
-    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-    xhr.setRequestHeader('Content-Range', `bytes ${headers.start}-${headers.end}/${headers.total}`);
+    xhr.open('PUT', `${apiUrl}/api/uploads/${uploadId}/chunks/${chunkIndex}`);
     xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    xhr.onload = function () {
-      resolve(JSON.parse(xhr.responseText) as BaseField<ChunkUploadResponse>);
-    };
-    xhr.onerror = function (e) {
-      reject(e);
-    };
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    xhr.setRequestHeader('Content-Range', `bytes ${globalStart}-${globalEnd}/${fileSize}`);
     xhr.send(chunk);
   });
 };

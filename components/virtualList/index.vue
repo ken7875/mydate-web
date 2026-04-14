@@ -56,10 +56,7 @@ const startIdx = ref(0);
 const endIdx = ref(props.perLoadNum);
 const stopHandlers: (() => void)[] = [];
 
-const virtualListData = computed(() => {
-  console.log(startIdx.value, endIdx.value);
-  return props.totalData.slice(startIdx.value, endIdx.value);
-});
+const virtualListData = computed(() => props.totalData.slice(startIdx.value, endIdx.value));
 
 // 數窗內最多限制DOM筆數（用實際渲染筆數，避免最後一頁不足 perLoadNum 時計算錯誤）
 const isExceedLimitData = computed(() => virtualListData.value.length > maxItemCount.value);

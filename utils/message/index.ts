@@ -42,13 +42,13 @@ export const messageTool = () => {
     return new Promise((resolve, reject) => {
       // // render
       const container = document.createElement('div');
-
       showingMessage = {
         type: 'normal',
         ...config,
         onSave: () => beforeClose(resolve, 'confirm'),
         onClose: () => beforeClose(reject, 'reject'),
         onDestroy: () => {
+          console.log(123);
           render(null, container);
           document.body.removeChild(container);
         }

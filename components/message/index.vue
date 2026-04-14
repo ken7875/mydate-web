@@ -2,31 +2,37 @@
   <div class="overlay" @click.stop.self.prevent="handleAction('cancel')">
     <Card
       :class="[
-        'relative z-message lg:w-[35%] w-[80%] h-[200px] px-[2rem] py-[1rem] animate-scale top-[30%] left-1/2 -translate-x-1/2',
+        'relative z-message lg:w-[35%] px-8 py-4 animate-scale top-[30%] left-1/2 -translate-x-1/2 flex flex-col',
         type
       ]"
+      :style="{
+        width: $props.width,
+        height: $props.height
+      }"
     >
       <template #header>
-        <h3 class="font-bold text-[1.5rem] mb-[15px] border-b border-darkLight">{{ title }}</h3>
-      </template>
-      <template #body>
-        <div v-if="$slots.body">
-          <slot name="body"></slot>
-        </div>
-        <div>
-          <div @click="handleAction('cancel')" class="absolute top-[3%] right-[3%]">
+        <div class="flex items-center w-full border-b border-darkLight">
+          <h3 class="font-bold text-[1.5rem] flex-1">{{ title }}</h3>
+          <div @click="handleAction('cancel')">
             <client-only>
               <font-awesome-icon :icon="['fas', 'xmark']" class="text-[1.5rem] cursor-pointer" />
             </client-only>
           </div>
-          <p class="text-[1.2rem]" ref="normalContent">
-            <component v-if="isVNode(content)" :is="() => content" />
-            <template v-else>{{ content }}</template>
+        </div>
+      </template>
+      <template #body>
+        <div class="py-[15px]">
+          <div v-if="$slots.body">
+            <slot name="body"></slot>
+          </div>
+          <component v-if="isVNode(content)" :is="() => content" class="text-[1.2rem]" />
+          <p v-else class="text-[1.2rem]" ref="normalContent">
+            {{ content }}
           </p>
         </div>
       </template>
       <template #footer>
-        <div class="absolute bottom-0 w-full flex justify-end border-t border-darkLight py-2">
+        <div class="mt-auto w-full flex justify-end border-t border-darkLight py-2">
           <template v-if="$slots.footer">
             <slot name="footer"></slot>
           </template>
@@ -63,12 +69,16 @@ const props = withDefaults(
     onSave?: () => void;
     onClose?: () => void;
     onDestroy?: () => void;
+    width?: string;
+    height?: string;
   }>(),
   {
     hasSubmit: true,
     hasBtn: true,
     hasCancel: true,
-    type: 'normal'
+    type: 'normal',
+    width: '80%',
+    height: '200px'
   }
 );
 

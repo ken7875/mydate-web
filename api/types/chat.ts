@@ -39,7 +39,6 @@ export interface InitUploadRequest {
   fileSize: number;
   mimeType: string;
   checksum: string;
-  totalChunks: number;
   receiverId: string;
   roomId: number;
 }

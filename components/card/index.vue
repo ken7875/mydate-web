@@ -5,12 +5,12 @@
         <slot name="header"></slot>
       </template>
       <template v-if="$slots.body">
-        <slot name="body"></slot>
+        <div class="flex-1">
+          <slot name="body"></slot>
+        </div>
       </template>
       <template v-if="$slots.footer">
-        <div class="absolute bottom-0 w-full">
-          <slot name="footer"></slot>
-        </div>
+        <slot name="footer"></slot>
       </template>
     </div>
     <template v-if="$slots.detail">

@@ -5,7 +5,10 @@ export interface GetMessageRecord extends Pagination {
 }
 
 export type MessageStatus = 'sending' | 'success' | 'failed';
-export type MessageType = 'text' | 'image';
+export enum MessageType {
+  TEXT = 'text',
+  IMAGE = 'image'
+}
 
 export interface Message {
   senderId: string;
@@ -16,7 +19,7 @@ export interface Message {
   localId?: string;
   seq?: number;
   roomId: number;
-  type?: MessageType;
+  type: MessageType;
   imageId?: string;
   thumbnailUrl?: string;
   originalUrl?: string;

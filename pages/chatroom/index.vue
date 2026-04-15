@@ -132,7 +132,7 @@
 
 <script setup lang="ts">
 import { useChat } from '@/store/chat';
-import type { Message, MessageStatus, WsMessage } from '@/api/types/chat';
+import { MessageType, type Message, type MessageStatus, type WsMessage } from '@/api/types/chat';
 import moment from 'moment';
 import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
@@ -270,7 +270,8 @@ const sendMessageHandler = (message?: Message) => {
     sendTime: Math.ceil(Date.now() / 1000),
     status: 'sending' as MessageStatus,
     localId: crypto.randomUUID() as string,
-    roomId: Number(routes.query.roomId)
+    roomId: Number(routes.query.roomId),
+    type: MessageType['TEXT']
   };
 
   sendMessage({ roomId: Number(routes.query?.roomId), message: [newMessage] });

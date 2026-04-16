@@ -38,7 +38,7 @@
               </div>
               <div
                 :class="[
-                  'w-full flex items-center',
+                  'w-full flex items-center flex-wrap',
                   userInfoRes?.data?.uuid === item.senderId ? 'justify-end' : 'justify-start'
                 ]"
               >
@@ -67,12 +67,13 @@
                       :src="getDefaultAvatar(item.messageImage?.thumbnailUrl)"
                       alt="圖片預覽"
                     />
-                    <!-- TODO 進度條實作 -->
-                    <p>{{ loadedProgress }}</p>
                   </div>
                   <p :class="[isSelf(item) ? 'text-gray-300' : 'text-gray-500', 'text-xs mt-1 text-right']">
-                    {{ moment(item.sendTime).format('HH:mm') }}
+                    {{ moment(item.sendTime * 1000).format('HH:mm') }}
                   </p>
+                </div>
+                <div class="w-full flex justify-end" v-if="item.type === 'image'">
+                  <p>{{ loadedProgress }}</p>
                 </div>
               </div>
             </template>
@@ -361,9 +362,10 @@ const onUploadFileChange = async (event: Event) => {
   selectedFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
   if (fileInputRef.value) fileInputRef.value.value = '';
   if (!selectedFile.value) return;
+  console.log(selectedFile.value, 'selectedFile.value');
   const url = URL.createObjectURL(selectedFile.value);
-  try {
-    await messageStore.openMessage({
+  messageStore
+    .openMessage({
       title: '圖片預覽',
       height: 'fit-content',
       content: h(
@@ -379,68 +381,88 @@ const onUploadFileChange = async (event: Event) => {
           })
         ]
       )
-    });
+    })
+    ?.then(async () => {
+      try {
+        const checksum = await computeFileSHA256(selectedFile.value!);
+        const initRes = await initUploadApi({
+          fileName: selectedFile.value!.name,
+          fileSize: selectedFile.value!.size,
+          mimeType: selectedFile.value!.type,
+          checksum,
+          receiverId: routes.query.uuid as string,
+          roomId: Number(routes.query.roomId)
+        });
 
-    const checksum = await computeFileSHA256(selectedFile.value);
-    const initRes = await initUploadApi({
-      fileName: selectedFile.value.name,
-      fileSize: selectedFile.value.size,
-      mimeType: selectedFile.value.type,
-      checksum,
-      receiverId: routes.query.uuid as string,
-      roomId: Number(routes.query.roomId)
-    });
+        const perChunkSize = Math.pow(1024, 2) * 2; // 2MB;
+        const file = selectedFile.value!;
+        const uploadId = initRes.data?.uploadId;
+        if (!uploadId) {
+          await messageStore.openMessage({
+            title: '錯誤',
+            content: '上傳失敗',
+            type: 'error'
+          });
+          return;
+        }
 
-    const perChunkSize = Math.pow(1024, 2) * 2; // 2MB;
-    const file = selectedFile.value;
-    const uploadId = initRes.data?.uploadId;
-    if (!uploadId) {
-      await messageStore.openMessage({
-        title: '錯誤',
-        content: '上傳失敗',
-        type: 'error'
-      });
-      return;
-    }
+        updateMessageRecord({
+          message: [
+            {
+              receiverId: focusFriend.value.uuid as string,
+              senderId: userInfoRes.value?.data?.uuid as string,
+              message: waitToSendMessage.value,
+              sendTime: Math.ceil(Date.now() / 1000),
+              status: 'sending' as MessageStatus,
+              localId: crypto.randomUUID() as string,
+              roomId: Number(routes.query.roomId),
+              type: MessageType['IMAGE'],
+              messageImage: {
+                thumbnailUrl: url, // 樂觀更新只需縮圖
+                originalUrl: '',
+                blurHash: '',
+                width: 0,
+                height: 0,
+                isExpired: false
+              }
+            }
+          ]
+        });
 
-    loadedProgress.value = 0;
-    let globalLoaded = 0;
-    await useChunkUpload({
-      perChunkSize,
-      fileSize: file.size,
-      uploadApi: async ({ start, end, fileSize }) =>
-        uploadChunkApi({
-          uploadId,
-          chunkIndex: Math.floor(start / perChunkSize),
-          chunk: file.slice(start, end),
-          globalStart: start,
-          globalEnd: end,
-          fileSize,
-          onUploadProgress: ({ loaded }: { loaded: number; total: number }) => {
-            globalLoaded = start + loaded;
-            loadedProgress.value = Math.floor((globalLoaded / fileSize) * 100);
-          }
-        })
+        loadedProgress.value = 0;
+        let globalLoaded = 0;
+        await useChunkUpload({
+          perChunkSize,
+          fileSize: file.size,
+          uploadApi: async ({ start, end, fileSize }) =>
+            uploadChunkApi({
+              uploadId,
+              chunkIndex: Math.floor(start / perChunkSize),
+              chunk: file.slice(start, end),
+              globalStart: start,
+              globalEnd: end,
+              fileSize,
+              onUploadProgress: ({ loaded }: { loaded: number; total: number }) => {
+                globalLoaded = start + loaded;
+                loadedProgress.value = Math.floor((globalLoaded / fileSize) * 100);
+              }
+            })
+        });
+      } catch (error) {
+        console.error('上傳失敗:', error);
+      } finally {
+        selectedFile.value = null;
+        URL.revokeObjectURL(url);
+      }
     });
-  } catch (error) {
-    console.error('上傳失敗:', error);
-  } finally {
-    selectedFile.value = null;
-    URL.revokeObjectURL(url);
-  }
 };
 
 const chatRoomHandler = (body: WsPayload<WsMessage>) => {
-  const isCurrentRoomMessage = Number(routes.query?.roomId) === body.data?.roomId;
-  const alreadyUpdate = !isSelf(body.data.message[0]) || body.code === WSCode.PENDING;
-
-  if (isCurrentRoomMessage && !alreadyUpdate) {
-    try {
-      updateMessageRecord({ message: body.data.message });
-      toggleNewMessageTipsHandler();
-    } catch (error) {
-      console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
-    }
+  try {
+    updateMessageRecord({ message: body.data.message });
+    toggleNewMessageTipsHandler();
+  } catch (error) {
+    console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
   }
 };
 

@@ -19,7 +19,7 @@
         >
           <template v-slot="{ item }">
             <div
-              :class="['flex w-full h-[5.5rem] cursor-pointer p-[5px] border-b border-gray-300']"
+              :class="['flex w-full h-22 cursor-pointer p-[5px] border-b border-gray-300']"
               @click="checkChatRoom(item)"
             >
               <div class="w-[65px] h-[65px] rounded-[50%] overflow-hidden">
@@ -39,8 +39,8 @@
               <div class="w-[calc(100%-65px)] px-[5px]" @contextmenu.prevent="openUserOperateMenu">
                 <div class="flex justify-between items-center w-ful mb-[3px]">
                   <span v-if="isDev">{{ item.idx }}</span>
-                  <p class="font-bold leading-[1.5]">{{ item.userName }}</p>
-                  <p class="text-sm leading-[1.5]">下午 2:56</p>
+                  <p class="font-bold leading-normal">{{ item.userName }}</p>
+                  <p class="text-sm leading-normal">下午 2:56</p>
                 </div>
                 <div class="flex justify-between items-center w-full">
                   <div class="w-[80%]">
@@ -50,7 +50,7 @@
                     <div
                       class="bg-primary leading-1 rounded-[50%] flex justify-center items-center min-w-[30px] h-[30px] px-[3px]"
                     >
-                      <span class="font-[600] text-[14px]">{{ unReadCount[item.roomId]?.count || 0 }}</span>
+                      <span class="font-semibold text-[14px]">{{ unReadCount[item.roomId]?.count || 0 }}</span>
                     </div>
                   </div>
                 </div>

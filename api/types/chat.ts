@@ -20,13 +20,14 @@ export interface Message {
   seq?: number;
   roomId: number;
   type: MessageType;
-  imageId?: string;
-  thumbnailUrl?: string;
-  originalUrl?: string;
-  blurHash?: string;
-  imageWidth?: number;
-  imageHeight?: number;
-  isExpired?: boolean;
+  messageImage?: {
+    thumbnailUrl: string;
+    originalUrl: string;
+    blurHash: string;
+    width: number;
+    height: number;
+    isExpired: boolean;
+  };
 }
 
 export interface WsMessage {

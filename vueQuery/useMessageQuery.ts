@@ -57,16 +57,23 @@ export default () => {
       ['messageRecord', { id: roomId }],
       (oldData: InfiniteData<MessagePage, number> | undefined) => {
         if (!oldData) return oldData;
+
         const res = {
           ...oldData,
           pages: oldData.pages.map((page, index) => {
             if (index === 0) {
+              const oldMessageData = page.data?.data ?? [];
+              const repeatIndex = oldMessageData.findIndex((message) => message.localId === newMessage[0].localId);
+              if (repeatIndex > -1) {
+                oldMessageData.splice(repeatIndex, 1);
+              }
+
               return {
                 ...page,
                 total: (page.total ?? 0) + 1,
                 data: {
                   ...page.data,
-                  data: [...newMessage, ...(page.data?.data ?? [])]
+                  data: [...newMessage, ...oldMessageData]
                 }
               };
             }

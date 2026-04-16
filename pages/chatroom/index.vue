@@ -62,7 +62,12 @@
                 >
                   <p v-if="item.type === 'text' || item.status === 'failed'" class="text-sm">{{ item.message }}</p>
                   <div v-else-if="item.type === 'image'">
-                    <img :src="item.thumbnailUrl" alt="圖片預覽" />
+                    <img
+                      crossorigin="anonymous"
+                      :src="getDefaultAvatar(item.messageImage?.thumbnailUrl)"
+                      alt="圖片預覽"
+                    />
+                    <!-- TODO 進度條實作 -->
                     <p>{{ loadedProgress }}</p>
                   </div>
                   <p :class="[isSelf(item) ? 'text-gray-300' : 'text-gray-500', 'text-xs mt-1 text-right']">
@@ -427,9 +432,9 @@ const onUploadFileChange = async (event: Event) => {
 
 const chatRoomHandler = (body: WsPayload<WsMessage>) => {
   const isCurrentRoomMessage = Number(routes.query?.roomId) === body.data?.roomId;
-  const alreadyUpdate = !isSelf(body.data.message[0]) || (isSelf(body.data.message[0]) && body.code === WSCode.PENDING);
+  const alreadyUpdate = !isSelf(body.data.message[0]) || body.code === WSCode.PENDING;
 
-  if (isCurrentRoomMessage && alreadyUpdate) {
+  if (isCurrentRoomMessage && !alreadyUpdate) {
     try {
       updateMessageRecord({ message: body.data.message });
       toggleNewMessageTipsHandler();

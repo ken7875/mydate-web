@@ -44,7 +44,7 @@
                 </div>
                 <div class="flex justify-between items-center w-full">
                   <div class="w-[80%]">
-                    <p class="break-all" v-textSlice:[20]="previewMessagesObj?.[item.roomId]?.message || ''"></p>
+                    <p class="break-all" v-textSlice:[20]="previewMessageText(item.roomId)"></p>
                   </div>
                   <div class="w-[20%] flex justify-center items-center" v-if="unReadCount[item.roomId]?.count">
                     <div
@@ -90,6 +90,8 @@ const { totalFriends } = storeToRefs(friendsStore);
 const chatStore = useChat();
 const { unReadCount } = storeToRefs(chatStore);
 const { getAllFriendsHandler } = friendsStore;
+
+const { userInfoRes } = useUserInfoQuery();
 
 const webSocketStore = useNotification();
 
@@ -151,6 +153,25 @@ const updateFriendsList = ({ data }: WsPayload<WsMessage>) => {
 const { data: previewMessagesObj } = await useMyAsyncData('getAllFriendsPreviewMessage', () =>
   chatStore.getAllFriendsPreviewMessage()
 );
+
+const previewMessageText = (roomId: number) => {
+  const type = previewMessagesObj.value?.[roomId]?.type;
+  switch (type) {
+    case 'text':
+      return previewMessagesObj.value?.[roomId]?.message;
+
+    case 'image':
+      const friendName = showingFriendList.value.find(
+        (friend) => friend.uuid === userInfoRes.value?.data?.uuid
+      )?.userName;
+      return previewMessagesObj.value?.[roomId]?.senderId === userInfoRes.value?.data?.uuid
+        ? '圖片已傳送'
+        : `${friendName}向您傳送圖片`;
+
+    default:
+      return '';
+  }
+};
 
 const updatePreviewMessage = ({ data }: WsPayload<WsMessage>) => {
   if (!previewMessagesObj.value || !data.message.length) return;

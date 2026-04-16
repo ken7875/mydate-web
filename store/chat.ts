@@ -75,7 +75,7 @@ export const useChat = defineStore('chat', () => {
   const getAllFriendsPreviewMessage = async () => {
     const res = await getPreviewMessageApi();
     previewMessage.value = res.data!;
-    console.log(previewMessage.value, 'previewMessage.value');
+
     return res.data;
   };
 

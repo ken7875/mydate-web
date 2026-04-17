@@ -63,6 +63,12 @@
                   <p v-if="item.type === 'text' || item.status === 'failed'" class="text-sm">{{ item.message }}</p>
                   <div v-else-if="item.type === 'image'">
                     <img
+                      v-if="isBlobUrl(item.messageImage?.thumbnailUrl ?? '')"
+                      :src="item.messageImage?.thumbnailUrl"
+                      alt="圖片預覽"
+                    />
+                    <img
+                      v-else
                       crossorigin="anonymous"
                       :src="getDefaultAvatar(item.messageImage?.thumbnailUrl)"
                       alt="圖片預覽"
@@ -72,8 +78,24 @@
                     {{ moment(item.sendTime * 1000).format('HH:mm') }}
                   </p>
                 </div>
-                <div class="w-full flex justify-end" v-if="item.type === 'image'">
-                  <p>{{ loadedProgress }}</p>
+                <div class="w-[70%] mt-2" v-if="item.localId && chatStore.uploadTasks[item.localId] !== undefined">
+                  <div class="flex items-center gap-2">
+                    <ProgressBar
+                      class="flex-1"
+                      :value="chatStore.uploadTasks[item.localId!].progress"
+                      :max="100"
+                      height="10px"
+                      :direction="'rightToLeft'"
+                    />
+                    <ClientOnly>
+                      <button
+                        class="text-gray-400 hover:text-red-500 transition-colors"
+                        @click="abortUpload(item.localId!)"
+                      >
+                        <font-awesome-icon :icon="['fas', 'xmark']" class="text-sm" />
+                      </button>
+                    </ClientOnly>
+                  </div>
                 </div>
               </div>
             </template>
@@ -163,7 +185,7 @@ const webSocketStore = useNotification();
 
 const messageStore = useMessage();
 
-const { getMessageRecordQuery, updateMessageQuery } = useMessageQuery();
+const { getMessageRecordQuery, updateMessageQuery, removeMessageFromQuery } = useMessageQuery();
 
 const messageDB = new SendMessageDB();
 const failMessageHandler = useFailedMessages(messageDB);
@@ -217,6 +239,7 @@ const toggleNewMessageTipsHandler = () => {
 };
 
 const isSelf = (record: Message) => record.senderId === userInfoRes.value?.data?.uuid;
+const isBlobUrl = (url: string) => url.startsWith('blob:');
 
 const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
   updateMessageQuery({
@@ -357,13 +380,14 @@ const showPrevRecordData = async () => {
 
 const fileInputRef = useTemplateRef<HTMLInputElement>('fileInputRef');
 const selectedFile = ref<File | null>(null);
-const loadedProgress = ref(0);
 const onUploadFileChange = async (event: Event) => {
   selectedFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
   if (fileInputRef.value) fileInputRef.value.value = '';
   if (!selectedFile.value) return;
-  console.log(selectedFile.value, 'selectedFile.value');
+  const localId = crypto.randomUUID() as string;
   const url = URL.createObjectURL(selectedFile.value);
+  chatStore.addUploadTask(localId, url);
+
   messageStore
     .openMessage({
       title: '圖片預覽',
@@ -414,11 +438,11 @@ const onUploadFileChange = async (event: Event) => {
               message: waitToSendMessage.value,
               sendTime: Math.ceil(Date.now() / 1000),
               status: 'sending' as MessageStatus,
-              localId: crypto.randomUUID() as string,
+              localId,
               roomId: Number(routes.query.roomId),
               type: MessageType['IMAGE'],
               messageImage: {
-                thumbnailUrl: url, // 樂觀更新只需縮圖
+                thumbnailUrl: chatStore.uploadTasks[localId].tmpUrl,
                 originalUrl: '',
                 blurHash: '',
                 width: 0,
@@ -429,32 +453,48 @@ const onUploadFileChange = async (event: Event) => {
           ]
         });
 
-        loadedProgress.value = 0;
+        const controller = new AbortController();
+        chatStore.updateUploadTask(localId, { uploadId, controller });
+
         let globalLoaded = 0;
         await useChunkUpload({
           perChunkSize,
           fileSize: file.size,
-          uploadApi: async ({ start, end, fileSize }) =>
+          signal: controller.signal,
+          uploadApi: async ({ start, end, fileSize, signal }) =>
             uploadChunkApi({
               uploadId,
+              localId,
               chunkIndex: Math.floor(start / perChunkSize),
               chunk: file.slice(start, end),
               globalStart: start,
               globalEnd: end,
               fileSize,
+              signal,
               onUploadProgress: ({ loaded }: { loaded: number; total: number }) => {
                 globalLoaded = start + loaded;
-                loadedProgress.value = Math.floor((globalLoaded / fileSize) * 100);
+                chatStore.updateUploadTask(localId, { progress: Math.floor((globalLoaded / fileSize) * 100) });
               }
             })
         });
+
+        if (chatStore.uploadTasks[localId]?.progress === 100) {
+          setTimeout(() => chatStore.clearUploadTask(localId), 300);
+        }
       } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
         console.error('上傳失敗:', error);
-      } finally {
-        selectedFile.value = null;
-        URL.revokeObjectURL(url);
       }
+    })
+    .catch(() => {
+      selectedFile.value = null;
+      chatStore.clearUploadTask(localId);
     });
+};
+
+const abortUpload = (localId: string) => {
+  chatStore.abortUpload(localId);
+  removeMessageFromQuery({ roomId: Number(routes.query.roomId), localId });
 };
 
 const chatRoomHandler = (body: WsPayload<WsMessage>) => {
@@ -481,6 +521,10 @@ useWsChannel([
             localId: msg.localId,
             roomId: msg.roomId
           });
+          console.log(msg.localId);
+          if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
+            chatStore.clearUploadTask(msg.localId);
+          }
         }
 
         if (data.code === WSCode.FAIL) {
@@ -488,6 +532,10 @@ useWsChannel([
             localId: msg.localId,
             roomId: msg.roomId
           });
+
+          if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
+            chatStore.clearUploadTask(msg.localId);
+          }
         }
 
         refreshFailMessages();

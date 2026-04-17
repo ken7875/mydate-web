@@ -1,9 +1,15 @@
 import { defineStore } from 'pinia';
 import { useNotification } from '@/store/notificationWebSocket';
 import type { Message } from '~/api/types/chat';
-import { getUnreadCount, getUnreadTotal, getPreviewMessageApi } from '@/api/modules/chat';
+import { getUnreadCount, getUnreadTotal, getPreviewMessageApi, cancelUploadApi } from '@/api/modules/chat';
 import type { PreviewMessage } from '@/api/types/chat';
 import { WsChannel, WSCode } from '~/enums/websocket';
+export type UploadTask = {
+  tmpUrl: string;
+  controller: AbortController | null;
+  uploadId: string | null;
+  progress: number;
+};
 
 export const useChat = defineStore('chat', () => {
   const webSocketStore = useNotification();
@@ -11,6 +17,7 @@ export const useChat = defineStore('chat', () => {
   const unReadCount = ref<Record<string, { count: number }>>({});
   const totalUnreadCount = ref(0);
   const previewMessage = ref<PreviewMessage>({});
+  const uploadTasks = ref<Record<string, UploadTask>>({});
 
   // const getMessageRecord = async ({ senderId, receiverId, page, pageSize }: GetMessageRecord) => {
   //   const res = await getMessageRecordApi({
@@ -79,10 +86,38 @@ export const useChat = defineStore('chat', () => {
     return res.data;
   };
 
+  const addUploadTask = (localId: string, tmpUrl: string) => {
+    uploadTasks.value[localId] = { tmpUrl, controller: null, uploadId: null, progress: 0 };
+  };
+
+  const updateUploadTask = (localId: string, updates: Partial<Omit<UploadTask, 'tmpUrl'>>) => {
+    if (uploadTasks.value[localId]) {
+      uploadTasks.value[localId] = { ...uploadTasks.value[localId], ...updates };
+    }
+  };
+
+  const clearUploadTask = (localId: string) => {
+    const task = uploadTasks.value[localId];
+    if (task?.tmpUrl) URL.revokeObjectURL(task.tmpUrl);
+    delete uploadTasks.value[localId];
+  };
+
+  const abortUpload = (localId: string) => {
+    const task = uploadTasks.value[localId];
+    task?.controller?.abort();
+
+    if (task?.uploadId) {
+      cancelUploadApi(task.uploadId).catch((err) => console.error('cancel upload failed:', err));
+    }
+
+    clearUploadTask(localId);
+  };
+
   return {
     messageRecord,
     unReadCount,
     previewMessage,
+    totalUnreadCount,
     // messageRecordTotal,
     // getMessageRecord,
     // updateMessageRecord,
@@ -90,9 +125,13 @@ export const useChat = defineStore('chat', () => {
     getUnReadCountHandler,
     getTotalUnreadCount,
     incrementTotalUnreadCount,
-    totalUnreadCount,
     incrementUnReadCount,
     resetUnReadCount,
-    getAllFriendsPreviewMessage
+    getAllFriendsPreviewMessage,
+    uploadTasks,
+    addUploadTask,
+    updateUploadTask,
+    clearUploadTask,
+    abortUpload
   };
 });

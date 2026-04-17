@@ -58,6 +58,7 @@ export const initUploadApi = (body: InitUploadRequest) => {
 
 export const uploadChunkApi = ({
   uploadId,
+  localId,
   chunkIndex,
   chunk,
   globalStart,
@@ -67,6 +68,7 @@ export const uploadChunkApi = ({
   onUploadProgress
 }: {
   uploadId: string;
+  localId: string;
   chunkIndex: number;
   chunk: Blob;
   globalStart: number;
@@ -95,7 +97,7 @@ export const uploadChunkApi = ({
       signal.addEventListener('abort', () => xhr.abort());
     }
 
-    xhr.open('PUT', `${apiUrl}/api/uploads/${uploadId}/chunks/${chunkIndex}`);
+    xhr.open('PUT', `${apiUrl}/api/uploads/${uploadId}/${localId}/chunks/${chunkIndex}`);
     xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.setRequestHeader('Content-Type', 'application/octet-stream');
     xhr.setRequestHeader('Content-Range', `bytes ${globalStart}-${globalEnd}/${fileSize}`);

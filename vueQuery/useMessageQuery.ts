@@ -120,9 +120,31 @@ export default () => {
     );
   };
 
+  const removeMessageFromQuery = ({ roomId, localId }: { roomId: number; localId: string }) => {
+    queryClient.setQueryData(
+      ['messageRecord', { id: roomId }],
+      (oldData: InfiniteData<MessagePage, number> | undefined) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page, index) => {
+            if (index !== 0) return page;
+            const filtered = (page.data?.data ?? []).filter((msg) => msg.localId !== localId);
+            return {
+              ...page,
+              total: Math.max(0, (page.total ?? 0) - 1),
+              data: { ...page.data, data: filtered }
+            };
+          })
+        };
+      }
+    );
+  };
+
   return {
     getMessageRecordQuery,
     updateMessageQuery,
-    updateMessageQueryStatus
+    updateMessageQueryStatus,
+    removeMessageFromQuery
   };
 };

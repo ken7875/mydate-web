@@ -55,6 +55,7 @@
 
   /* === Animations === */
   --animate-scale: scale 0.2s linear;
+  --animate-shimmer: shimmer 2s infinite;
 }
 
 @keyframes scale {

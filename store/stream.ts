@@ -89,6 +89,10 @@ export const useStream = defineStore('stream', () => {
     });
   };
 
+  const $reset = () => {
+    streamRoomMap.clear();
+  };
+
   return {
     streamRoomMap,
     init,
@@ -103,6 +107,7 @@ export const useStream = defineStore('stream', () => {
     addRoom,
     deleteRoom,
     initRoom,
-    resetRoomStatus
+    resetRoomStatus,
+    $reset
   };
 });

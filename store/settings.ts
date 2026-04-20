@@ -9,8 +9,13 @@ export const useSettings = defineStore('settings', () => {
     meetForm.value = form;
   };
 
+  const $reset = () => {
+    meetForm.value = { gender: 0, age: [0, 60] };
+  };
+
   return {
     meetForm,
-    filterMeetSettings
+    filterMeetSettings,
+    $reset
   };
 });

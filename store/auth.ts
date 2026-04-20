@@ -3,6 +3,10 @@ import type { User } from '~/api/types/user';
 import { Gender } from '@/enums/user';
 import { useNotification } from './notificationWebSocket';
 import { useStream } from './stream';
+import { useChat } from './chat';
+import { useFriends } from './friends';
+import { useSettings } from './settings';
+import { useMessage } from './message';
 // import { getAvatarsApi } from '@/api/modules/auth';
 
 const initUserInfo = {
@@ -58,7 +62,12 @@ export const useAuth = defineStore(
       useNotification().handleClose();
       useStream().handleClose();
       setToken('');
+      userInfo.value = useCloneDeep(initUserInfo);
       queryClient.clear();
+      useChat().$reset();
+      useFriends().$reset();
+      useSettings().$reset();
+      useMessage().$reset();
     };
 
     return {

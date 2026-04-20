@@ -17,8 +17,13 @@ export const useMessage = defineStore('message', () => {
       });
   };
 
+  const $reset = () => {
+    messageMap.value.clear();
+  };
+
   return {
     messageMap,
-    openMessage
+    openMessage,
+    $reset
   };
 });

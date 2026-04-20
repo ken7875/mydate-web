@@ -36,12 +36,18 @@ export const useFriends = defineStore('friends', () => {
     });
   };
 
+  const $reset = () => {
+    requestUsers.value = [];
+    totalFriends.value = 0;
+  };
+
   return {
     requestUsers,
     totalFriends,
     getAllFriendsHandler,
     getRequestUsersHandler,
     getNewFriendInvite,
-    dequeueRequestUser
+    dequeueRequestUser,
+    $reset
   };
 });

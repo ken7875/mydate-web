@@ -102,6 +102,14 @@ export const useChat = defineStore('chat', () => {
     delete uploadTasks.value[localId];
   };
 
+  const $reset = () => {
+    messageRecord.value = [];
+    unReadCount.value = {};
+    totalUnreadCount.value = 0;
+    previewMessage.value = {};
+    Object.keys(uploadTasks.value).forEach(clearUploadTask);
+  };
+
   const abortUpload = (localId: string) => {
     const task = uploadTasks.value[localId];
     task?.controller?.abort();
@@ -132,6 +140,7 @@ export const useChat = defineStore('chat', () => {
     addUploadTask,
     updateUploadTask,
     clearUploadTask,
-    abortUpload
+    abortUpload,
+    $reset
   };
 });

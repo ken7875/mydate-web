@@ -9,7 +9,9 @@
       >
         <template #body>
           <div class="text-[2rem] absolute top-[3px] right-[10px]" @click="closePopoutFunc">
-            <font-awesome-icon :icon="['fas', 'xmark']" class="cursor-pointer" />
+            <ClientOnly>
+              <font-awesome-icon :icon="['fas', 'xmark']" class="cursor-pointer" />
+            </ClientOnly>
           </div>
           <div class="pt-10 h-full overflow-hidden">
             <div class="text-center text-[1.5rem] font-bold mb-6 h-6" data-test="modal-title" v-if="$slots.title">

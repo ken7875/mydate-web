@@ -42,13 +42,13 @@
                   userInfoRes?.data?.uuid === item.senderId ? 'justify-end' : 'justify-start'
                 ]"
               >
-                <!-- 發送訊息失敗重發按鈕 -->
-                <template v-if="item.status === 'failed'">
+                <!-- 發送訊息失敗重發按鈕（文字） -->
+                <template v-if="item.status === 'failed' && item.type === 'text'">
                   <ClientOnly>
                     <BaseButton
                       styleType="neutral"
                       @click="() => openResendMessageConfirmBox(item)"
-                      class="w-[18px] h-[18px] rounded-[50%] mr-1"
+                      class="w-7 h-7 rounded-[50%] mr-1"
                     >
                       <font-awesome-icon :icon="['fa', 'rotate-right']"></font-awesome-icon>
                     </BaseButton>
@@ -57,44 +57,85 @@
                 <div
                   :class="[
                     'w-[70%] rounded-lg p-3 shadow relative chatBoxHorn',
-                    isSelf(item) ? 'bg-primary text-white chatBoxHorn__right' : 'bg-secondary chatBoxHorn__left'
+                    isSelf(item) ? 'bg-primary text-white chatBoxHorn__right' : 'bg-secondary chatBoxHorn__left',
+                    { 'bg-transparent! shadow-none': item.type === 'image' }
                   ]"
                 >
-                  <p v-if="item.type === 'text' || item.status === 'failed'" class="text-sm">{{ item.message }}</p>
-                  <div v-else-if="item.type === 'image'">
-                    <img
-                      v-if="isBlobUrl(item.messageImage?.thumbnailUrl ?? '')"
-                      :src="item.messageImage?.thumbnailUrl"
-                      alt="圖片預覽"
-                    />
-                    <img
-                      v-else
-                      crossorigin="anonymous"
-                      :src="getDefaultAvatar(item.messageImage?.thumbnailUrl)"
-                      alt="圖片預覽"
-                    />
+                  <template v-if="item.type === 'text'">
+                    <p class="text-sm">{{ item.message }}</p>
+                  </template>
+                  <div class="w-full flex justify-end items-end gap-2" v-else-if="item.type === 'image'">
+                    <div class="order-2">
+                      <NuxtImg
+                        :width="chatStore.uploadTasks[item.localId!].thumbWidth"
+                        :height="chatStore.uploadTasks[item.localId!].thumbHeight"
+                        v-if="isBlobUrl(item.messageImage?.thumbnailUrl ?? '')"
+                        :src="item.messageImage?.thumbnailUrl"
+                        class="rounded-lg cursor-pointer object-contain object-bottom-right"
+                        alt="圖片預覽"
+                        loading="lazy"
+                        @click="openImageModal(item.messageImage?.thumbnailUrl ?? '')"
+                      />
+                      <NuxtImg
+                        v-else
+                        preload
+                        :width="item.messageImage?.width"
+                        :height="item.messageImage?.height"
+                        crossorigin="anonymous"
+                        format="webp"
+                        :src="getDefaultAvatar(item.messageImage?.thumbnailUrl)"
+                        class="rounded-lg cursor-pointer object-contain object-bottom-right"
+                        alt="圖片預覽"
+                        loading="lazy"
+                        @click="openImageModal(item.messageImage?.originalUrl || item.messageImage?.thumbnailUrl || '')"
+                      />
+                    </div>
+                    <ClientOnly>
+                      <div class="order-1 w-7 h-full">
+                        <BaseButton
+                          v-if="item.status !== 'sending' && item.status !== 'failed'"
+                          class="border-none bg-black/40 hover:bg-black/60 text-white rounded-full w-7 h-7 flex items-center justify-center transition-colors"
+                          @click.stop="
+                            downloadImage(item.messageImage?.originalUrl || item.messageImage?.thumbnailUrl || '')
+                          "
+                        >
+                          <font-awesome-icon :icon="['fas', 'download']" class="text-xs" />
+                        </BaseButton>
+                        <!-- 發送訊息失敗重發按鈕（圖片） -->
+                        <BaseButton
+                          v-if="item.status === 'failed'"
+                          styleType="neutral"
+                          @click="() => openResendMessageConfirmBox(item)"
+                          class="w-7 h-7 rounded-[50%] mr-1"
+                        >
+                          <font-awesome-icon :icon="['fa', 'rotate-right']"></font-awesome-icon>
+                        </BaseButton>
+                      </div>
+                    </ClientOnly>
                   </div>
                   <p :class="[isSelf(item) ? 'text-gray-300' : 'text-gray-500', 'text-xs mt-1 text-right']">
                     {{ moment(item.sendTime * 1000).format('HH:mm') }}
                   </p>
-                </div>
-                <div class="w-[70%] mt-2" v-if="item.localId && chatStore.uploadTasks[item.localId] !== undefined">
-                  <div class="flex items-center gap-2">
-                    <ProgressBar
-                      class="flex-1"
-                      :value="chatStore.uploadTasks[item.localId!].progress"
-                      :max="100"
-                      height="10px"
-                      :direction="'rightToLeft'"
-                    />
-                    <ClientOnly>
-                      <button
-                        class="text-gray-400 hover:text-red-500 transition-colors"
-                        @click="abortUpload(item.localId!)"
-                      >
-                        <font-awesome-icon :icon="['fas', 'xmark']" class="text-sm" />
-                      </button>
-                    </ClientOnly>
+                  <div
+                    class="w-full mt-2"
+                    v-if="item.localId && chatStore.uploadTasks[item.localId]?.status === 'sending'"
+                  >
+                    <div class="flex gap-2">
+                      <ProgressBar
+                        class="flex-1"
+                        :value="chatStore.uploadTasks[item.localId!].progress"
+                        :max="100"
+                        height="10px"
+                        :direction="'rightToLeft'"
+                      />
+                      <ClientOnly>
+                        <font-awesome-icon
+                          :icon="['fas', 'xmark']"
+                          class="text-sm text-gray-400"
+                          @click="abortUpload(item.localId!)"
+                        />
+                      </ClientOnly>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -155,6 +196,15 @@
         </div>
       </template>
     </Message>
+    <Modal v-model:isOpen="imageModalOpen" :needOperationBtn="false" v-if="imageModalOpen">
+      <NuxtImg
+        :src="imageModalUrl"
+        crossorigin="anonymous"
+        format="webp"
+        alt="原始圖片"
+        class="w-full h-full object-contain"
+      />
+    </Modal>
   </div>
 </template>
 
@@ -166,11 +216,14 @@ import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
 import { WsChannel, WSCode } from '~/enums/websocket';
-import { SendMessageDB } from '@/utils/indexedDB/sendMessage';
 import { useNotification } from '~/store/notificationWebSocket';
 import { useMessage } from '~/store/message';
-import { initUploadApi, uploadChunkApi } from '@/api/modules/chat';
+import { initUploadApi, uploadChunkApi, getUploadStatusApi } from '@/api/modules/chat';
 import { computeFileSHA256 } from '@/utils/crypto';
+import { v4 as uuidv4 } from 'uuid';
+import type { FailMessageFile } from '~/utils/indexedDB/failedMessageFile';
+
+const Modal = defineAsyncComponent(() => import('@/components/modal/index.client.vue'));
 
 const routes = useRoute();
 const focusFriend = computed(() => ({
@@ -185,10 +238,11 @@ const webSocketStore = useNotification();
 
 const messageStore = useMessage();
 
-const { getMessageRecordQuery, updateMessageQuery, removeMessageFromQuery } = useMessageQuery();
+const { getMessageRecordQuery, updateMessageQuery, removeMessageFromQuery, updateMessageQueryStatus } =
+  useMessageQuery();
 
-const messageDB = new SendMessageDB();
-const failMessageHandler = useFailedMessages(messageDB);
+const failMessageHandler = useFailedMessages();
+const failedMessageFileHandler = useFailedMessagesFile();
 
 const { data: friendData } = await useMyAsyncData(
   'friend',
@@ -241,6 +295,28 @@ const toggleNewMessageTipsHandler = () => {
 const isSelf = (record: Message) => record.senderId === userInfoRes.value?.data?.uuid;
 const isBlobUrl = (url: string) => url.startsWith('blob:');
 
+const imageModalOpen = ref(false);
+const imageModalUrl = ref('');
+
+const openImageModal = (url: string) => {
+  if (!url) return;
+  imageModalUrl.value = isBlobUrl(url) ? url : getDefaultAvatar(url);
+  imageModalOpen.value = true;
+};
+
+const downloadImage = async (url: string) => {
+  if (!url) return;
+  const src = isBlobUrl(url) ? url : getDefaultAvatar(url);
+  const res = await fetch(src, { mode: 'cors', credentials: 'omit' });
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = `image_${Date.now()}`;
+  anchor.click();
+  URL.revokeObjectURL(objectUrl);
+};
+
 const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
   updateMessageQuery({
     newMessage: body.message,
@@ -250,15 +326,127 @@ const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
 
 const resendConfirmModalConfig = ref<{
   status: boolean;
-  message: Message | null;
+  message: Message | FailMessageFile | null;
+  type: MessageType;
 }>({
   status: false,
-  message: null
+  message: null,
+  type: MessageType['TEXT']
 });
 
 const openResendMessageConfirmBox = (message: Message) => {
   resendConfirmModalConfig.value.status = true;
   resendConfirmModalConfig.value.message = message;
+  resendConfirmModalConfig.value.type = message.type;
+};
+
+const failMessages = ref<(Message & { idx: string })[]>([]);
+const refreshFailMessages = async () => {
+  const res = await failMessageHandler.getAll(Number(routes.query.roomId));
+  failMessages.value = res.map((message, idx) => ({
+    ...message,
+    idx: `fail-msg-${idx}`
+  }));
+};
+
+const failMessagesFiles = ref<(FailMessageFile & { idx: string })[]>([]);
+const refreshFailMessageFiles = async () => {
+  const res = await failedMessageFileHandler.getByRoomId(Number(routes.query?.roomId));
+  res.forEach((message) => {
+    chatStore.addUploadTask(message.localId!, URL.createObjectURL(message.file), message.status!);
+  });
+
+  failMessagesFiles.value = res.map((message, idx) => ({
+    ...message,
+    messageImage: {
+      ...message.messageImage!,
+      thumbnailUrl: chatStore.uploadTasks[message.localId!]!.tmpUrl
+    },
+    idx: `fail-file-${idx}`
+  }));
+};
+
+const resendMessageHandler = async () => {
+  const type = resendConfirmModalConfig.value.type;
+  switch (type) {
+    case 'text':
+      sendMessageHandler({
+        ...resendConfirmModalConfig.value.message!,
+        sendTime: Math.ceil(Date.now() / 1000)
+      });
+      break;
+
+    case 'image': {
+      const message = resendConfirmModalConfig.value.message;
+      if (!message?.localId) break;
+
+      const failedFile = failMessagesFiles.value.find((f) => f.localId === message.localId);
+      if (!failedFile) break;
+
+      const { uploadId, file } = failedFile;
+
+      const statusRes = await getUploadStatusApi(uploadId);
+      const receivedBytes = statusRes.data?.receivedBytes ?? 0;
+      const fileSize = statusRes.data?.fileSize ?? 0;
+
+      const start = receivedBytes;
+      const end = file.size - 1;
+      let globalLoaded = receivedBytes;
+
+      const controller = new AbortController();
+      // if(chatStore.uploadTasks[message.localId]) {
+      //   chatStore.updateUploadTask(message.localId, { controller, uploadId });
+      // } else {
+      //   chatStore.addUploadTask()
+      // }
+      chatStore.updateUploadTask(message.localId, { controller, uploadId, status: 'sending' });
+      updateMessageQueryStatus({ localId: message.localId, status: 'sending', roomId: message.roomId });
+
+      try {
+        await uploadChunkApi({
+          uploadId,
+          localId: message.localId,
+          chunk: file.slice(start),
+          start,
+          end,
+          fileSize,
+          signal: controller.signal,
+          onUploadProgress: ({ loaded }: { loaded: number; total: number }) => {
+            globalLoaded = start + loaded;
+            chatStore.updateUploadTask(message.localId!, {
+              progress: Math.floor((globalLoaded / file.size) * 100)
+            });
+          }
+        });
+
+        if (chatStore.uploadTasks[message.localId]?.progress === 100) {
+          setTimeout(() => chatStore.clearUploadTask(message.localId!), 300);
+          await failedMessageFileHandler.removeByLocalId(message.localId!);
+          refreshFailMessageFiles();
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') break;
+        console.error('Resume upload failed:', error);
+        await failedMessageFileHandler.updateStatusByUploadId(uploadId, 'failed');
+        updateMessageQueryStatus({ localId: message.localId, status: 'failed', roomId: message.roomId });
+      }
+      break;
+    }
+  }
+};
+
+const removeResendMessageHandler = async (message: Message) => {
+  const type = resendConfirmModalConfig.value.type;
+  switch (type) {
+    case 'text':
+      refreshFailMessages();
+      break;
+
+    case 'image':
+      await failedMessageFileHandler.removeByLocalId(message.localId!);
+      refreshFailMessageFiles();
+      break;
+  }
 };
 
 const resendModalHandler = async (type: 'resend' | 'remove') => {
@@ -267,14 +455,11 @@ const resendModalHandler = async (type: 'resend' | 'remove') => {
 
   switch (type) {
     case 'resend':
-      sendMessageHandler({
-        ...message,
-        sendTime: Math.ceil(Date.now() / 1000)
-      });
+      resendMessageHandler();
+
       break;
     case 'remove':
-      await failMessageHandler.removeFailedMessage({ localId: message.localId! });
-      await refreshFailMessages();
+      removeResendMessageHandler(message);
       break;
   }
 
@@ -298,13 +483,13 @@ const sendMessageHandler = (message?: Message) => {
     message: waitToSendMessage.value,
     sendTime: Math.ceil(Date.now() / 1000),
     status: 'sending' as MessageStatus,
-    localId: crypto.randomUUID() as string,
+    localId: uuidv4() as string,
     roomId: Number(routes.query.roomId),
     type: MessageType['TEXT']
   };
 
   sendMessage({ roomId: Number(routes.query?.roomId), message: [newMessage] });
-  messageDB.add(newMessage);
+  failMessageHandler.addFailMessage(newMessage);
 
   scrollToBottom();
 
@@ -352,30 +537,40 @@ const { data: messageRecordRes, fetchNextPage } = getMessageRecordQuery({
   pageSize
 });
 
-const failMessages = ref<(Message & { idx: string })[]>([]);
-
-const refreshFailMessages = async () => {
-  const res = await failMessageHandler.getAll(Number(routes.query.roomId));
-  failMessages.value = res.map((message, idx) => ({
-    ...message,
-    idx: `${-1}-${idx}`
-  }));
-};
-
-onMounted(() => {
+onMounted(async () => {
+  await failedMessageFileHandler.markSendingAsFailed(Number(routes.query.roomId));
   refreshFailMessages();
+  refreshFailMessageFiles();
 });
 
 const messageRecordTotal = computed(() => (messageRecordRes.value?.total || 0) + failMessages.value.length);
 
 const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => messageRecordRes.value?.messages || []);
-const allMessageData = computed<(Message & { idx: string })[]>(() => [
-  ...(messageRecordRes.value?.messages || []),
-  ...(failMessages.value || [])
-]);
+const allMessageData = computed<(Message & { idx: string })[]>(() => {
+  return [
+    ...(messageRecordRes.value?.messages || []),
+    ...([...failMessages.value, ...failMessagesFiles.value].sort((a, b) => a.sendTime - b.sendTime) || [])
+  ];
+});
+
 const debounceFetchNextPage = useDebounceFn(fetchNextPage, 100);
 const showPrevRecordData = async () => {
   return await debounceFetchNextPage(); // 取得先前紀錄
+};
+
+const getImageNaturalSize = ({ localId }: { localId: string }): Promise<{ width: number; height: number }> =>
+  new Promise((resolve) => {
+    const img = new Image();
+    const blobUrl = chatStore.uploadTasks[localId].tmpUrl;
+    img.onload = () => {
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.src = blobUrl;
+  });
+
+const calcThumbnailSize = (originalWidth: number, originalHeight: number, maxSize = 400) => {
+  const scale = Math.min(maxSize / originalWidth, maxSize / originalHeight);
+  return { width: Math.round(originalWidth * scale), height: Math.round(originalHeight * scale) };
 };
 
 const fileInputRef = useTemplateRef<HTMLInputElement>('fileInputRef');
@@ -384,9 +579,9 @@ const onUploadFileChange = async (event: Event) => {
   selectedFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
   if (fileInputRef.value) fileInputRef.value.value = '';
   if (!selectedFile.value) return;
-  const localId = crypto.randomUUID() as string;
+  const localId = uuidv4() as string;
   const url = URL.createObjectURL(selectedFile.value);
-  chatStore.addUploadTask(localId, url);
+  chatStore.addUploadTask(localId, url, 'sending');
 
   messageStore
     .openMessage({
@@ -407,19 +602,27 @@ const onUploadFileChange = async (event: Event) => {
       )
     })
     ?.then(async () => {
+      const start = 0;
+      const end = selectedFile.value!.size - 1;
+      let globalLoaded = 0;
       try {
-        const checksum = await computeFileSHA256(selectedFile.value!);
+        const file = selectedFile.value!;
+        const naturalSize = await getImageNaturalSize({ localId });
+        const { width: thumbWidth, height: thumbHeight } = calcThumbnailSize(naturalSize.width, naturalSize.height);
+        chatStore.updateUploadTask(localId, { thumbWidth, thumbHeight });
+
+        const checksum = await computeFileSHA256(file);
         const initRes = await initUploadApi({
-          fileName: selectedFile.value!.name,
-          fileSize: selectedFile.value!.size,
-          mimeType: selectedFile.value!.type,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
           checksum,
           receiverId: routes.query.uuid as string,
-          roomId: Number(routes.query.roomId)
+          roomId: Number(routes.query.roomId),
+          thumbWidth,
+          thumbHeight
         });
 
-        const perChunkSize = Math.pow(1024, 2) * 2; // 2MB;
-        const file = selectedFile.value!;
         const uploadId = initRes.data?.uploadId;
         if (!uploadId) {
           await messageStore.openMessage({
@@ -456,34 +659,60 @@ const onUploadFileChange = async (event: Event) => {
         const controller = new AbortController();
         chatStore.updateUploadTask(localId, { uploadId, controller });
 
-        let globalLoaded = 0;
-        await useChunkUpload({
-          perChunkSize,
-          fileSize: file.size,
-          signal: controller.signal,
-          uploadApi: async ({ start, end, fileSize, signal }) =>
-            uploadChunkApi({
-              uploadId,
-              localId,
-              chunkIndex: Math.floor(start / perChunkSize),
-              chunk: file.slice(start, end),
-              globalStart: start,
-              globalEnd: end,
-              fileSize,
-              signal,
-              onUploadProgress: ({ loaded }: { loaded: number; total: number }) => {
-                globalLoaded = start + loaded;
-                chatStore.updateUploadTask(localId, { progress: Math.floor((globalLoaded / fileSize) * 100) });
-              }
-            })
+        failedMessageFileHandler.setFile({
+          receiverId: focusFriend.value.uuid as string,
+          senderId: userInfoRes.value?.data?.uuid as string,
+          uploadId: chatStore.uploadTasks[localId].uploadId as string,
+          localId,
+          message: '',
+          roomId: Number(routes.query.roomId),
+          sendTime: Math.ceil(Date.now() / 1000),
+          file,
+          status: 'sending',
+          type: MessageType['IMAGE'],
+          messageImage: {
+            thumbnailUrl: '',
+            originalUrl: '',
+            blurHash: '',
+            width: 0,
+            height: 0,
+            isExpired: false
+          }
         });
 
-        if (chatStore.uploadTasks[localId]?.progress === 100) {
-          setTimeout(() => chatStore.clearUploadTask(localId), 300);
+        try {
+          await uploadChunkApi({
+            uploadId,
+            localId,
+            chunk: file,
+            start: 0,
+            end,
+            fileSize: file.size,
+            signal: controller.signal,
+            onUploadProgress: ({ loaded }: { loaded: number; total: number }) => {
+              globalLoaded = start + loaded;
+              chatStore.updateUploadTask(localId, { progress: Math.floor((globalLoaded / file.size) * 100) });
+            }
+          });
+
+          if (chatStore.uploadTasks[localId]?.progress === 100) {
+            setTimeout(() => chatStore.clearUploadTask(localId), 300);
+            await failedMessageFileHandler.removeByLocalId(localId);
+            refreshFailMessageFiles();
+          }
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') return;
+
+          console.error('上傳失敗:', error);
+          console.warn('current loaded:', globalLoaded);
+          await failedMessageFileHandler.updateStatusByUploadId(uploadId, 'failed');
+          updateMessageQueryStatus({ localId, status: 'failed', roomId: Number(routes.query.roomId) });
+          refreshFailMessageFiles();
+        } finally {
+          chatStore.clearUploadTask(localId);
         }
       } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        console.error('上傳失敗:', error);
+        console.error('上傳前置作業失敗:', error);
       }
     })
     .catch(() => {
@@ -492,9 +721,12 @@ const onUploadFileChange = async (event: Event) => {
     });
 };
 
-const abortUpload = (localId: string) => {
-  chatStore.abortUpload(localId);
+const abortUpload = async (localId: string) => {
+  await failedMessageFileHandler.removeByLocalId(localId!);
+  await chatStore.abortUpload(localId);
   removeMessageFromQuery({ roomId: Number(routes.query.roomId), localId });
+  await refreshFailMessageFiles();
+  chatStore.clearUploadTask(localId);
 };
 
 const chatRoomHandler = (body: WsPayload<WsMessage>) => {
@@ -521,7 +753,7 @@ useWsChannel([
             localId: msg.localId,
             roomId: msg.roomId
           });
-          console.log(msg.localId);
+
           if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
             chatStore.clearUploadTask(msg.localId);
           }
@@ -539,6 +771,7 @@ useWsChannel([
         }
 
         refreshFailMessages();
+        refreshFailMessageFiles();
       }
     ]
   }

@@ -59,20 +59,18 @@ export const initUploadApi = (body: InitUploadRequest) => {
 export const uploadChunkApi = ({
   uploadId,
   localId,
-  chunkIndex,
   chunk,
-  globalStart,
-  globalEnd,
+  start,
+  end,
   fileSize,
   signal,
   onUploadProgress
 }: {
   uploadId: string;
   localId: string;
-  chunkIndex: number;
   chunk: Blob;
-  globalStart: number;
-  globalEnd: number;
+  start: number;
+  end: number;
   fileSize: number;
   signal?: AbortSignal;
   onUploadProgress?: (progress: { loaded: number; total: number }) => void;
@@ -90,17 +88,23 @@ export const uploadChunkApi = ({
       }
     };
 
-    xhr.onload = () => resolve(JSON.parse(xhr.responseText) as BaseField<ChunkUploadResponse>);
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(JSON.parse(xhr.responseText) as BaseField<ChunkUploadResponse>);
+      } else {
+        reject(new Error(`${xhr.status}: ${xhr.responseText}`));
+      }
+    };
     xhr.onerror = (e) => reject(e);
 
     if (signal) {
       signal.addEventListener('abort', () => xhr.abort());
     }
 
-    xhr.open('PUT', `${apiUrl}/api/uploads/${uploadId}/${localId}/chunks/${chunkIndex}`);
+    xhr.open('PUT', `${apiUrl}/api/uploads/${uploadId}/${localId}/chunk`);
     xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-    xhr.setRequestHeader('Content-Range', `bytes ${globalStart}-${globalEnd}/${fileSize}`);
+    xhr.setRequestHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
     xhr.send(chunk);
   });
 };

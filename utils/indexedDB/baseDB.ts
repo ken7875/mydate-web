@@ -68,7 +68,12 @@ export abstract class BaseIndexedDB {
   protected async getDB(): Promise<IDBDatabase> {
     const existing = BaseIndexedDB.instances.get(this.config.dbName);
 
-    if (existing) return existing;
+    if (existing && existing.version >= this.config.version) return existing;
+
+    if (existing) {
+      existing.close();
+      BaseIndexedDB.instances.delete(this.config.dbName);
+    }
 
     return this.openDB();
   }

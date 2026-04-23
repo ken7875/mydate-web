@@ -6,14 +6,14 @@ export class SendMessageDB extends BaseIndexedDB {
     super({
       dbName: 'myDate',
       storeName: 'failMessage',
-      version: 2,
+      version: 3,
       indexes: [
         { name: 'status', keyPath: 'status', unique: false },
         { name: 'localId', keyPath: 'localId', unique: true },
         { name: 'senderId', keyPath: 'senderId', unique: false },
         { name: 'receiverId', keyPath: 'receiverId', unique: false },
         { name: 'createdAt', keyPath: 'createdAt', unique: false },
-        { name: 'roomId', keyPath: 'roomId', unique: false } // 新
+        { name: 'roomId', keyPath: 'roomId', unique: false }
       ]
     });
   }

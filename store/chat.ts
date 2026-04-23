@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { useNotification } from '@/store/notificationWebSocket';
-import type { Message } from '~/api/types/chat';
+import type { Message, MessageStatus } from '~/api/types/chat';
 import { getUnreadCount, getUnreadTotal, getPreviewMessageApi, cancelUploadApi } from '@/api/modules/chat';
 import type { PreviewMessage } from '@/api/types/chat';
 import { WsChannel, WSCode } from '~/enums/websocket';
@@ -9,6 +9,9 @@ export type UploadTask = {
   controller: AbortController | null;
   uploadId: string | null;
   progress: number;
+  status: MessageStatus;
+  thumbWidth: number;
+  thumbHeight: number;
 };
 
 export const useChat = defineStore('chat', () => {
@@ -86,8 +89,16 @@ export const useChat = defineStore('chat', () => {
     return res.data;
   };
 
-  const addUploadTask = (localId: string, tmpUrl: string) => {
-    uploadTasks.value[localId] = { tmpUrl, controller: null, uploadId: null, progress: 0 };
+  const addUploadTask = (localId: string, tmpUrl: string, status: MessageStatus) => {
+    uploadTasks.value[localId] = {
+      tmpUrl,
+      status,
+      controller: null,
+      uploadId: null,
+      progress: 0,
+      thumbWidth: 0,
+      thumbHeight: 0
+    };
   };
 
   const updateUploadTask = (localId: string, updates: Partial<Omit<UploadTask, 'tmpUrl'>>) => {
@@ -110,12 +121,12 @@ export const useChat = defineStore('chat', () => {
     Object.keys(uploadTasks.value).forEach(clearUploadTask);
   };
 
-  const abortUpload = (localId: string) => {
+  const abortUpload = async (localId: string) => {
     const task = uploadTasks.value[localId];
     task?.controller?.abort();
 
     if (task?.uploadId) {
-      cancelUploadApi(task.uploadId).catch((err) => console.error('cancel upload failed:', err));
+      await cancelUploadApi(task.uploadId).catch((err) => console.error('cancel upload failed:', err));
     }
 
     clearUploadTask(localId);
@@ -126,6 +137,7 @@ export const useChat = defineStore('chat', () => {
     unReadCount,
     previewMessage,
     totalUnreadCount,
+    uploadTasks,
     // messageRecordTotal,
     // getMessageRecord,
     // updateMessageRecord,
@@ -136,7 +148,6 @@ export const useChat = defineStore('chat', () => {
     incrementUnReadCount,
     resetUnReadCount,
     getAllFriendsPreviewMessage,
-    uploadTasks,
     addUploadTask,
     updateUploadTask,
     clearUploadTask,

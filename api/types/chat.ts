@@ -45,6 +45,8 @@ export interface InitUploadRequest {
   checksum: string;
   receiverId: string;
   roomId: number;
+  thumbWidth: number;
+  thumbHeight: number;
 }
 
 export interface InitUploadResponse {
@@ -95,10 +97,7 @@ export interface UploadStatusResponse {
   uploadId: string;
   status: 'uploading' | 'completed';
   fileSize: number;
-  totalChunks: number;
-  receivedChunks: number;
-  receivedChunkIndices: number[];
-  chunkProgress: Record<string, number>;
+  receivedBytes: number;
   expiresAt: string;
 }
 

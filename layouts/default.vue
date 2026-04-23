@@ -67,6 +67,7 @@ import { useStream } from '@/store/stream';
 import { getUserInfo } from '@/api/modules/auth';
 import { WsChannel, WSCode } from '@/enums/websocket';
 import { SendMessageDB } from '@/utils/indexedDB/sendMessage';
+import { FailMessageFileDB } from '@/utils/indexedDB/failedMessageFile';
 import type { Friends } from '@/api/types/friend';
 import type { GetRoomsResponse } from '@/api/types/stream';
 import type { WsMessage } from '@/api/types/chat';
@@ -80,8 +81,10 @@ const streamStore = useStream();
 const route = useRoute();
 
 const messageDB = new SendMessageDB();
+const faileMessageFileDB = new FailMessageFileDB();
 onMounted(() => {
   messageDB.openDB();
+  faileMessageFileDB.openDB();
 });
 
 const queryClient = useQueryClient();
@@ -95,7 +98,7 @@ onServerPrefetch(async () => {
 
 const { updateMessageQuery } = useMessageQuery();
 
-const failMessageHandler = useFailedMessages(messageDB);
+const failMessageHandler = useFailedMessages();
 
 // handler 必須是具名函式（非匿名箭頭函式），unsubscribe 需要相同的函式參照
 const globalMessageHandler = (payload: WsPayload<any>) => notificationStore.websocketGlobalMessage(payload.data);

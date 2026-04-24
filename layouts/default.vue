@@ -66,8 +66,7 @@ import { useChat } from '@/store/chat';
 import { useStream } from '@/store/stream';
 import { getUserInfo } from '@/api/modules/auth';
 import { WsChannel, WSCode } from '@/enums/websocket';
-import { SendMessageDB } from '@/utils/indexedDB/sendMessage';
-import { FailMessageFileDB } from '@/utils/indexedDB/failedMessageFile';
+import { getMyDateDB } from '@/utils/indexedDB/myDateDB';
 import type { Friends } from '@/api/types/friend';
 import type { GetRoomsResponse } from '@/api/types/stream';
 import type { WsMessage } from '@/api/types/chat';
@@ -80,11 +79,8 @@ const streamStore = useStream();
 
 const route = useRoute();
 
-const messageDB = new SendMessageDB();
-const faileMessageFileDB = new FailMessageFileDB();
 onMounted(() => {
-  messageDB.openDB();
-  faileMessageFileDB.openDB();
+  getMyDateDB();
 });
 
 const queryClient = useQueryClient();
@@ -114,6 +110,7 @@ const chatRoomMessageHandler = (payload: WsPayload<WsMessage>) => {
   if (payload.code === WSCode.SUCCESS || payload.code === WSCode.FAIL) return;
 
   const msg = payload.data?.message[0];
+  console.log(msg, 'msg');
   if (!msg) return;
   updateMessageQuery({ newMessage: [msg], roomId: msg.roomId });
 };
@@ -141,7 +138,6 @@ useWsChannel([
         chatStore.incrementTotalUnreadCount();
       },
       (data: WsPayload<WsMessage>) => {
-        if (route.path === '/chatroom') return;
         const msg = data.data?.message[0];
         if (!msg?.localId) return;
 
@@ -152,11 +148,19 @@ useWsChannel([
           });
         }
 
+        if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
+          chatStore.clearUploadTask(msg.localId);
+        }
+
         if (data.code === WSCode.FAIL) {
           failMessageHandler.markMessageFailed({
             localId: msg.localId,
             roomId: msg.roomId
           });
+
+          if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
+            chatStore.clearUploadTask(msg.localId);
+          }
         }
       }
     ]

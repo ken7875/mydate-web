@@ -77,7 +77,6 @@ import type { Friends } from '@/api/types/friend';
 import type { WsMessage } from '~/api/types/chat';
 import type { ShowingFriendList } from './types';
 import { WsChannel } from '~/enums/websocket';
-import { useNotification } from '~/store/notificationWebSocket';
 
 defineOptions({
   name: 'friends'
@@ -92,8 +91,6 @@ const { unReadCount } = storeToRefs(chatStore);
 const { getAllFriendsHandler } = friendsStore;
 
 const { userInfoRes } = useUserInfoQuery();
-
-const webSocketStore = useNotification();
 
 const { data: initialFriends } = await useMyAsyncData('friends', () =>
   getAllFriendsHandler({
@@ -124,29 +121,34 @@ const showNewFriendsData = async () => {
 
 // 置頂新訊息
 const isFirstPageVisible = computed(() => showingFriendList.value[0].page === 1);
-const addNewMessage = ({ user }: { user: Friends }) => {
+const addNewMessage = ({ user, roomId }: { user: Friends; roomId: number }) => {
   const userIndex = showingFriendList.value[0].index - 1;
+  console.log(user, 'user');
   showingFriendList.value.unshift({
     ...user,
     index: userIndex,
     page: 1,
+    roomId,
     idx: `1-${userIndex}`
   });
+  console.log(showingFriendList.value, 'unshift');
 };
 
 const updateFriendsList = ({ data }: WsPayload<WsMessage>) => {
   const { user, roomId } = data;
   const friendIndex = showingFriendList.value.findIndex((friend) => friend.roomId === roomId);
   const isFirstUser = isFirstPageVisible.value && friendIndex === 0;
+  console.log(friendIndex, 'friendIndex');
 
   if (isFirstUser) return;
 
   if (friendIndex !== -1) {
     showingFriendList.value.splice(friendIndex, 1);
+    console.log(showingFriendList.value, 'splice');
   }
 
   if (isFirstPageVisible.value) {
-    addNewMessage({ user });
+    addNewMessage({ user, roomId });
   }
 };
 
@@ -158,6 +160,7 @@ const previewMessageText = (roomId: number) => {
   const type = previewMessagesObj.value?.[roomId]?.type;
   switch (type) {
     case 'text':
+      console.log(previewMessagesObj.value?.[roomId]?.message, 'previewMessagesObj.value?.[roomId]?.message');
       return previewMessagesObj.value?.[roomId]?.message;
 
     case 'image':
@@ -174,29 +177,23 @@ const previewMessageText = (roomId: number) => {
 };
 
 const updatePreviewMessage = ({ data }: WsPayload<WsMessage>) => {
-  if (!previewMessagesObj.value || !data.message.length) return;
+  if (!data.message.length || !previewMessagesObj.value) return;
+
   const latestMessage = data.message[0];
   previewMessagesObj.value[data.roomId] = {
     ...latestMessage
   };
 };
 
-// TODO 未讀新增測試
 const handleUnReadCountUpdate = ({ data }: WsPayload<WsMessage>) => {
   chatStore.incrementUnReadCount(data.roomId);
 };
 
 const checkChatRoom = (friend: Friends) => {
-  if (previewMessagesObj.value?.[friend.uuid]?.sendTime) {
-    // TODO 已讀測試
-    chatStore.resetUnReadCount(friend.roomId);
-
-    webSocketStore.handleSend<{ roomId: number; sendTime: number }>({
-      type: 'markAsRead',
-      data: {
-        roomId: Number(friend.roomId),
-        sendTime: previewMessagesObj.value?.[friend.uuid]?.sendTime
-      }
+  if (previewMessagesObj.value?.[friend.roomId]) {
+    chatStore.setReadCounterHandler({
+      roomId: Number(friend.roomId),
+      friendId: friend.uuid
     });
   }
 

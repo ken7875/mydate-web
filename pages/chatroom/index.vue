@@ -215,8 +215,7 @@ import moment from 'moment';
 import VirtualList from '@/components/virtualList/index.vue';
 import { getFriend } from '@/api/modules/friend';
 import type { Friends } from '@/api/types/friend';
-import { WsChannel, WSCode } from '~/enums/websocket';
-import { useNotification } from '~/store/notificationWebSocket';
+import { WsChannel } from '~/enums/websocket';
 import { useMessage } from '~/store/message';
 import { initUploadApi, uploadChunkApi, getUploadStatusApi } from '@/api/modules/chat';
 import { computeFileSHA256 } from '@/utils/crypto';
@@ -233,8 +232,6 @@ const pageSize = 20;
 
 const chatStore = useChat();
 const { sendMessage } = chatStore;
-
-const webSocketStore = useNotification();
 
 const messageStore = useMessage();
 
@@ -520,12 +517,9 @@ const showDate = (start: number, end: number) => {
 };
 
 onBeforeRouteLeave(() => {
-  webSocketStore.handleSend<{ roomId: number; sendTime: number }>({
-    type: 'markAsRead',
-    data: {
-      roomId: Number(routes.query.roomId),
-      sendTime: Math.ceil(Date.now() / 1000)
-    }
+  chatStore.setReadCounterHandler({
+    roomId: Number(routes.query.roomId),
+    friendId: focusFriend.value.uuid
   });
 });
 
@@ -748,27 +742,27 @@ useWsChannel([
         const msg = data.data?.message[0];
         if (!msg?.localId || !isSelf(msg)) return;
 
-        if (data.code === WSCode.SUCCESS) {
-          await failMessageHandler.markMessageSuccess({
-            localId: msg.localId,
-            roomId: msg.roomId
-          });
+        // if (data.code === WSCode.SUCCESS) {
+        //   await failMessageHandler.markMessageSuccess({
+        //     localId: msg.localId,
+        //     roomId: msg.roomId
+        //   });
 
-          if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
-            chatStore.clearUploadTask(msg.localId);
-          }
-        }
+        //   if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
+        //     chatStore.clearUploadTask(msg.localId);
+        //   }
+        // }
 
-        if (data.code === WSCode.FAIL) {
-          await failMessageHandler.markMessageFailed({
-            localId: msg.localId,
-            roomId: msg.roomId
-          });
+        // if (data.code === WSCode.FAIL) {
+        //   await failMessageHandler.markMessageFailed({
+        //     localId: msg.localId,
+        //     roomId: msg.roomId
+        //   });
 
-          if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
-            chatStore.clearUploadTask(msg.localId);
-          }
-        }
+        //   if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
+        //     chatStore.clearUploadTask(msg.localId);
+        //   }
+        // }
 
         refreshFailMessages();
         refreshFailMessageFiles();

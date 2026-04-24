@@ -12,85 +12,35 @@ export interface BaseDBConfig {
   indexes?: IndexConfig[];
   keyPath?: string;
 }
+
 export type Mode = 'readonly' | 'readwrite';
 
 export abstract class BaseIndexedDB {
-  protected readonly config: Required<BaseDBConfig>;
+  protected readonly storeName: string;
+  private readonly getDB: () => Promise<IDBDatabase>;
 
-  constructor(config: BaseDBConfig) {
-    this.config = {
-      autoIncrement: true,
-      keyPath: 'id',
-      indexes: [],
-      ...config
-    };
-  }
-
-  private static instances: Map<string, IDBDatabase> = new Map();
-
-  openDB(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.config.dbName, this.config.version);
-
-      request.addEventListener('upgradeneeded', (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        const tx = (event.target as IDBOpenDBRequest).transaction!;
-        let store: IDBObjectStore;
-
-        if (!db.objectStoreNames.contains(this.config.storeName)) {
-          store = db.createObjectStore(this.config.storeName, {
-            keyPath: this.config.keyPath,
-            autoIncrement: this.config.autoIncrement
-          });
-        } else {
-          store = tx.objectStore(this.config.storeName);
-        }
-
-        for (const index of this.config.indexes) {
-          if (!store.indexNames.contains(index.name)) {
-            store.createIndex(index.name, index.keyPath, { unique: index.unique ?? false });
-          }
-        }
-      });
-
-      request.addEventListener('success', (event) => {
-        const db = (event.target as IDBOpenDBRequest).result;
-        BaseIndexedDB.instances.set(this.config.dbName, db);
-        resolve(db);
-      });
-
-      request.addEventListener('error', (event) => {
-        reject((event.target as IDBOpenDBRequest).error);
-      });
-    });
-  }
-
-  protected async getDB(): Promise<IDBDatabase> {
-    const existing = BaseIndexedDB.instances.get(this.config.dbName);
-
-    if (existing && existing.version >= this.config.version) return existing;
-
-    if (existing) {
-      existing.close();
-      BaseIndexedDB.instances.delete(this.config.dbName);
-    }
-
-    return this.openDB();
+  constructor(storeName: string, getDB: () => Promise<IDBDatabase>) {
+    this.storeName = storeName;
+    this.getDB = getDB;
   }
 
   runTransaction<T>({ fn, mode }: { fn: (store: IDBObjectStore) => IDBRequest<T>; mode: Mode }): Promise<T> {
     return new Promise(async (resolve, reject) => {
       try {
         const db = await this.getDB();
-        const tx = db.transaction(this.config.storeName, mode);
-        const store = tx.objectStore(this.config.storeName);
-        const req = fn(store); // store.add, store.get ...
+        const tx = db.transaction(this.storeName, mode);
+        const store = tx.objectStore(this.storeName);
+        const req = fn(store);
 
         req.addEventListener('success', () => {
           resolve(req.result);
         });
+
+        req.addEventListener('error', () => {
+          reject(req.error);
+        });
       } catch (error) {
-        reject(`runTransaction fail!!!: ${error}`);
+        reject(`runTransaction fail: ${error}`);
       }
     });
   }
@@ -107,8 +57,8 @@ export abstract class BaseIndexedDB {
     return new Promise(async (resolve, reject) => {
       try {
         const db = await this.getDB();
-        const tx = db.transaction(this.config.storeName, mode);
-        const store = tx.objectStore(this.config.storeName);
+        const tx = db.transaction(this.storeName, mode);
+        const store = tx.objectStore(this.storeName);
         const req = fn(store);
 
         req.addEventListener('success', (event) => {
@@ -129,14 +79,5 @@ export abstract class BaseIndexedDB {
         reject(error);
       }
     });
-  }
-
-  close(): void {
-    const db = BaseIndexedDB.instances.get(this.config.dbName);
-
-    if (db) {
-      db.close();
-      BaseIndexedDB.instances.delete(this.config.dbName);
-    }
   }
 }

@@ -25,13 +25,14 @@ export const getPreviewMessageApi = () => {
   });
 };
 
-export const markAsReadApi = (body: { roomId: number; sendTime: number }) => {
-  return useHttp.put<null>({
-    url: '/message/read',
-    body,
-    needLoading: false
-  });
-};
+// 改為ws
+// export const markAsReadApi = (body: { roomId: number; sendTime: number }) => {
+//   return useHttp.put<null>({
+//     url: '/message/read',
+//     body,
+//     needLoading: false
+//   });
+// };
 
 export const getUnreadCount = (params: { roomIds: number[] }) => {
   return useHttp.get<Record<string, { count: number }>>({

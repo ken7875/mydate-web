@@ -55,6 +55,7 @@ export const useChat = defineStore('chat', () => {
 
   const getUnReadCountHandler = async (roomIds: number[]) => {
     const res = await getUnreadCount({ roomIds });
+    console.log(res, 'res');
     // merge 而非覆蓋，避免載入更多好友時清除已有的未讀數
     unReadCount.value = { ...unReadCount.value, ...res.data! };
     return res.data!;
@@ -62,6 +63,7 @@ export const useChat = defineStore('chat', () => {
 
   const getTotalUnreadCount = async () => {
     const res = await getUnreadTotal();
+    console.log(res, 'cc');
     totalUnreadCount.value = res.data?.total ?? 0;
   };
 
@@ -80,6 +82,19 @@ export const useChat = defineStore('chat', () => {
     if (unReadCount.value[roomId]) {
       unReadCount.value[roomId].count = 0;
     }
+  };
+
+  const setReadCounterHandler = ({ roomId, friendId }: { roomId: number; friendId: string }) => {
+    webSocketStore.handleSend<{ roomId: number; sendTime: number; uuid: string }>({
+      type: 'markAsRead',
+      data: {
+        roomId,
+        sendTime: Math.ceil(Date.now() / 1000),
+        uuid: friendId
+      }
+    });
+
+    resetUnReadCount(roomId);
   };
 
   const getAllFriendsPreviewMessage = async () => {
@@ -142,6 +157,7 @@ export const useChat = defineStore('chat', () => {
     // getMessageRecord,
     // updateMessageRecord,
     sendMessage,
+    setReadCounterHandler,
     getUnReadCountHandler,
     getTotalUnreadCount,
     incrementTotalUnreadCount,

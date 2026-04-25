@@ -24,8 +24,10 @@ FROM node:lts-alpine
 
 WORKDIR /app
 
-COPY --from=build /app/.output ./.output
+# 只複製 build 結果（關鍵）
+COPY --from=build /app/.zeabur/output ./
+# COPY --from=build /app/.output ./.output
 
-EXPOSE 3000
+EXPOSE 8080
 
-CMD ["node", ".output/server/index.mjs"]
+CMD ["node", "./functions/__nitro.func/index.mjs"]

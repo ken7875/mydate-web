@@ -18,7 +18,7 @@ RUN yarn --version
 RUN yarn install --frozen-lockfile && yarn cache clean
 
 COPY . .
-RUN yarn build:prod
+RUN NODE_OPTIONS=--max-old-space-size=4096 yarn build:prod
 
 FROM node:lts-alpine
 

@@ -9,7 +9,7 @@ const securityConfig: Record<string, any> =
           headers: {
             contentSecurityPolicy: {
               // 預設策略：僅允許同源
-              'default-src': ["'self'"],
+              'default-src': ["'self'", 'bloom-service.zeabur.app'],
               // script-src 不覆蓋，保留 nuxt-security 預設的 nonce + strict-dynamic 機制（最佳 XSS 防護）
               // API 連線（$fetch）與 WebSocket
               'connect-src': ["'self'", 'wss:', 'ws:'],

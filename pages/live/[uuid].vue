@@ -29,6 +29,13 @@ import { getRoomApi } from '@/api/modules/stream';
 // import { messageTool } from '~/utils/message';
 import { useMessage } from '@/store/message';
 
+// TODO 暫時關閉
+definePageMeta({
+  middleware: () => {
+    return navigateTo('/meet', { replace: true });
+  }
+});
+
 const streamStore = useStream();
 const messageStore = useMessage();
 const route = useRoute();

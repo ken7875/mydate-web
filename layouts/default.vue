@@ -29,22 +29,37 @@
           </NuxtLink>
         </AlertDot>
       </li>
-      <li class="w-[20%] flex justify-center items-center">
-        <NuxtLink to="/streamer">
-          <ClientOnly>
-            <div class="rounded-[50%] bg-primary w-[60px] h-[60px] flex justify-center items-center">
-              <font-awesome-icon :icon="['fas', 'video']" class="text-[1.6rem] text-white" />
-            </div>
-          </ClientOnly>
-        </NuxtLink>
+      <li
+        class="w-[20%] flex justify-center items-center"
+        @click="
+          messageStore.openMessage({
+            title: '訊息',
+            content: '暫不開放'
+          })
+        "
+      >
+        <!-- <NuxtLink to="/streamer"> -->
+        <ClientOnly>
+          <div class="rounded-[50%] bg-primary w-[60px] h-[60px] flex justify-center items-center">
+            <font-awesome-icon :icon="['fas', 'video']" class="text-[1.6rem] text-white" />
+          </div>
+        </ClientOnly>
+        <!-- </NuxtLink> -->
       </li>
-      <li>
-        <NuxtLink to="/live" class="flex flex-col text-gray items-center">
-          <ClientOnly>
-            <font-awesome-icon :icon="['fas', 'tv']" class="text-[1.6rem] mb-1" />
-          </ClientOnly>
-          <span class="text-xs">直播室</span>
-        </NuxtLink>
+      <li
+        @click="
+          messageStore.openMessage({
+            title: '訊息',
+            content: '暫不開放'
+          })
+        "
+      >
+        <!-- <NuxtLink to="/live" class="flex flex-col text-gray items-center"> -->
+        <ClientOnly>
+          <font-awesome-icon :icon="['fas', 'tv']" class="text-[1.6rem] mb-1" />
+        </ClientOnly>
+        <span class="text-xs">直播室</span>
+        <!-- </NuxtLink> -->
       </li>
       <li>
         <NuxtLink to="/userInfo" class="flex flex-col text-gray items-center">
@@ -70,12 +85,14 @@ import { getMyDateDB } from '@/utils/indexedDB/myDateDB';
 import type { Friends } from '@/api/types/friend';
 import type { GetRoomsResponse } from '@/api/types/stream';
 import type { WsMessage } from '@/api/types/chat';
+import { useMessage } from '~/store/message';
 
 const authStore = useAuth();
 const notificationStore = useNotification();
 const friendStore = useFriends();
 const chatStore = useChat();
 const streamStore = useStream();
+const messageStore = useMessage();
 
 const route = useRoute();
 

@@ -17,6 +17,13 @@ import { storeToRefs } from 'pinia';
 import type { GetRoomsResponse } from '~/api/types/stream';
 import { WsChannel } from '~/enums/websocket';
 
+// TODO 暫時關閉
+definePageMeta({
+  middleware: () => {
+    return navigateTo('/meet', { replace: true });
+  }
+});
+
 const streamStore = useStream();
 // 由後端實作將直播間uuid存入db
 const { streamRoomMap } = storeToRefs(streamStore);

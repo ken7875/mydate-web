@@ -26,6 +26,13 @@ import { useStream } from '@/store/stream';
 import { useAuth } from '~/store/auth';
 // import { closeStream } from '@/api/modules/stream';
 
+// TODO 暫時關閉
+definePageMeta({
+  middleware: () => {
+    return navigateTo('/meet', { replace: true });
+  }
+});
+
 const video = ref<HTMLMediaElement | null>(null);
 let mediaRecorder: MediaRecorder | null = null;
 

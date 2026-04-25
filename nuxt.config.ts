@@ -143,7 +143,11 @@ export default defineNuxtConfig({
       minify: 'terser',
       terserOptions: {
         compress: {
-          drop_console: process.env.MODE === 'production',
+          drop_console: false,
+          pure_funcs:
+            process.env.MODE === 'production'
+              ? ['console.log', 'console.warn', 'console.info', 'console.debug', 'console.trace', 'console.dir']
+              : [],
           drop_debugger: true
         }
       },

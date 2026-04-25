@@ -5,18 +5,18 @@ export type KeysOf<T> = Array<T extends T ? (keyof T extends string ? keyof T : 
 
 const useMyAsyncData = async <T>(key: string, fn: () => Promise<T>, options?: AsyncDataOptions<T, T, KeysOf<T>, T>) => {
   const pendingData = useAsyncData(key, fn, options);
-
   const loadingTool = useLoadingTool();
   loadingTool.openLoading();
   onMounted(() => {
     pendingData
       .then((res) => {
         if (res.error.value?.statusCode && res.error.value?.statusCode !== 200) {
+          console.error(res.error.value, 'res error');
           errorHandler((res.error.value.data as any)?.errorCode, res.error.value.statusCode);
         }
       })
       .catch((err) => {
-        console.log(err);
+        console.error(err);
       })
       .finally(() => {
         loadingTool.close();

@@ -55,7 +55,6 @@ export const useChat = defineStore('chat', () => {
 
   const getUnReadCountHandler = async (roomIds: number[]) => {
     const res = await getUnreadCount({ roomIds });
-    console.log(res, 'res');
     // merge 而非覆蓋，避免載入更多好友時清除已有的未讀數
     unReadCount.value = { ...unReadCount.value, ...res.data! };
     return res.data!;
@@ -63,7 +62,6 @@ export const useChat = defineStore('chat', () => {
 
   const getTotalUnreadCount = async () => {
     const res = await getUnreadTotal();
-    console.log(res, 'cc');
     totalUnreadCount.value = res.data?.total ?? 0;
   };
 

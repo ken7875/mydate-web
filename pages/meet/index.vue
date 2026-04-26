@@ -1,9 +1,10 @@
 <template>
   <div class="relative full-screen-container">
-    <div class="absolute left-1/2 -translate-x-1/2 w-[90%] h-full z-10">
+    <div ref="cardsContainerRef" class="absolute left-1/2 -translate-x-1/2 w-[90%] h-full z-10">
       <Card
         v-for="(item, idx) in showingMeetUserList"
         :key="item.uuid"
+        :data-card-uuid="item.uuid"
         class="absolute w-full h-[67dvh] overflow-scroll card overscroll-none"
         :style="{ zIndex: showingMeetUserList.length - idx }"
       >
@@ -66,7 +67,6 @@
               <!-- </template> -->
             </div>
             <!-- TODO 按鈕位置調正 -->
-            <!-- TODO mutation observer 避免用戶f12刪除卡片 -->
             <div
               @click="toggleDetail(item.uuid)"
               class="flex items-center justify-center gap-1 cursor-pointer text-gray-400 absolute bottom-[15px] left-[50%] -translate-x-1/2"
@@ -232,8 +232,9 @@ const dislikeRquestHandler = async () => {
 
 watch(
   meetUserList,
-  (val) => {
-    if (val.length <= 2) {
+  (val, oldVal) => {
+    const isRepeat = val.at(-1) !== oldVal.at(-1);
+    if (val.length <= 2 && isRepeat) {
       getMeetUserListHandler(true);
     }
   },
@@ -248,6 +249,47 @@ const killDragAnimation = () => {
     draggableInstance?.kill();
     draggableInstance = null;
   }
+};
+
+const cardsContainerRef = ref<HTMLElement | null>(null);
+const legitimatelyRemovingUuids = new Set<string>();
+let mutationObserver: MutationObserver | null = null;
+
+const markLegitimateRemoval = (uuid: string) => {
+  legitimatelyRemovingUuids.add(uuid);
+};
+
+const setupMutationObserver = () => {
+  mutationObserver?.disconnect();
+  if (!cardsContainerRef.value) return;
+
+  mutationObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type !== 'childList') continue;
+
+      mutation.removedNodes.forEach((node) => {
+        const el = node as HTMLElement;
+        if (!el.classList?.contains('card')) return;
+
+        const uuid = el.dataset.cardUuid;
+        if (!uuid) return;
+
+        if (legitimatelyRemovingUuids.has(uuid)) {
+          legitimatelyRemovingUuids.delete(uuid);
+        } else {
+          // 非法刪除：強制重新渲染並重綁拖曳
+          const snapshot = [...meetUserList.value];
+          meetUserList.value = [];
+          nextTick(() => {
+            meetUserList.value = snapshot;
+            nextTick(() => dragCardHandler());
+          });
+        }
+      });
+    }
+  });
+
+  mutationObserver.observe(cardsContainerRef.value, { childList: true });
 };
 
 const expandedUuids = ref(new Set<string>());
@@ -293,6 +335,8 @@ const dragCardHandler = () => {
     },
     onRelease() {
       if (this.x > TRIGGER_RANGE) {
+        const uuid = (this.target as HTMLElement).dataset.cardUuid;
+        if (uuid) markLegitimateRemoval(uuid);
         likeRequestHandler();
         // 滑出左邊
         gsap.to(this.target, {
@@ -307,6 +351,8 @@ const dragCardHandler = () => {
           }
         });
       } else if (this.x < -TRIGGER_RANGE) {
+        const uuid = (this.target as HTMLElement).dataset.cardUuid;
+        if (uuid) markLegitimateRemoval(uuid);
         // 滑出右邊
         gsap
           .to(this.target, {
@@ -346,9 +392,11 @@ const handleDislike = useThrottleFn(() => likeDislikeAnimation('dislike'), 500);
 let tl: GSAPTimeline | null = null;
 const likeDislikeAnimation = (type: 'like' | 'dislike' | 'superlike') => {
   showingHeartIcon.value = 'heart';
-  const targets = gsap.utils.toArray('.card') as gsap.TweenTarget[];
+  const targets = gsap.utils.toArray('.card') as HTMLElement[];
   tl = gsap.timeline();
   if (type === 'like') {
+    const uuid = targets[0]?.dataset?.cardUuid;
+    if (uuid) markLegitimateRemoval(uuid);
     tl.to(targets[0], {
       x: 500,
       rotation: 30,
@@ -360,6 +408,8 @@ const likeDislikeAnimation = (type: 'like' | 'dislike' | 'superlike') => {
     });
   } else if (type === 'dislike') {
     showingHeartIcon.value = 'heart-crack';
+    const uuid = targets[0]?.dataset?.cardUuid;
+    if (uuid) markLegitimateRemoval(uuid);
     tl.to(targets[0], {
       x: -500,
       rotation: -30,
@@ -373,17 +423,20 @@ const likeDislikeAnimation = (type: 'like' | 'dislike' | 'superlike') => {
 };
 onMounted(() => {
   dragCardHandler();
+  setupMutationObserver();
 });
 
 // 當有新卡片加入需要重新綁定動畫
 watch(showingMeetUserList, () => {
   nextTick(() => {
     dragCardHandler();
+    setupMutationObserver();
   });
 });
 
 onUnmounted(() => {
   killDragAnimation();
+  mutationObserver?.disconnect();
 });
 </script>
 

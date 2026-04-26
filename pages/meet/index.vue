@@ -4,25 +4,25 @@
       <Card
         v-for="(item, idx) in showingMeetUserList"
         :key="item.uuid"
-        class="absolute w-full h-[67dvh] overflow-scroll card"
+        class="absolute w-full h-[67dvh] overflow-scroll card overscroll-none"
         :style="{ zIndex: showingMeetUserList.length - idx }"
       >
         <template #body>
-          <div class="h-full w-full">
-            <div class="h-[63%] relative">
+          <div class="h-auto w-full relative">
+            <div class="h-[67dvh] relative">
               <NuxtImg
                 preload
                 crossorigin="anonymous"
                 format="webp"
                 :src="getDefaultAvatar(item.avatars[0], '/images/testUser1.jpg')"
                 alt="avatar"
-                class="w-full h-full object-cover border-0"
+                class="w-full h-full object-cover border-0 absolute top-0 left-0"
                 v-slot="{ isLoaded }"
               >
                 <div class="shimmer-placeholder" v-show="!isLoaded"></div>
               </NuxtImg>
-              <div class="absolute px-5 bottom-0 text-white">
-                <div v-if="item.status === FriendStatus.Pending" class="px-5 py-[3px] mb-[16px] bg-amber-600">
+              <div class="absolute px-5 pt-9 bottom-[30px] text-white glass-overlay">
+                <div v-if="item.status === FriendStatus.Pending" class="px-5 py-[3px] mb-4 bg-amber-600">
                   <p>有人想認識你!</p>
                 </div>
                 <p class="text-[30px] font-bold">{{ item.userName }}</p>
@@ -30,9 +30,10 @@
                   <span class="mr-1.5">{{ item.age }}</span>
                   <span>{{ Gender[item.gender] }}</span>
                 </p>
+                <p class="mb-[15px]">{{ item.description }}</p>
               </div>
             </div>
-            <div class="p-5 relative min-h-[37%]">
+            <div class="p-5 relative min-h-[37%]" v-if="expandedUuids.has(item.uuid)">
               <div class="flex mb-5 w-full">
                 <p class="w-[60px] text-gray-400">個性</p>
                 <div class="flex flex-wrap gap-2">
@@ -49,36 +50,36 @@
                   }}</Badge>
                 </div>
               </div>
-              <template v-if="expandedUuids.has(item.uuid)">
-                <div class="flex mb-3">
-                  <p class="w-[30%] text-gray-400">自我介紹</p>
-                  <p>{{ item.description }}</p>
-                </div>
-                <div class="flex mb-3">
-                  <p class="w-[30%] text-gray-400">身高</p>
-                  <p>123</p>
-                </div>
-                <div class="flex mb-3">
-                  <p class="w-[30%] text-gray-400">體重</p>
-                  <p>123</p>
-                </div>
-                <div class="flex mb-3">
-                  <p class="w-[30%] text-gray-400">血型</p>
-                  <p>123</p>
-                </div>
-              </template>
-              <div
-                @click="toggleDetail(item.uuid)"
-                class="flex items-center justify-center gap-1 cursor-pointer text-gray-400 absolute bottom-[5px] left-[50%] -translate-x-1/2"
-              >
-                <span class="text-sm">{{ expandedUuids.has(item.uuid) ? '收起' : '查看更多' }}</span>
-                <ClientOnly>
-                  <font-awesome-icon
-                    :icon="['fas', expandedUuids.has(item.uuid) ? 'chevron-up' : 'chevron-down']"
-                    class="text-xs"
-                  />
-                </ClientOnly>
+              <!-- <template v-if="expandedUuids.has(item.uuid)"> -->
+              <div class="flex mb-3">
+                <p class="w-[30%] text-gray-400">身高</p>
+                <p>123</p>
               </div>
+              <div class="flex mb-3">
+                <p class="w-[30%] text-gray-400">體重</p>
+                <p>123</p>
+              </div>
+              <div class="flex mb-3">
+                <p class="w-[30%] text-gray-400">血型</p>
+                <p>123</p>
+              </div>
+              <!-- </template> -->
+            </div>
+            <!-- TODO 按鈕位置調正 -->
+            <!-- TODO mutation observer 避免用戶f12刪除卡片 -->
+            <div
+              @click="toggleDetail(item.uuid)"
+              class="flex items-center justify-center gap-1 cursor-pointer text-gray-400 absolute bottom-[15px] left-[50%] -translate-x-1/2"
+            >
+              <span :class="expandedUuids.has(item.uuid) ? 'text-black' : 'text-white'">{{
+                expandedUuids.has(item.uuid) ? '收起' : '查看更多'
+              }}</span>
+              <ClientOnly>
+                <font-awesome-icon
+                  :icon="['fas', expandedUuids.has(item.uuid) ? 'chevron-up' : 'chevron-down']"
+                  class="text-xs"
+                />
+              </ClientOnly>
             </div>
           </div>
         </template>
@@ -405,6 +406,19 @@ onUnmounted(() => {
   100% {
     background-position: 200% 0;
   }
+}
+
+.glass-overlay {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 30%;
+  backdrop-filter: blur(6px) saturate(1.4);
+  -webkit-backdrop-filter: blur(6px) saturate(1.4);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.06) 60%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 35%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 35%);
 }
 
 .shimmer-placeholder {

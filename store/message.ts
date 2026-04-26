@@ -12,6 +12,8 @@ export const useMessage = defineStore('message', () => {
 
     return messageTool()
       .openMessage(config)
+      .then(() => {})
+      .catch(() => {})
       .finally(() => {
         messageMap.value.delete(config.content);
       });

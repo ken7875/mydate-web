@@ -3,7 +3,7 @@ import { StatusCode } from '~/enums/common';
 import StreamWebsocket from '~/utils/websocket/stream';
 import { createStreamRoom } from '@/api/modules/stream';
 import type { CreateStreamRoomBody, GetRoomsResponse } from '@/api/types/stream';
-import { useForceKickOut } from '@/utils/forceLogout';
+import type { WsChannel } from '~/enums/websocket';
 
 export const useStream = defineStore('stream', () => {
   const runtimeConfig = useRuntimeConfig();
@@ -16,7 +16,8 @@ export const useStream = defineStore('stream', () => {
     if (!websocketTool) {
       websocketTool = new StreamWebsocket(url, {
         onUnauthorized: () => {
-          useForceKickOut().catch(console.error);
+          console.error('websocket connect fail: unAuth');
+          // useForceKickOut().catch(console.error);
         }
       });
     }
@@ -30,11 +31,11 @@ export const useStream = defineStore('stream', () => {
     getWs().init(token);
   };
 
-  const subscribe = (type: string, handler: (...args: any[]) => void) => {
+  const subscribe = (type: WsChannel, handler: (...args: any[]) => void) => {
     getWs().subscribe(type, handler);
   };
 
-  const unSubscribe = (type: string, handler: (...args: any[]) => void) => {
+  const unSubscribe = (type: WsChannel, handler: (...args: any[]) => void) => {
     getWs().unsubscribe(type, handler);
   };
 

@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import BaseWebsocket from '@/utils/websocket/index';
-import { useForceKickOut } from '@/utils/forceLogout';
 import type { WsChannel } from '~/enums/websocket';
 
 export const useNotification = defineStore('notification', () => {
@@ -16,7 +15,8 @@ export const useNotification = defineStore('notification', () => {
     if (!websocketTool) {
       websocketTool = new BaseWebsocket(url, {
         onUnauthorized: () => {
-          useForceKickOut().catch(console.error);
+          console.error('websocket connect fail: unAuth');
+          // useForceKickOut().catch(console.error);
         },
         onReconnect: () => {
           queryClient.invalidateQueries({ queryKey: ['messageRecord'] });

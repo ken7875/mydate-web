@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full relative bg-bg">
+  <div class="w-full lg:max-w-[500px] lg:mx-auto relative bg-bg">
     <header class="h-20 flex px-5 z-10 py-2.5 bg-banner-bg sticky top-0 w-full">
       <nav>
         <h1 class="w-[70%] h-full">
@@ -55,10 +55,12 @@
         "
       >
         <!-- <NuxtLink to="/live" class="flex flex-col text-gray items-center"> -->
-        <ClientOnly>
-          <font-awesome-icon :icon="['fas', 'tv']" class="text-[1.6rem] mb-1" />
-        </ClientOnly>
-        <span class="text-xs">直播室</span>
+        <div class="flex flex-col text-gray items-center">
+          <ClientOnly>
+            <font-awesome-icon :icon="['fas', 'tv']" class="text-[1.6rem] mb-1" />
+          </ClientOnly>
+          <span class="text-xs">直播室</span>
+        </div>
         <!-- </NuxtLink> -->
       </li>
       <li>

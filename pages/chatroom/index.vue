@@ -417,7 +417,7 @@ const resendMessageHandler = async () => {
         });
 
         if (chatStore.uploadTasks[message.localId]?.progress === 100) {
-          setTimeout(() => chatStore.clearUploadTask(message.localId!), 300);
+          chatStore.clearUploadTask(message.localId!);
           await failedMessageFileHandler.removeByLocalId(message.localId!);
           refreshFailMessageFiles();
         }

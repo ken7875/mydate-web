@@ -48,7 +48,6 @@ export const messageTool = () => {
         onSave: () => beforeClose(resolve, 'confirm'),
         onClose: () => beforeClose(reject, 'reject'),
         onDestroy: () => {
-          console.log(123);
           render(null, container);
           document.body.removeChild(container);
         }

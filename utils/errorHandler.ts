@@ -1,7 +1,6 @@
 import { useForceKickOut } from '@/utils/forceLogout';
 
 export default useDebounceFn(async (errorCode: string, statusCode: number) => {
-  console.log(errorCode, 'errorCode');
   const messageStore = await import('@/store/message');
   switch (errorCode) {
     case 'NO_THIS_FRIEND':

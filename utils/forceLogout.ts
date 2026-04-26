@@ -1,6 +1,9 @@
+let isMessageOpen = false;
+
 export const useForceKickOut = async () => {
-  const error = new Error().stack;
-  console.warn('logout', error);
+  if (isMessageOpen) return;
+  isMessageOpen = true;
+
   return import('@/store/message').then((res) => {
     res
       .useMessage()
@@ -13,6 +16,7 @@ export const useForceKickOut = async () => {
       ?.finally(() => {
         return import('@/store/auth').then(async (res) => {
           res.useAuth().logout();
+          isMessageOpen = false;
           return await navigateTo('/auth/login');
         });
       });

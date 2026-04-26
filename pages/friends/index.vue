@@ -44,7 +44,10 @@
                 </div>
                 <div class="flex justify-between items-center w-full">
                   <div class="w-[80%]">
-                    <p class="break-all" v-textSlice:[20]="previewMessageText(item.roomId)"></p>
+                    <p
+                      class="break-all"
+                      v-textSlice:[20]="previewMessageText({ roomId: item.roomId, friendName: item.userName })"
+                    ></p>
                   </div>
                   <div class="w-[20%] flex justify-center items-center" v-if="unReadCount[item.roomId]?.count">
                     <div
@@ -156,17 +159,13 @@ const { data: previewMessagesObj } = await useMyAsyncData('getAllFriendsPreviewM
   chatStore.getAllFriendsPreviewMessage()
 );
 
-const previewMessageText = (roomId: number) => {
+const previewMessageText = ({ roomId, friendName }: { roomId: number; friendName: string }) => {
   const type = previewMessagesObj.value?.[roomId]?.type;
   switch (type) {
     case 'text':
-      console.log(previewMessagesObj.value?.[roomId]?.message, 'previewMessagesObj.value?.[roomId]?.message');
       return previewMessagesObj.value?.[roomId]?.message;
 
     case 'image':
-      const friendName = showingFriendList.value.find(
-        (friend) => friend.uuid === userInfoRes.value?.data?.uuid
-      )?.userName;
       return previewMessagesObj.value?.[roomId]?.senderId === userInfoRes.value?.data?.uuid
         ? '圖片已傳送'
         : `${friendName}向您傳送圖片`;

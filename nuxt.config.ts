@@ -18,9 +18,9 @@ const securityConfig: Record<string, any> =
               // 樣式：Google Fonts CSS + inline styles（Vue scoped styles 需要）
               'style-src': ["'self'", 'https://fonts.googleapis.com', "'unsafe-inline'"],
               // 圖片：同源 + data URI（base64）+ blob（上傳預覽）
-              'img-src': ["'self'", 'data:', 'blob:'],
+              'img-src': ["'self'", 'bloom-service.zeabur.app', 'data:', 'blob:'],
               // 影音：直播串流（HLS via hls.js 使用 Blob URL）
-              'media-src': ["'self'", 'blob:'],
+              'media-src': ["'self'", , 'bloom-service.zeabur.app', 'blob:'],
               // Web Worker：hls.js 啟用 enableWorker:true，透過 Blob URL 建立 Worker
               'worker-src': ["'self'", 'blob:'],
               // 禁止嵌入 object/embed

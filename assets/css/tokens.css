@@ -50,9 +50,6 @@
   --z-message: 1001;
   --z-loading: 1002;
 
-  /* === Typography === */
-  --font-family-sans: 'Noto Sans TC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-
   /* === Animations === */
   --animate-scale: scale 0.2s linear;
   --animate-shimmer: shimmer 2s infinite;

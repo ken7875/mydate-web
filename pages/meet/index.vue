@@ -13,8 +13,7 @@
             <div class="h-[67dvh] relative">
               <NuxtImg
                 crossorigin="anonymous"
-                v-show="idx <= 2"
-                :fetchpriority="'high'"
+                :fetchpriority="idx === 0 ? 'high' : 'auto'"
                 :preload="idx === 0"
                 format="webp"
                 :src="getDefaultAvatar(item.avatars[0], '/images/testUser1.jpg')"

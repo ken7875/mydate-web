@@ -12,8 +12,10 @@
           <div class="h-auto w-full relative">
             <div class="h-[67dvh] relative">
               <NuxtImg
-                preload
                 crossorigin="anonymous"
+                v-show="idx <= 2"
+                :fetchpriority="'high'"
+                :preload="idx === 0"
                 format="webp"
                 :src="getDefaultAvatar(item.avatars[0], '/images/testUser1.jpg')"
                 alt="avatar"
@@ -22,7 +24,7 @@
               >
                 <div class="shimmer-placeholder" v-show="!isLoaded"></div>
               </NuxtImg>
-              <div class="absolute px-5 pt-9 bottom-[30px] text-white glass-overlay">
+              <div class="glass-overlay">
                 <div v-if="item.status === FriendStatus.Pending" class="px-5 py-[3px] mb-4 bg-amber-600">
                   <p>有人想認識你!</p>
                 </div>
@@ -165,16 +167,18 @@ const showingMeetUserList = computed<MeetUser[]>(() =>
   [...requestUsers.value, ...meetUserList.value].slice(0, MAX_SHOWING_LENGTH)
 );
 
-const isFetching = ref(false);
-const getMeetUserListHandler = async (append = false) => {
-  if (isFetching.value) return;
-  isFetching.value = true;
+let isFetching = false;
+const getMeetUserListHandler = async (): Promise<MeetUser[] | null> => {
+  if (isFetching) return null;
+  isFetching = true;
   try {
     const res = await getMeetUserList(meetForm.value);
     const newItems = get(res, 'data.list', []) as MeetUser[];
-    meetUserList.value = append ? [...meetUserList.value, ...newItems] : newItems;
+    meetUserList.value = newItems;
+
+    return newItems;
   } finally {
-    isFetching.value = false;
+    isFetching = false;
   }
 };
 
@@ -230,12 +234,15 @@ const dislikeRquestHandler = async () => {
   }
 };
 
-watch(
+let unWatchGetNewUserHandler = watch(
   meetUserList,
-  (val, oldVal) => {
-    const isRepeat = val.at(-1) !== oldVal.at(-1);
-    if (val.length <= 2 && isRepeat) {
-      getMeetUserListHandler(true);
+  async (val) => {
+    if (val.length <= 3) {
+      let res = await getMeetUserListHandler();
+      if (res !== null && res.length < 10) {
+        // null = 正在 fetch，跳過；[] = 後端沒資料
+        unWatchGetNewUserHandler();
+      }
     }
   },
   {
@@ -441,6 +448,8 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+@reference "tailwindcss";
+
 .heart-enter-active,
 .heart-leave-active {
   transform: scale((1.1));
@@ -462,11 +471,7 @@ onUnmounted(() => {
 }
 
 .glass-overlay {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  height: 30%;
+  @apply absolute px-5 py-9 bottom-0 text-white w-full;
   backdrop-filter: blur(6px) saturate(1.4);
   -webkit-backdrop-filter: blur(6px) saturate(1.4);
   background: linear-gradient(to top, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.06) 60%, transparent 100%);

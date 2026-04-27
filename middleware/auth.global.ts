@@ -1,6 +1,6 @@
 import { useForceKickOut } from '@/utils/forceLogout';
 
-export default defineNuxtRouteMiddleware((to, from) => {
+export default defineNuxtRouteMiddleware((to) => {
   // 需要import.meta.client, 因為useForceKickOut的message方法只能在client端執行
   const token = useCookie('access_token').value;
   if (to.path !== '/auth/login' && !token) {

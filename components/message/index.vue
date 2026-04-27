@@ -82,11 +82,11 @@ const props = withDefaults(
   }
 );
 
-const handleAction = (action: 'confirm' | 'cancel') => {
+const handleAction = useThrottleFn((action: 'confirm' | 'cancel') => {
   if (action === 'confirm') {
     props?.onSave?.();
   } else if (action === 'cancel') {
     props?.onClose?.();
   }
-};
+}, 500);
 </script>

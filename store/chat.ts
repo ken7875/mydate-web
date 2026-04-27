@@ -45,13 +45,13 @@ export const useChat = defineStore('chat', () => {
   //   messageRecord.value.push(...message);
   // };
 
-  const sendMessage = ({ roomId, message }: { roomId: number; message: Message[] }) => {
+  const sendMessage = useThrottleFn(({ roomId, message }: { roomId: number; message: Message[] }) => {
     webSocketStore.notify({ type: WsChannel.ChatRoom, data: { roomId, message }, code: WSCode.PENDING });
     webSocketStore.handleSend<Message[]>({
       type: 'chatRoom',
       data: message
     });
-  };
+  }, 500);
 
   const getUnReadCountHandler = async (roomIds: number[]) => {
     const res = await getUnreadCount({ roomIds });

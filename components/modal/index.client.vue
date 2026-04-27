@@ -51,10 +51,10 @@ const closePopoutFunc = () => {
   isOpen.value = false;
 };
 
-const confirm = () => {
+const confirm = useThrottleFn(() => {
   emit('confirm');
   closePopoutFunc();
-};
+}, 500);
 const cancel = () => {
   emit('cancel');
   closePopoutFunc();

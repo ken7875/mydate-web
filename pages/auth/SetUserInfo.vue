@@ -14,7 +14,7 @@
       <BaseInput
         label="Password"
         type="password"
-        :class="['w-full mb-[8px]']"
+        :class="['w-full mb-2']"
         v-model="password"
         placeholder="Enter your password..."
         :error="formError.password || ''"

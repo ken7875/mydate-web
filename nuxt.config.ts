@@ -92,8 +92,8 @@ export default defineNuxtConfig({
       // apiBase: process.env.NODE_ENV === 'development' ? process.env.API_BASE_URL : process.env.API_BASE_URL_PROD
       apiBase: process.env.API_BASE_URL,
       apiBaseServer: process.env.API_BASE_URL_SERVER,
-      publicPath: `${process.env.API_BASE_URL}/bk/public/`,
-      streamPublicPath: `${process.env.API_BASE_URL}/bk/stream/public/`,
+      publicPath: `${process.env.API_BASE_URL}/public/`,
+      streamPublicPath: `${process.env.API_BASE_URL}/public/`,
       wsBase: process.env.WS_BASE_URL,
       apiMock: process.env.API_MOCK_URL,
       mode: process.env.MODE

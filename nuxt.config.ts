@@ -9,18 +9,18 @@ const securityConfig: Record<string, any> =
           headers: {
             contentSecurityPolicy: {
               // 預設策略：僅允許同源
-              'default-src': ["'self'", 'bloom-service.zeabur.app'],
+              'default-src': ["'self'", 'https://bloom-service.zeabur.app'],
               // script-src 不覆蓋，保留 nuxt-security 預設的 nonce + strict-dynamic 機制（最佳 XSS 防護）
               // API 連線（$fetch）與 WebSocket
-              'connect-src': ["'self'", 'bloom-service.zeabur.app', 'wss:', 'ws:'],
+              'connect-src': ["'self'", 'https://bloom-service.zeabur.app', 'wss:', 'ws:'],
               // 字型：Google Fonts
               'font-src': ["'self'", 'https://fonts.gstatic.com', 'data:'],
               // 樣式：Google Fonts CSS + inline styles（Vue scoped styles 需要）
               'style-src': ["'self'", 'https://fonts.googleapis.com', "'unsafe-inline'"],
               // 圖片：同源 + data URI（base64）+ blob（上傳預覽）
-              'img-src': ["'self'", 'bloom-service.zeabur.app', 'data:', 'blob:'],
+              'img-src': ["'self'", 'https://bloom-service.zeabur.app', 'data:', 'blob:'],
               // 影音：直播串流（HLS via hls.js 使用 Blob URL）
-              'media-src': ["'self'", , 'bloom-service.zeabur.app', 'blob:'],
+              'media-src': ["'self'", 'https://bloom-service.zeabur.app', 'blob:'],
               // Web Worker：hls.js 啟用 enableWorker:true，透過 Blob URL 建立 Worker
               'worker-src': ["'self'", 'blob:'],
               // 禁止嵌入 object/embed
@@ -92,8 +92,10 @@ export default defineNuxtConfig({
       // apiBase: process.env.NODE_ENV === 'development' ? process.env.API_BASE_URL : process.env.API_BASE_URL_PROD
       apiBase: process.env.API_BASE_URL,
       apiBaseServer: process.env.API_BASE_URL_SERVER,
-      publicPath: `${process.env.API_BASE_URL}/public/`,
-      streamPublicPath: `${process.env.API_BASE_URL}/public/`,
+      publicPath: import.meta.dev ? `${process.env.API_BASE_URL}/bk/public/` : `${process.env.API_BASE_URL}/public/`,
+      streamPublicPath: import.meta.dev
+        ? `${process.env.API_BASE_URL}/bk/stream/public`
+        : `${process.env.API_BASE_URL}/public/`,
       wsBase: process.env.WS_BASE_URL,
       apiMock: process.env.API_MOCK_URL,
       mode: process.env.MODE

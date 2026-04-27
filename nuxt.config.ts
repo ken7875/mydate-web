@@ -12,7 +12,7 @@ const securityConfig: Record<string, any> =
               'default-src': ["'self'", 'bloom-service.zeabur.app'],
               // script-src 不覆蓋，保留 nuxt-security 預設的 nonce + strict-dynamic 機制（最佳 XSS 防護）
               // API 連線（$fetch）與 WebSocket
-              'connect-src': ["'self'", 'wss:', 'ws:'],
+              'connect-src': ["'self'", 'bloom-service.zeabur.app', 'wss:', 'ws:'],
               // 字型：Google Fonts
               'font-src': ["'self'", 'https://fonts.gstatic.com', 'data:'],
               // 樣式：Google Fonts CSS + inline styles（Vue scoped styles 需要）

@@ -1,5 +1,7 @@
 import { SendMessageDB } from '@/utils/indexedDB/sendMessage';
 import type { Message, MessageStatus } from '~/api/types/chat';
+import { WSCode } from '~/enums/websocket';
+import { useChat } from '@/store/chat';
 
 export function useFailedMessages() {
   const messageDB = new SendMessageDB();
@@ -63,6 +65,28 @@ export function useFailedMessages() {
     });
   };
 
+  const handleWsMessageStatus = async ({
+    code,
+    localId,
+    roomId
+  }: {
+    code: WSCode;
+    localId: string;
+    roomId: number;
+  }) => {
+    const chatStore = useChat();
+
+    if (code === WSCode.SUCCESS) {
+      await markMessageSuccess({ localId, roomId });
+    } else if (code === WSCode.FAIL) {
+      await markMessageFailed({ localId, roomId });
+    }
+
+    if (chatStore.uploadTasks[localId]?.tmpUrl) {
+      chatStore.clearUploadTask(localId);
+    }
+  };
+
   const removeFailedMessage = async ({ localId }: { localId: string }) => {
     try {
       await messageDB.removeByLocalId(localId);
@@ -76,6 +100,7 @@ export function useFailedMessages() {
     clearTracking,
     markMessageSuccess,
     markMessageFailed,
+    handleWsMessageStatus,
     startMessageTimeout,
     removeFailedMessage,
     addFailMessage

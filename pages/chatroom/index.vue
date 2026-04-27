@@ -176,7 +176,7 @@
           />
           <button
             class="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 focus:outline-none"
-            @click="($event) => sendMessageHandler()"
+            @click="($event) => sendMessageHandler({ type: 'send' })"
           >
             發送
           </button>
@@ -350,7 +350,13 @@ const failMessagesFiles = ref<(FailMessageFile & { idx: string })[]>([]);
 const refreshFailMessageFiles = async () => {
   const res = await failedMessageFileHandler.getByRoomId(Number(routes.query?.roomId));
   res.forEach((message) => {
-    chatStore.addUploadTask(message.localId!, URL.createObjectURL(message.file), message.status!);
+    chatStore.addUploadTask({
+      localId: message.localId!,
+      tmpUrl: URL.createObjectURL(message.file),
+      status: message.status!,
+      thumbWidth: message.messageImage?.width || 0,
+      thumbHeight: message.messageImage?.height || 0
+    });
   });
 
   failMessagesFiles.value = res.map((message, idx) => ({
@@ -368,8 +374,11 @@ const resendMessageHandler = async () => {
   switch (type) {
     case 'text':
       sendMessageHandler({
-        ...resendConfirmModalConfig.value.message!,
-        sendTime: Math.ceil(Date.now() / 1000)
+        type: 'resend',
+        message: {
+          ...resendConfirmModalConfig.value.message!,
+          sendTime: Math.ceil(Date.now() / 1000)
+        }
       });
       break;
 
@@ -436,6 +445,7 @@ const removeResendMessageHandler = async (message: Message) => {
   const type = resendConfirmModalConfig.value.type;
   switch (type) {
     case 'text':
+      await failMessageHandler.removeFailedMessage({ localId: message.localId! });
       refreshFailMessages();
       break;
 
@@ -466,7 +476,7 @@ const resendModalHandler = async (type: 'resend' | 'remove') => {
 
 const waitToSendMessage = ref('');
 
-const sendMessageHandler = (message?: Message) => {
+const sendMessageHandler = ({ type, message }: { type: 'send' | 'resend'; message?: Message }) => {
   if (message) {
     sendMessage({ roomId: Number(routes.query?.roomId), message: [toRaw(message)] });
     return;
@@ -486,7 +496,12 @@ const sendMessageHandler = (message?: Message) => {
   };
 
   sendMessage({ roomId: Number(routes.query?.roomId), message: [newMessage] });
-  failMessageHandler.addFailMessage(newMessage);
+
+  if (type === 'send') {
+    failMessageHandler.addFailMessage(newMessage);
+  } else if (type === 'resend') {
+    refreshFailMessages();
+  }
 
   scrollToBottom();
 
@@ -575,7 +590,9 @@ const onUploadFileChange = async (event: Event) => {
   if (!selectedFile.value) return;
   const localId = uuidv4() as string;
   const url = URL.createObjectURL(selectedFile.value);
-  chatStore.addUploadTask(localId, url, 'sending');
+  const naturalSize = await getImageNaturalSize({ localId });
+  const { width: thumbWidth, height: thumbHeight } = calcThumbnailSize(naturalSize.width, naturalSize.height);
+  chatStore.addUploadTask({ localId, tmpUrl: url, status: 'sending', thumbWidth: 0, thumbHeight: 0 });
 
   messageStore
     .openMessage({
@@ -601,9 +618,6 @@ const onUploadFileChange = async (event: Event) => {
       let globalLoaded = 0;
       try {
         const file = selectedFile.value!;
-        const naturalSize = await getImageNaturalSize({ localId });
-        const { width: thumbWidth, height: thumbHeight } = calcThumbnailSize(naturalSize.width, naturalSize.height);
-        chatStore.updateUploadTask(localId, { thumbWidth, thumbHeight });
 
         const checksum = await computeFileSHA256(file);
         const initRes = await initUploadApi({
@@ -642,8 +656,8 @@ const onUploadFileChange = async (event: Event) => {
                 thumbnailUrl: chatStore.uploadTasks[localId].tmpUrl,
                 originalUrl: '',
                 blurHash: '',
-                width: 0,
-                height: 0,
+                width: thumbWidth,
+                height: thumbHeight,
                 isExpired: false
               }
             }
@@ -668,8 +682,8 @@ const onUploadFileChange = async (event: Event) => {
             thumbnailUrl: '',
             originalUrl: '',
             blurHash: '',
-            width: 0,
-            height: 0,
+            width: thumbWidth,
+            height: thumbHeight,
             isExpired: false
           }
         });
@@ -742,27 +756,7 @@ useWsChannel([
         const msg = data.data?.message[0];
         if (!msg?.localId || !isSelf(msg)) return;
 
-        // if (data.code === WSCode.SUCCESS) {
-        //   await failMessageHandler.markMessageSuccess({
-        //     localId: msg.localId,
-        //     roomId: msg.roomId
-        //   });
-
-        //   if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
-        //     chatStore.clearUploadTask(msg.localId);
-        //   }
-        // }
-
-        // if (data.code === WSCode.FAIL) {
-        //   await failMessageHandler.markMessageFailed({
-        //     localId: msg.localId,
-        //     roomId: msg.roomId
-        //   });
-
-        //   if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
-        //     chatStore.clearUploadTask(msg.localId);
-        //   }
-        // }
+        await failMessageHandler.handleWsMessageStatus({ code: data.code, localId: msg.localId, roomId: msg.roomId });
 
         refreshFailMessages();
         refreshFailMessageFiles();

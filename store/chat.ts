@@ -102,15 +102,27 @@ export const useChat = defineStore('chat', () => {
     return res.data;
   };
 
-  const addUploadTask = (localId: string, tmpUrl: string, status: MessageStatus) => {
+  const addUploadTask = ({
+    localId,
+    tmpUrl,
+    status,
+    thumbWidth,
+    thumbHeight
+  }: {
+    localId: string;
+    tmpUrl: string;
+    status: MessageStatus;
+    thumbWidth: number;
+    thumbHeight: number;
+  }) => {
     uploadTasks.value[localId] = {
       tmpUrl,
       status,
       controller: null,
       uploadId: null,
       progress: 0,
-      thumbWidth: 0,
-      thumbHeight: 0
+      thumbWidth,
+      thumbHeight
     };
   };
 

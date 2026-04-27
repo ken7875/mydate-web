@@ -156,31 +156,11 @@ useWsChannel([
         if (!msg) return;
         chatStore.incrementTotalUnreadCount();
       },
-      (data: WsPayload<WsMessage>) => {
+      async (data: WsPayload<WsMessage>) => {
         const msg = data.data?.message[0];
-        if (!msg?.localId) return;
+        if (!msg?.localId || route.path === 'chatroom') return;
 
-        if (data.code === WSCode.SUCCESS) {
-          failMessageHandler.markMessageSuccess({
-            localId: msg.localId,
-            roomId: msg.roomId
-          });
-        }
-
-        if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
-          chatStore.clearUploadTask(msg.localId);
-        }
-
-        if (data.code === WSCode.FAIL) {
-          failMessageHandler.markMessageFailed({
-            localId: msg.localId,
-            roomId: msg.roomId
-          });
-
-          if (chatStore.uploadTasks[msg.localId]?.tmpUrl) {
-            chatStore.clearUploadTask(msg.localId);
-          }
-        }
+        await failMessageHandler.handleWsMessageStatus({ code: data.code, localId: msg.localId, roomId: msg.roomId });
       }
     ]
   }

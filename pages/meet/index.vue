@@ -24,10 +24,12 @@
                 <div class="shimmer-placeholder" v-show="!isLoaded"></div>
               </NuxtImg>
               <div class="glass-overlay">
-                <div v-if="item.status === FriendStatus.Pending" class="px-5 py-[3px] mb-4 bg-amber-600">
-                  <p>有人想認識你!</p>
+                <div class="flex justify-between items-center">
+                  <p class="text-[30px] font-bold">{{ item.userName }}</p>
+                  <div v-if="item.status === FriendStatus.Pending" class="px-5 py-[3px] bg-amber-600">
+                    <p>有人想認識你!</p>
+                  </div>
                 </div>
-                <p class="text-[30px] font-bold">{{ item.userName }}</p>
                 <p class="mb-[15px]">
                   <span class="mr-1.5">{{ item.age }}</span>
                   <span>{{ Gender[item.gender] }}</span>

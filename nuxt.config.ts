@@ -55,7 +55,7 @@ const baseModules: any[] = [
   '@vueuse/nuxt',
   '@nuxt/image',
   // nuxt-security 僅在 production 環境載入（nuxt build 時 NODE_ENV=production）
-  ...(process.env.NODE_ENV === 'production' ? ['nuxt-security'] : [])
+  ...(process.env.MODE === 'production' ? ['nuxt-security'] : [])
 ];
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-30',
@@ -93,11 +93,11 @@ export default defineNuxtConfig({
       apiBase: process.env.API_BASE_URL,
       apiBaseServer: process.env.API_BASE_URL_SERVER,
       publicPath:
-        process.env.NODE_ENV === 'production'
+        process.env.MODE === 'production'
           ? `${process.env.API_BASE_URL}/public/`
           : `${process.env.API_BASE_URL}/bk/public/`,
       streamPublicPath:
-        process.env.NODE_ENV === 'production'
+        process.env.MODE === 'production'
           ? `${process.env.API_BASE_URL}/public`
           : `${process.env.API_BASE_URL}/bk/stream/public/`,
       wsBase: process.env.WS_BASE_URL,

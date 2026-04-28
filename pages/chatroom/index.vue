@@ -588,6 +588,19 @@ const onUploadFileChange = async (event: Event) => {
   selectedFile.value = (event.target as HTMLInputElement).files?.[0] ?? null;
   if (fileInputRef.value) fileInputRef.value.value = '';
   if (!selectedFile.value) return;
+
+  const MAX_FILE_SIZE = 3 * 1024 * 1024;
+  if (selectedFile.value.size > MAX_FILE_SIZE) {
+    await messageStore.openMessage({
+      title: '錯誤',
+      content: '檔案大小不可超過 3MB',
+      type: 'error',
+      hasCancel: false
+    });
+    selectedFile.value = null;
+    return;
+  }
+
   const localId = uuidv4() as string;
   const url = URL.createObjectURL(selectedFile.value);
   const naturalSize = await getImageNaturalSize({ localId });

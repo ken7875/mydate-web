@@ -173,6 +173,7 @@
             maxlength="5000"
             class="flex-1 p-2 border border-gray-300 focus:outline-none focus:border-blue-500"
             v-model="waitToSendMessage"
+            @keyup.enter="sendMessageHandler({ type: 'send' })"
           />
           <button
             class="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600 focus:outline-none"
@@ -235,8 +236,13 @@ const { sendMessage } = chatStore;
 
 const messageStore = useMessage();
 
-const { getMessageRecordQuery, updateMessageQuery, removeMessageFromQuery, updateMessageQueryStatus } =
-  useMessageQuery();
+const {
+  getMessageRecordQuery,
+  updateMessageQuery,
+  removeMessageFromQuery,
+  updateMessageQueryStatus,
+  replaceMessageQuery
+} = useMessageQuery();
 
 const failMessageHandler = useFailedMessages();
 const failedMessageFileHandler = useFailedMessagesFile();
@@ -555,6 +561,7 @@ onMounted(async () => {
 const messageRecordTotal = computed(() => (messageRecordRes.value?.total || 0) + failMessages.value.length);
 
 const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => messageRecordRes.value?.messages || []);
+
 const allMessageData = computed<(Message & { idx: string })[]>(() => {
   return [
     ...(messageRecordRes.value?.messages || []),
@@ -764,11 +771,17 @@ useWsChannel([
   {
     type: WsChannel.ChatRoom,
     handler: [
-      chatRoomHandler,
+      (data: WsPayload<WsMessage>) => {
+        if (isSelf(data.data.message[0]) && data.data.message[0].status !== 'sending') {
+          return;
+        }
+        chatRoomHandler(data);
+      },
       async (data: WsPayload<WsMessage>) => {
         const msg = data.data?.message[0];
         if (!msg?.localId || !isSelf(msg)) return;
-
+        if (msg.status === 'sending') return;
+        replaceMessageQuery({ newMessage: [msg], roomId: msg.roomId });
         await failMessageHandler.handleWsMessageStatus({ code: data.code, localId: msg.localId, roomId: msg.roomId });
 
         refreshFailMessages();

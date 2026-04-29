@@ -56,7 +56,10 @@ const startIdx = ref(0);
 const endIdx = ref(props.perLoadNum);
 const stopHandlers: (() => void)[] = [];
 
-const virtualListData = computed(() => props.totalData.slice(startIdx.value, endIdx.value));
+const virtualListData = computed(() => {
+  console.log(props.totalData, startIdx.value, endIdx.value, 'props.totalData');
+  return props.totalData.slice(startIdx.value, endIdx.value);
+});
 
 // 數窗內最多限制DOM筆數（用實際渲染筆數，避免最後一頁不足 perLoadNum 時計算錯誤）
 const isExceedLimitData = computed(() => virtualListData.value.length > maxItemCount.value);
@@ -136,6 +139,7 @@ const viewSlideUp = () => {
         if (props.isReverse && props.totalData.length < props.total) {
           await props?.fetchPrevHandler?.({ page: ++currentPage.value, pageSize: props.perLoadNum });
           startIdx.value = 0;
+          endIdx.value = props.totalData.length;
           compensateScrollAfterPrepend(heightBefore);
         } else if (!props.isReverse || currentPage.value > 1) {
           startIdx.value = Math.max(startIdx.value - props.perLoadNum, 0);
@@ -147,7 +151,6 @@ const viewSlideUp = () => {
 
         if (currentPage.value <= 1) return;
         emit('loadPrevData', { page: currentPage.value, pageSize: props.perLoadNum });
-
         if (isExceedLimitData.value) {
           sliceBottomPage();
         }

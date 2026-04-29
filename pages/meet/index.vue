@@ -141,13 +141,6 @@ import { get } from 'lodash-es';
 import { inviteFriend, setFriendStatus, dislikeUser } from '@/api/modules/friend';
 import { FriendStatus } from '~/enums/friend';
 
-// onErrorCaptured((err, instance, info) => {
-//   console.log(err);
-
-//   return false;
-// });
-// import type { User } from '~/api/types/user';
-// import { useMessage } from '@/store/message';
 const settingsStore = useSettings();
 const friendsStore = useFriends();
 

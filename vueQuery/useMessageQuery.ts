@@ -38,6 +38,16 @@ export default () => {
           )
           .reverse();
         const total = data.pages[0]?.total ?? 0;
+
+        for (let i = 0; i < messages.length; i++) {
+          for (let j = 0; j < i; j++) {
+            if (messages[i].seq && messages[i].seq === messages[j].seq) {
+              messages.splice(i, 1); // 修正 1：刪除 1 個
+              i--; // 修正 2：補回索引
+              break; // 已找到重複，跳出內層迴圈
+            }
+          }
+        }
         return { messages, total };
       }
     });
@@ -52,36 +62,55 @@ export default () => {
     };
   };
 
+  const replaceMessageQuery = ({ newMessage, roomId }: { newMessage: Message[]; roomId: number }) => {
+    queryClient.setQueryData(
+      ['messageRecord', { id: roomId }],
+      (oldData: InfiniteData<MessagePage, number> | undefined) => {
+        if (!oldData) return oldData;
+
+        const replaceMap = new Map(newMessage.filter((msg) => msg.localId != null).map((msg) => [msg.localId, msg]));
+
+        if (replaceMap.size === 0) return oldData;
+
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => ({
+            ...page,
+            data: {
+              ...page.data,
+              data: (page.data?.data ?? []).map((cache) =>
+                cache.localId != null && replaceMap.has(cache.localId) ? replaceMap.get(cache.localId)! : cache
+              )
+            }
+          }))
+        };
+      }
+    );
+  };
+
   const updateMessageQuery = ({ newMessage, roomId }: { newMessage: Message[]; roomId: number }) => {
     queryClient.setQueryData(
       ['messageRecord', { id: roomId }],
       (oldData: InfiniteData<MessagePage, number> | undefined) => {
         if (!oldData) return oldData;
 
-        const res = {
+        return {
           ...oldData,
           pages: oldData.pages.map((page, index) => {
-            if (index === 0) {
-              const oldMessageData = page.data?.data ?? [];
-              const repeatIndex = oldMessageData.findIndex((message) => message.localId === newMessage[0].localId);
-              if (repeatIndex > -1) {
-                oldMessageData.splice(repeatIndex, 1);
+            if (index !== 0) return page;
+            const oldMessageData = (page.data?.data ?? []).filter(
+              (message) => message.localId !== newMessage[0].localId
+            );
+            return {
+              ...page,
+              total: (page.total ?? 0) + 1,
+              data: {
+                ...page.data,
+                data: [...newMessage, ...oldMessageData]
               }
-
-              return {
-                ...page,
-                total: (page.total ?? 0) + 1,
-                data: {
-                  ...page.data,
-                  data: [...newMessage, ...oldMessageData]
-                }
-              };
-            }
-            return page;
+            };
           })
         };
-
-        return res;
       }
     );
   };
@@ -143,6 +172,7 @@ export default () => {
 
   return {
     getMessageRecordQuery,
+    replaceMessageQuery,
     updateMessageQuery,
     updateMessageQueryStatus,
     removeMessageFromQuery

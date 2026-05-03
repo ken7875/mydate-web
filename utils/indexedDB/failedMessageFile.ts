@@ -53,6 +53,19 @@ export class FailMessageFileDB extends BaseIndexedDB {
     });
   }
 
+  async markAllSendingAsFailed() {
+    await this.runCursorTransaction({
+      mode: 'readwrite',
+      fn: (store) => store.openCursor(),
+      onCursor: (cursor) => {
+        const record = cursor.value as FailMessageFile;
+        if (record.status === 'sending') {
+          cursor.update({ ...record, status: 'failed' });
+        }
+      }
+    });
+  }
+
   async removeByKey({ key, value }: { key: string; value: any }) {
     const primaryKey = await this.runTransaction<IDBValidKey | undefined>({
       mode: 'readonly',

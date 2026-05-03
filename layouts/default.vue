@@ -83,7 +83,6 @@ import { useChat } from '@/store/chat';
 import { useStream } from '@/store/stream';
 import { getUserInfo } from '@/api/modules/auth';
 import { WsChannel, WSCode } from '@/enums/websocket';
-import { getMyDateDB } from '@/utils/indexedDB/myDateDB';
 import type { Friends } from '@/api/types/friend';
 import type { GetRoomsResponse } from '@/api/types/stream';
 import type { WsMessage } from '@/api/types/chat';
@@ -95,11 +94,13 @@ const friendStore = useFriends();
 const chatStore = useChat();
 const streamStore = useStream();
 const messageStore = useMessage();
+const failedMessageFileHandler = useFailedMessagesFile();
 
 const route = useRoute();
 
 onMounted(() => {
-  getMyDateDB();
+  failedMessageFileHandler.markAllSendingAsFailed();
+  failMessageHandler.markAllSendingAsFailed();
 });
 
 const queryClient = useQueryClient();

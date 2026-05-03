@@ -59,6 +59,8 @@ export const useAuth = defineStore(
     // };
     const queryClient = useQueryClient();
     const logout = () => {
+      useFailedMessages().markAllSendingAsFailed();
+      useFailedMessagesFile().markAllSendingAsFailed();
       useNotification().handleClose();
       useStream().handleClose();
       setToken('');

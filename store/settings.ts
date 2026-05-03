@@ -1,21 +1,21 @@
 import { defineStore } from 'pinia';
 import type { MeetingUserQuery } from '@/api/types/user';
 export const useSettings = defineStore('settings', () => {
-  const meetForm = ref<MeetingUserQuery>({
+  const meetCondition = ref<MeetingUserQuery>({
     gender: 0,
     age: [0, 60]
   });
-  const filterMeetSettings = (form: MeetingUserQuery) => {
-    meetForm.value = form;
+  const setMeetCondition = (form: MeetingUserQuery) => {
+    meetCondition.value = form;
   };
 
   const $reset = () => {
-    meetForm.value = { gender: 0, age: [0, 60] };
+    meetCondition.value = { gender: 0, age: [0, 60] };
   };
 
   return {
-    meetForm,
-    filterMeetSettings,
+    meetCondition,
+    setMeetCondition,
     $reset
   };
 });

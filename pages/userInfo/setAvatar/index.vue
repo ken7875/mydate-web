@@ -104,7 +104,7 @@ const initSlots = () => {
       result.push({
         id: `existing-${i}-${Date.now()}`,
         file: null,
-        previewUrl: getDefaultAvatar(avatarPath),
+        previewUrl: useAvatarUrl(avatarPath),
         isExisting: true
       });
     } else {

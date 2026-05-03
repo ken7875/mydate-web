@@ -6,7 +6,7 @@
           preload
           crossorigin="anonymous"
           format="webp"
-          :src="getDefaultAvatar(friendInfo?.avatars?.[0])"
+          :src="useAvatarUrl(friendInfo?.avatars?.[0])"
           alt="avatar"
           class="w-full h-full object-cover"
         />
@@ -67,9 +67,9 @@
                   <div class="w-full flex justify-end items-end gap-2" v-else-if="item.type === 'image'">
                     <div class="order-2">
                       <NuxtImg
+                        v-if="isBlobUrl(item.messageImage?.thumbnailUrl ?? '')"
                         :width="chatStore.uploadTasks[item.localId!].thumbWidth"
                         :height="chatStore.uploadTasks[item.localId!].thumbHeight"
-                        v-if="isBlobUrl(item.messageImage?.thumbnailUrl ?? '')"
                         :src="item.messageImage?.thumbnailUrl"
                         class="rounded-lg cursor-pointer object-contain object-bottom-right"
                         alt="圖片預覽"
@@ -78,16 +78,15 @@
                       />
                       <NuxtImg
                         v-else
-                        preload
                         :width="item.messageImage?.width"
                         :height="item.messageImage?.height"
                         crossorigin="anonymous"
                         format="webp"
-                        :src="getDefaultAvatar(item.messageImage?.thumbnailUrl)"
+                        :src="useStaticImage(item.messageImage?.thumbnailUrl)"
                         class="rounded-lg cursor-pointer object-contain object-bottom-right"
                         alt="圖片預覽"
                         loading="lazy"
-                        @click="openImageModal(item.messageImage?.originalUrl || item.messageImage?.thumbnailUrl || '')"
+                        @click="openImageModal(item.messageImage?.thumbnailUrl ?? '')"
                       />
                     </div>
                     <ClientOnly>
@@ -303,22 +302,11 @@ const imageModalUrl = ref('');
 
 const openImageModal = (url: string) => {
   if (!url) return;
-  imageModalUrl.value = isBlobUrl(url) ? url : getDefaultAvatar(url);
+  imageModalUrl.value = isBlobUrl(url) ? url : useStaticImage(url);
   imageModalOpen.value = true;
 };
 
-const downloadImage = async (url: string) => {
-  if (!url) return;
-  const src = isBlobUrl(url) ? url : getDefaultAvatar(url);
-  const res = await fetch(src, { mode: 'cors', credentials: 'omit' });
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = objectUrl;
-  anchor.download = `image_${Date.now()}`;
-  anchor.click();
-  URL.revokeObjectURL(objectUrl);
-};
+const { downloadImage } = useDownloadImage();
 
 const updateMessageRecord = (body: { user?: Friends; message: Message[] }) => {
   updateMessageQuery({
@@ -552,13 +540,9 @@ const { data: messageRecordRes, fetchNextPage } = getMessageRecordQuery({
   pageSize
 });
 
-onMounted(async () => {
-  await failedMessageFileHandler.markSendingAsFailed(Number(routes.query.roomId));
-  refreshFailMessages();
-  refreshFailMessageFiles();
-});
-
-const messageRecordTotal = computed(() => (messageRecordRes.value?.total || 0) + failMessages.value.length);
+const messageRecordTotal = computed(
+  () => (messageRecordRes.value?.total || 0) + failMessages.value.length + failMessagesFiles.value.length
+);
 
 const messageRecordQueryData = computed<(Message & { idx: string })[]>(() => messageRecordRes.value?.messages || []);
 
@@ -664,7 +648,7 @@ const onUploadFileChange = async (event: Event) => {
         updateMessageRecord({
           message: [
             {
-              receiverId: focusFriend.value.uuid as string,
+              receiverId: focusFriend.value.uuid,
               senderId: userInfoRes.value?.data?.uuid as string,
               message: waitToSendMessage.value,
               sendTime: Math.ceil(Date.now() / 1000),
@@ -724,7 +708,7 @@ const onUploadFileChange = async (event: Event) => {
           });
 
           if (chatStore.uploadTasks[localId]?.progress === 100) {
-            setTimeout(() => chatStore.clearUploadTask(localId), 300);
+            chatStore.clearUploadTask(localId);
             await failedMessageFileHandler.removeByLocalId(localId);
             refreshFailMessageFiles();
           }
@@ -754,12 +738,13 @@ const abortUpload = async (localId: string) => {
   await chatStore.abortUpload(localId);
   removeMessageFromQuery({ roomId: Number(routes.query.roomId), localId });
   await refreshFailMessageFiles();
-  chatStore.clearUploadTask(localId);
 };
 
-const chatRoomHandler = (body: WsPayload<WsMessage>) => {
+const onReceiveNewMessage = (data: WsPayload<WsMessage>) => {
+  if (isSelf(data.data.message[0]) && data.data.message[0].status !== 'sending') return;
+
   try {
-    updateMessageRecord({ message: body.data.message });
+    updateMessageRecord({ message: data.data.message });
     toggleNewMessageTipsHandler();
   } catch (error) {
     console.error(`Error in BroadcastChannel handler for type ${WsChannel.ChatRoom}:`, error);
@@ -771,12 +756,7 @@ useWsChannel([
   {
     type: WsChannel.ChatRoom,
     handler: [
-      (data: WsPayload<WsMessage>) => {
-        if (isSelf(data.data.message[0]) && data.data.message[0].status !== 'sending') {
-          return;
-        }
-        chatRoomHandler(data);
-      },
+      onReceiveNewMessage,
       async (data: WsPayload<WsMessage>) => {
         const msg = data.data?.message[0];
         if (!msg?.localId || !isSelf(msg)) return;
@@ -791,13 +771,16 @@ useWsChannel([
   }
 ]);
 
-// watch(
-//   messageRecordQueryData,
-//   (val) => {
-//     if (val.length > 0) {
-//       scrollToBottom();
-//     }
-//   },
-//   { immediate: true, flush: 'post', once: true }
-// );
+let messageRecordWatcher = watch(
+  () => messageRecordRes.value?.messages,
+  async (val) => {
+    console.log(val, 'val');
+    if (val && val.length > 0) {
+      await Promise.all([refreshFailMessages(), refreshFailMessageFiles()]);
+      scrollToBottom();
+      messageRecordWatcher();
+    }
+  },
+  { immediate: true, flush: 'post' }
+);
 </script>

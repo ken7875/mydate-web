@@ -95,6 +95,14 @@ export function useFailedMessages() {
     }
   };
 
+  const markAllSendingAsFailed = async () => {
+    try {
+      await messageDB.markAllSendingAsFailed();
+    } catch (error) {
+      console.log(`markAllSendingAsFailed fail: ${error}`);
+    }
+  };
+
   return {
     getAll,
     clearTracking,
@@ -103,6 +111,7 @@ export function useFailedMessages() {
     handleWsMessageStatus,
     startMessageTimeout,
     removeFailedMessage,
-    addFailMessage
+    addFailMessage,
+    markAllSendingAsFailed
   };
 }

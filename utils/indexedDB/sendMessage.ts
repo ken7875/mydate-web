@@ -65,4 +65,17 @@ export class SendMessageDB extends BaseIndexedDB {
       fn: (store) => store.put({ ...existing, ...partial })
     });
   }
+
+  async markAllSendingAsFailed() {
+    await this.runCursorTransaction({
+      mode: 'readwrite',
+      fn: (store) => store.openCursor(),
+      onCursor: (cursor) => {
+        const record = cursor.value as Message;
+        if (record.status === 'sending') {
+          cursor.update({ ...record, status: 'failed' });
+        }
+      }
+    });
+  }
 }

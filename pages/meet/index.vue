@@ -16,7 +16,7 @@
                 :fetchpriority="idx === 0 ? 'high' : 'auto'"
                 :preload="idx === 0"
                 format="webp"
-                :src="getDefaultAvatar(item.avatars[0], '/images/testUser1.jpg')"
+                :src="useAvatarUrl(item.avatars[0])"
                 alt="avatar"
                 class="w-full h-full object-cover border-0 absolute top-0 left-0"
                 v-slot="{ isLoaded }"
@@ -69,7 +69,6 @@
               </div>
               <!-- </template> -->
             </div>
-            <!-- TODO 按鈕位置調正 -->
             <div
               @click="toggleDetail(item.uuid)"
               class="flex items-center justify-center gap-1 cursor-pointer text-gray-400 absolute bottom-[15px] left-[50%] -translate-x-1/2"
@@ -147,9 +146,9 @@ const friendsStore = useFriends();
 const { userInfoRes } = useUserInfoQuery();
 
 const { requestUsers } = storeToRefs(friendsStore);
-const { meetForm } = storeToRefs(settingsStore);
+const { meetCondition } = storeToRefs(settingsStore);
 const meetUserList = ref<MeetUser[]>([]);
-const { data: userRes } = await useMyAsyncData('userList', () => getMeetUserList(meetForm.value));
+const { data: userRes } = await useMyAsyncData('userList', () => getMeetUserList(meetCondition.value));
 meetUserList.value = get(userRes.value, 'data.list', []);
 
 await useMyAsyncData('requestUserList', () => friendsStore.getRequestUsersHandler());
@@ -166,7 +165,7 @@ const getMeetUserListHandler = async (): Promise<MeetUser[] | null> => {
   if (isFetching) return null;
   isFetching = true;
   try {
-    const res = await getMeetUserList(meetForm.value);
+    const res = await getMeetUserList(meetCondition.value);
     const newItems = get(res, 'data.list', []) as MeetUser[];
     meetUserList.value = newItems;
 
@@ -184,7 +183,7 @@ const meetUserDataHandler = () => {
   }
 };
 
-watch(meetForm, () => {
+watch(meetCondition, () => {
   friendsStore.getRequestUsersHandler();
   getMeetUserListHandler();
 });
@@ -193,8 +192,9 @@ gsap.registerPlugin(Draggable);
 
 const likeRequestHandler = async () => {
   // 若status為pending, 則代表此用戶已like你, 所以往左滑直接變成好友狀態, 反之則發送邀請將對方設為pending狀態
+  const hasBeenInvited = showingMeetUserList.value[0]?.status === FriendStatus.Pending;
   try {
-    if (showingMeetUserList.value[0]?.status === FriendStatus.Pending) {
+    if (hasBeenInvited) {
       await setFriendStatus({
         userId: showingMeetUserList.value[0]?.uuid || '',
         friendId: userInfoRes.value?.data?.uuid || '',
@@ -260,6 +260,7 @@ const markLegitimateRemoval = (uuid: string) => {
   legitimatelyRemovingUuids.add(uuid);
 };
 
+// 避免用戶使用f12刪除卡片
 const setupMutationObserver = () => {
   mutationObserver?.disconnect();
   if (!cardsContainerRef.value) return;

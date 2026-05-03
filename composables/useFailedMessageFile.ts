@@ -61,12 +61,21 @@ export function useFailedMessagesFile() {
     }
   };
 
+  const markAllSendingAsFailed = async () => {
+    try {
+      await failMessageFileDB.markAllSendingAsFailed();
+    } catch (error) {
+      console.error('fail message file markAllSendingAsFailed error:', error);
+    }
+  };
+
   return {
     getByRoomId,
     getByUploadId,
     setFile,
     updateStatusByUploadId,
     removeByLocalId,
-    markSendingAsFailed
+    markSendingAsFailed,
+    markAllSendingAsFailed
   };
 }

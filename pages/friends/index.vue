@@ -30,7 +30,7 @@
                   width="65"
                   height="65"
                   :placeholder="[65, 65, 100]"
-                  :src="getDefaultAvatar(item.avatars[0], '/images/testUser1.jpg')"
+                  :src="useAvatarUrl(item.avatars[0])"
                   alt="avatar"
                   class="w-full h-full object-cover"
                 />

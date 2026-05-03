@@ -4,7 +4,7 @@
       <NuxtLink to="/userInfo/setAvatar">
         <img
           crossorigin="anonymous"
-          :src="getDefaultAvatar(userInfoRes?.data?.avatars?.[0])"
+          :src="useAvatarUrl(userInfoRes?.data?.avatars?.[0])"
           @click="setAvatarsToggle = true"
           class="block w-[150px] h-[150px] border-2 rounded-[50%] object-cover"
         />

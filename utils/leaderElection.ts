@@ -50,6 +50,7 @@ export class LeaderElection {
   #boundOnDestroy = this.destroy.bind(this);
 
   #initChannel() {
+    if (typeof window === 'undefined') return;
     this.#channel = new BroadcastChannel(this.#channelName);
     this.#channel.addEventListener('message', this.#channelMessage);
 
@@ -134,14 +135,16 @@ export class LeaderElection {
   async destroy() {
     this.#isDestroyed = true;
     await nextTick();
-    document.removeEventListener('freeze', this.#onFreeze);
+    if (typeof window !== 'undefined') {
+      document.removeEventListener('freeze', this.#onFreeze);
+      document.removeEventListener('resume', this.#onResume);
+      removeEventListener('pageshow', this.#onPageshow);
+      removeEventListener('pagehide', this.#onPagehide);
+      removeEventListener('visibilitychange', this.#boundOnRequestLock);
+    }
     this.#channel?.removeEventListener('message', this.#channelMessage);
     this.#channel?.close();
     this.#channel = null;
-    document.removeEventListener('resume', this.#onResume);
-    removeEventListener('pageshow', this.#onPageshow);
-    removeEventListener('pagehide', this.#onPagehide);
-    removeEventListener('visibilitychange', this.#boundOnRequestLock);
     this.#releaseLeadership();
   }
 
@@ -161,11 +164,11 @@ export class LeaderElection {
   }
 
   #requestLock(retryCount = 0): Promise<void> {
-    if (document.visibilityState === 'hidden') return Promise.resolve();
+    if (typeof document === 'undefined' || document.visibilityState === 'hidden') return Promise.resolve();
 
     // Web Locks API 需要 Secure Context（HTTPS 或 localhost）
     // 在 http://IP 下（如手機測試環境）不可用，直接成為 leader
-    if (!navigator.locks) {
+    if (!navigator?.locks) {
       this.#becomeLeader(this.#tabId);
       return Promise.resolve();
     }

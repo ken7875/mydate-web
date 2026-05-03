@@ -57,12 +57,28 @@ const endIdx = ref(props.perLoadNum);
 const stopHandlers: (() => void)[] = [];
 
 const virtualListData = computed(() => {
-  console.log(props.totalData, startIdx.value, endIdx.value, 'props.totalData');
+  // console.log(props.totalData, startIdx.value, endIdx.value, 'props.totalData');
   return props.totalData.slice(startIdx.value, endIdx.value);
 });
 
 // 數窗內最多限制DOM筆數（用實際渲染筆數，避免最後一頁不足 perLoadNum 時計算錯誤）
 const isExceedLimitData = computed(() => virtualListData.value.length > maxItemCount.value);
+
+const updateCurrentPage = (direction: 'up' | 'down') => {
+  if (props.isReverse) {
+    if (direction === 'down') {
+      currentPage.value--;
+    } else if (direction === 'up') {
+      currentPage.value++;
+    }
+  } else {
+    if (direction === 'up') {
+      currentPage.value--;
+    } else if (direction === 'down') {
+      currentPage.value++;
+    }
+  }
+};
 
 // 視窗往下滑
 const viewSlideDown = () => {
@@ -77,8 +93,9 @@ const viewSlideDown = () => {
       }
 
       if (isIntersecting) {
+        updateCurrentPage('down');
+        console.log('down');
         if (currentPage.value === totalPage.value) return;
-        currentPage.value++;
         if (props.totalData.length < props.total && !props.isReverse) {
           await props?.fetchNewHandler?.({ page: currentPage.value, pageSize: props.perLoadNum });
           endIdx.value = props.totalData.length;
@@ -135,15 +152,15 @@ const viewSlideUp = () => {
       }
 
       if (isIntersecting) {
+        updateCurrentPage('up');
         // 若是 reverse 且資料尚未全數快取，向後端請求前一頁
         if (props.isReverse && props.totalData.length < props.total) {
-          await props?.fetchPrevHandler?.({ page: ++currentPage.value, pageSize: props.perLoadNum });
+          await props?.fetchPrevHandler?.({ page: currentPage.value, pageSize: props.perLoadNum });
           startIdx.value = 0;
-          endIdx.value = props.totalData.length;
+          endIdx.value = maxItemCount.value;
           compensateScrollAfterPrepend(heightBefore);
         } else if (!props.isReverse || currentPage.value > 1) {
           startIdx.value = Math.max(startIdx.value - props.perLoadNum, 0);
-          currentPage.value--;
           if (startIdx.value > 0) {
             compensateScrollAfterPrepend(heightBefore);
           }
@@ -174,10 +191,8 @@ const initVirtualScrollHandler = async () => {
   stopHandlers.forEach((stop) => stop());
   stopHandlers.length = 0;
 
-  // 加載新頁面
   viewSlideDown();
 
-  // 加載之前刪除的頁面
   if (!props.singleSide) {
     viewSlideUp();
   }
@@ -198,23 +213,32 @@ const compensateScrollAfterPrepend = async (heightBefore: number) => {
   if (!virtualWrap.value) return;
 
   // const heightBefore = virtualWrap.value.scrollHeight;
-  virtualWrap.value.scrollTop += heightBefore;
+  virtualWrap.value.scrollTop += Math.round(heightBefore / 2);
 };
+
+watch(
+  currentPage,
+  (val) => {
+    console.log(val, 'bal');
+  },
+  {
+    immediate: true
+  }
+);
 
 const updateIndexWithTotal = async (total: number, preTotal: number) => {
   const diff = total - preTotal;
-  if (endIdx.value === virtualListData.value.length || endIdx.value === props.totalData.length) {
-    if (endIdx.value + diff > maxItemCount.value) {
-      endIdx.value = maxItemCount.value;
-    } else {
-      endIdx.value += diff;
-    }
+  if (currentPage.value <= props.maxPageCount && diff > 0) {
+    endIdx.value = props.totalData.length;
   }
 };
 
 // 若是從最下方開始顯示新資料，剛進頁面直接幫用戶跳到最下層
-const scrollToBottom = () => {
-  if (props.isReverse && virtualWrap.value) {
+const scrollToBottom = async () => {
+  await nextTick();
+  if (virtualWrap.value) {
+    startIdx.value = props.totalData.length - props.perLoadNum;
+    endIdx.value = props.totalData.length;
     virtualWrap.value.scrollTop = virtualWrap.value?.scrollHeight;
   }
 };
@@ -235,22 +259,7 @@ watch(
   }
 );
 
-watch(
-  () => props.totalData,
-  (val) => {
-    if (val.length > 0) {
-      nextTick(() => {
-        scrollToBottom();
-      });
-    }
-  },
-  {
-    once: true
-  }
-);
-
 onMounted(() => {
-  scrollToBottom();
   initVirtualScrollHandler();
 });
 
@@ -259,6 +268,7 @@ onUnmounted(() => {
 });
 
 defineExpose({
-  virtualWrap
+  virtualWrap,
+  handleScrollBottom: () => scrollToBottom()
 });
 </script>

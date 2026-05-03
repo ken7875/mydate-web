@@ -264,23 +264,12 @@ const bottomDistanceCalc = () => {
   return toButtonDistance;
 };
 
-const scrollToBottom = async () => {
-  // 必須等待 nextTick，否則高度會是加入新訊息之前的舊高度
-  await nextTick();
-  if (chatroomDom.value?.virtualWrap) {
-    chatroomDom.value.virtualWrap.scrollTo({
-      top: chatroomDom.value.virtualWrap.scrollHeight
-      // behavior: 'smooth' // 使用 'smooth' 有平滑滾動效果，若要瞬間到位則用 'auto'
-    });
-  }
-};
-
 // 新訊息提示框
 const isNewMessageTipsShow = ref(false);
 const toggleNewMessageTipsHandler = () => {
   // 若已經接近底部就直接滑到底
   if (bottomDistanceCalc() < 100) {
-    scrollToBottom();
+    chatroomDom.value?.handleScrollBottom();
     return;
   }
 
@@ -497,7 +486,7 @@ const sendMessageHandler = ({ type, message }: { type: 'send' | 'resend'; messag
     refreshFailMessages();
   }
 
-  scrollToBottom();
+  chatroomDom.value?.handleScrollBottom();
 
   failMessageHandler.startMessageTimeout(newMessage).then(() => {
     refreshFailMessages();
@@ -512,7 +501,7 @@ const handleClickMessageTip = () => {
   }
   isNewMessageTipsShow.value = false;
 
-  scrollToBottom();
+  chatroomDom.value?.handleScrollBottom();
 };
 const showDate = (start: number, end: number) => {
   if (!start) {
@@ -777,7 +766,7 @@ let messageRecordWatcher = watch(
     console.log(val, 'val');
     if (val && val.length > 0) {
       await Promise.all([refreshFailMessages(), refreshFailMessageFiles()]);
-      scrollToBottom();
+      chatroomDom.value?.handleScrollBottom();
       messageRecordWatcher();
     }
   },

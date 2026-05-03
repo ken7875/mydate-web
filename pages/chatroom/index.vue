@@ -488,7 +488,7 @@ const sendMessageHandler = ({ type, message }: { type: 'send' | 'resend'; messag
 
   chatroomDom.value?.handleScrollBottom();
 
-  failMessageHandler.startMessageTimeout(newMessage).then(() => {
+  failMessageHandler.startMessageTimeout({ localId: newMessage.localId }).then(() => {
     refreshFailMessages();
   });
 
@@ -751,7 +751,7 @@ useWsChannel([
         if (!msg?.localId || !isSelf(msg)) return;
         if (msg.status === 'sending') return;
         replaceMessageQuery({ newMessage: [msg], roomId: msg.roomId });
-        await failMessageHandler.handleWsMessageStatus({ code: data.code, localId: msg.localId, roomId: msg.roomId });
+        await chatStore.handleWsMessageStatus({ code: data.code, localId: msg.localId, roomId: msg.roomId });
 
         refreshFailMessages();
         refreshFailMessageFiles();

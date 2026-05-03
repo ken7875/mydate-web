@@ -161,7 +161,7 @@ useWsChannel([
         const msg = data.data?.message[0];
         if (!msg?.localId || route.path === '/chatroom') return;
 
-        await failMessageHandler.handleWsMessageStatus({ code: data.code, localId: msg.localId, roomId: msg.roomId });
+        await chatStore.handleWsMessageStatus({ code: data.code, localId: msg.localId, roomId: msg.roomId });
       }
     ]
   }

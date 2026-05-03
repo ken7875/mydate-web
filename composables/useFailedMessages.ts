@@ -6,7 +6,6 @@ import { useChat } from '@/store/chat';
 export function useFailedMessages() {
   const messageDB = new SendMessageDB();
   const timeoutQueue: ReturnType<typeof setTimeout>[] = [];
-  const { updateMessageQueryStatus } = useMessageQuery();
 
   const getAll = async (roomId: number) => {
     try {
@@ -38,25 +37,24 @@ export function useFailedMessages() {
     await messageDB.update({ id, partial: { status } });
   };
 
-  const markMessageSuccess = async ({ localId, roomId }: { localId: string; roomId: number }) => {
+  const markMessageSuccess = async ({ localId }: { localId: string }) => {
     await clearTracking({ localId });
-    updateMessageQueryStatus({ localId, status: 'success', roomId });
   };
 
-  const markMessageFailed = async ({ localId, roomId }: { localId: string; roomId: number }) => {
+  const markMessageFailed = async ({ localId }: { localId: string }) => {
     try {
       // removeMessageFromQuery({ localId, senderId, receiverId });
-      updateMessageQueryStatus({ localId, status: 'failed', roomId });
+
       await updateDBStatus({ localId, status: 'failed' });
     } catch (error) {
       console.log(`markMessageFailed fail: ${error}`);
     }
   };
 
-  const startMessageTimeout = ({ localId, roomId }: { localId: string; roomId: number }) => {
+  const startMessageTimeout = ({ localId }: { localId: string }) => {
     return new Promise((resolve) => {
       const timer = setTimeout(async () => {
-        await markMessageFailed({ localId, roomId });
+        await markMessageFailed({ localId });
 
         resolve('');
       }, 8000);
@@ -65,21 +63,13 @@ export function useFailedMessages() {
     });
   };
 
-  const handleWsMessageStatus = async ({
-    code,
-    localId,
-    roomId
-  }: {
-    code: WSCode;
-    localId: string;
-    roomId: number;
-  }) => {
+  const handleWsMessageStatus = async ({ code, localId }: { code: WSCode; localId: string }) => {
     const chatStore = useChat();
 
     if (code === WSCode.SUCCESS) {
-      await markMessageSuccess({ localId, roomId });
+      await markMessageSuccess({ localId });
     } else if (code === WSCode.FAIL) {
-      await markMessageFailed({ localId, roomId });
+      await markMessageFailed({ localId });
     }
 
     if (chatStore.uploadTasks[localId]?.tmpUrl) {

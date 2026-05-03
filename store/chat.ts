@@ -16,6 +16,8 @@ export type UploadTask = {
 
 export const useChat = defineStore('chat', () => {
   const webSocketStore = useNotification();
+  const { markMessageSuccess, markMessageFailed } = useFailedMessages();
+  const { updateMessageQueryStatus } = useMessageQuery();
   const messageRecord = ref<Message[]>([]);
   const unReadCount = ref<Record<string, { count: number }>>({});
   const totalUnreadCount = ref(0);
@@ -157,6 +159,28 @@ export const useChat = defineStore('chat', () => {
     clearUploadTask(localId);
   };
 
+  const handleWsMessageStatus = async ({
+    code,
+    localId,
+    roomId
+  }: {
+    code: WSCode;
+    localId: string;
+    roomId: number;
+  }) => {
+    if (code === WSCode.SUCCESS) {
+      updateMessageQueryStatus({ localId, status: 'success', roomId });
+      await markMessageSuccess({ localId });
+    } else if (code === WSCode.FAIL) {
+      updateMessageQueryStatus({ localId, status: 'failed', roomId });
+      await markMessageFailed({ localId });
+    }
+
+    if (uploadTasks.value[localId]?.tmpUrl) {
+      clearUploadTask(localId);
+    }
+  };
+
   return {
     messageRecord,
     unReadCount,
@@ -178,6 +202,7 @@ export const useChat = defineStore('chat', () => {
     updateUploadTask,
     clearUploadTask,
     abortUpload,
-    $reset
+    $reset,
+    handleWsMessageStatus
   };
 });

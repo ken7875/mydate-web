@@ -41,3 +41,7 @@ export type MeetUser = Pick<
 > & {
   status?: FriendStatus;
 };
+
+export type MeetUserRefactor = Omit<MeetUser, 'avatars'> & {
+  avatars: Record<string, string[]>;
+};

@@ -11,18 +11,17 @@
         <template #body>
           <div class="h-auto w-full relative">
             <div class="h-[67dvh] relative">
-              <NuxtImg
-                crossorigin="anonymous"
-                :fetchpriority="idx === 0 ? 'high' : 'auto'"
-                :preload="idx === 0"
-                format="webp"
-                :src="useAvatarUrl(item.avatars[0])"
-                alt="avatar"
-                class="w-full h-full object-cover border-0 absolute top-0 left-0"
-                v-slot="{ isLoaded }"
-              >
-                <div class="shimmer-placeholder" v-show="!isLoaded"></div>
-              </NuxtImg>
+              <picture>
+                <source :srcset="useAvatarUrl(item.avatars['0'][0])" type="image/webp" />
+                <img
+                  crossorigin="anonymous"
+                  :fetchpriority="idx === 0 ? 'high' : 'auto'"
+                  :src="useAvatarUrl(item.avatars['0'][1])"
+                  alt="avatar"
+                  class="w-full h-full object-cover border-0 absolute top-0 left-0"
+                />
+              </picture>
+              <!-- <div class="shimmer-placeholder" v-show="!isLoaded"></div> -->
               <div class="glass-overlay">
                 <div class="flex justify-between items-center">
                   <p class="text-[30px] font-bold">{{ item.userName }}</p>
@@ -130,7 +129,7 @@
 <script setup lang="ts">
 import gsap from 'gsap';
 import { Draggable } from 'gsap/Draggable';
-import type { MeetUser } from '~/api/types/user';
+import type { MeetUser, MeetUserRefactor } from '~/api/types/user';
 import { getMeetUserList } from '@/api/modules/user';
 import { Gender } from '~/enums/user';
 import { useSettings } from '@/store/settings';
@@ -156,8 +155,24 @@ await useMyAsyncData('requestUserList', () => friendsStore.getRequestUsersHandle
 // 邀請者應該要排在卡牌最上層
 // 注意: meetUserList並沒有status(好友狀態數值)
 const MAX_SHOWING_LENGTH = 5;
-const showingMeetUserList = computed<MeetUser[]>(() =>
-  [...requestUsers.value, ...meetUserList.value].slice(0, MAX_SHOWING_LENGTH)
+const showingMeetUserList = computed<MeetUserRefactor[]>(() =>
+  [...requestUsers.value, ...meetUserList.value].slice(0, MAX_SHOWING_LENGTH).map((item) => ({
+    ...item,
+    avatars: item.avatars.reduce(
+      (acc, cur) => {
+        // 頭像連結為 https://xxx-xxx-0.webp
+        const order = cur.split('-').at(-1)?.split('.')[0];
+        if (!order) return acc;
+        if (!acc[order]) {
+          acc[order] = [];
+        }
+        acc[order].push(cur);
+
+        return acc;
+      },
+      {} as MeetUserRefactor['avatars']
+    )
+  }))
 );
 
 let isFetching = false;
@@ -293,6 +308,11 @@ const setupMutationObserver = () => {
 
   mutationObserver.observe(cardsContainerRef.value, { childList: true });
 };
+
+// const loadedUuids = ref(new Set<string>());
+// const onAvatarLoad = (uuid: string) => {
+//   loadedUuids.value = new Set([...loadedUuids.value, uuid]);
+// };
 
 const expandedUuids = ref(new Set<string>());
 const toggleDetail = (uuid: string) => {
